@@ -8,7 +8,7 @@ import { ProjectForm } from '@/components/ProjectForm';
 import type { ProjectFormValues } from "@/components/ProjectForm";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import type { Project } from '@/types';
+import type { Project, ProjectType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProjectEditPage() {
@@ -17,31 +17,37 @@ export default function ProjectEditPage() {
   const clientId = typeof params.clientId === 'string' ? params.clientId : '';
   const projectId = typeof params.projectId === 'string' ? params.projectId : '';
 
-  const { getProjectById, updateProject, loading } = useAppData();
+  const { getProjectById, updateProject, loading, getClientById } = useAppData(); // Added getClientById
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
+  const [clientName, setClientName] = useState<string>('');
 
   useEffect(() => {
     if (!loading && clientId && projectId) {
       const foundProject = getProjectById(clientId, projectId);
+      const client = getClientById(clientId);
       if (foundProject) {
         setProject(foundProject);
+        if (client) {
+          setClientName(client.nome);
+        }
       } else {
         toast({variant: "destructive", title: "Projeto não encontrado"});
         router.push(clientId ? `/clients/${clientId}` : '/');
       }
     }
-  }, [clientId, projectId, getProjectById, loading, router, toast]);
+  }, [clientId, projectId, getProjectById, getClientById, loading, router, toast]);
 
   const handleUpdateProject = (data: ProjectFormValues) => {
     if (!project || !clientId) return;
-
+    // data.prazo aqui já é uma string "YYYY-MM-DD" ou undefined,
+    // devido à transformação feita pelo ProjectForm antes de chamar onSubmit.
     const updatedProjectData: Partial<Project> = {
       nome: data.nome,
-      tipo: data.tipo,
+      tipo: data.tipo as ProjectType,
       status: data.status,
       descricao: data.descricao,
-      prazo: data.prazo ? data.prazo.toISOString().split('T')[0] : undefined,
+      prazo: data.prazo as (string | undefined), // Usar diretamente, já é string
       notas: data.notas,
       checklist: data.checklist || [],
     };
@@ -63,7 +69,7 @@ export default function ProjectEditPage() {
   return (
     <div className="space-y-6">
       <Button variant="outline" onClick={() => router.push(`/clients/${clientId}`)} className="mb-4">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para {project ? `Cliente: ${getProjectById(clientId, project.id) ? 'Detalhes' : ''}` : 'Cliente'}
+        <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para {clientName ? `Cliente: ${clientName}` : 'Detalhes do Cliente'}
       </Button>
       <ProjectForm project={project} onSubmit={handleUpdateProject} isPage={true} />
     </div>

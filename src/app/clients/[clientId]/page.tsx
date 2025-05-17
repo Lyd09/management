@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
-import type { Client, Project } from '@/types';
+import type { Client, Project, ProjectType } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
 export default function ClientDetailPage() {
@@ -44,7 +44,6 @@ export default function ClientDetailPage() {
       if (foundClient) {
         setClient(foundClient);
       } else {
-        // Optional: redirect or show not found message
         toast({variant: "destructive", title: "Cliente não encontrado"});
         router.push('/');
       }
@@ -53,16 +52,18 @@ export default function ClientDetailPage() {
 
   const handleAddProject = (data: ProjectFormValues) => {
     if (!client) return;
-    const projectData = {
+    // data.prazo aqui já é uma string "YYYY-MM-DD" ou undefined,
+    // devido à transformação feita pelo ProjectForm antes de chamar onSubmit.
+    const projectPayload: Omit<Project, 'id' | 'checklist'> & { checklist?: Partial<Project['checklist']> } = {
       nome: data.nome,
-      tipo: data.tipo,
+      tipo: data.tipo as ProjectType, // data.tipo é string, mas ProjectType é mais específico
       status: data.status,
       descricao: data.descricao,
-      prazo: data.prazo ? data.prazo.toISOString().split('T')[0] : undefined, // format date correctly
+      prazo: data.prazo as (string | undefined), // Usar diretamente, já é string
       notas: data.notas,
-      checklist: data.checklist || [],
+      checklist: data.checklist, // Passar checklist como está (ChecklistItem[] | undefined)
     };
-    addProject(client.id, projectData as any); // type assertion for checklist Partial
+    addProject(client.id, projectPayload);
     setIsAddProjectDialogOpen(false);
     toast({ title: "Projeto Adicionado", description: `O projeto ${data.nome} foi adicionado.` });
   };
@@ -106,7 +107,6 @@ export default function ClientDetailPage() {
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-y-auto">
-            {/* DialogHeader and Title are part of ProjectForm now */}
             <ProjectForm onSubmit={handleAddProject} onClose={() => setIsAddProjectDialogOpen(false)} />
           </DialogContent>
         </Dialog>
