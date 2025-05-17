@@ -1,7 +1,7 @@
 
 "use client";
 
-import type * as z from "zod";
+import * as z from "zod"; // Added Zod import
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
