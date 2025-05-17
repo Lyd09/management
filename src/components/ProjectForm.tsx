@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { CalendarIcon, PlusCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
@@ -145,13 +146,21 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   };
 
   const formContainerClass = isPage ? "max-w-2xl mx-auto p-6 bg-card shadow-lg rounded-lg" : "";
+  const formTitle = project ? "Editar Projeto" : "Criar Novo Projeto";
+  const formDescription = project ? "Atualize os detalhes deste projeto." : "Preencha os dados para criar um novo projeto.";
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className={cn("space-y-6", formContainerClass)}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className={cn("space-y-6", isPage ? formContainerClass : "")}>
+        {!isPage && (
+          <DialogHeader>
+            <DialogTitle>{formTitle}</DialogTitle>
+            <DialogDescription>{formDescription}</DialogDescription>
+          </DialogHeader>
+        )}
         {isPage && (
           <h1 className="text-3xl font-bold mb-6 text-primary">
-            {project ? "Editar Projeto" : "Criar Novo Projeto"}
+            {formTitle}
           </h1>
         )}
         
@@ -318,17 +327,28 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
           </Button>
         </div>
         
-        <div className={isPage ? "flex justify-end gap-2 mt-8" : "flex justify-end gap-2"}>
-          {onClose && !isPage && (
-             <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
-             </Button>
-          )}
-          <Button type="submit" disabled={form.formState.isSubmitting || isLoadingAiSuggestions}>
-            {isLoadingAiSuggestions || form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {project ? "Salvar Alterações" : "Criar Projeto"}
-          </Button>
-        </div>
+        {isPage ? (
+          <div className="flex justify-end gap-2 mt-8">
+            <Button type="submit" disabled={form.formState.isSubmitting || isLoadingAiSuggestions}>
+              {isLoadingAiSuggestions || form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {project ? "Salvar Alterações" : "Criar Projeto"}
+            </Button>
+          </div>
+        ) : (
+          <DialogFooter>
+            {onClose && (
+              <DialogClose asChild>
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancelar
+                </Button>
+              </DialogClose>
+            )}
+            <Button type="submit" disabled={form.formState.isSubmitting || isLoadingAiSuggestions}>
+              {isLoadingAiSuggestions || form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {project ? "Salvar Alterações" : "Criar Projeto"}
+            </Button>
+          </DialogFooter>
+        )}
       </form>
     </Form>
   );
