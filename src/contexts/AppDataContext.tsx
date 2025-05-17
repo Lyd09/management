@@ -46,7 +46,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   useEffect(() => {
     if (!loading) { // Only save if initial load is complete
       try {
-        const appData: AppData = { clientes };
+        const appData: AppData = { clientes: clients }; // Corrected from 'clientes' to 'clients'
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appData));
       } catch (error) {
         console.error("Failed to save data to localStorage:", error);
@@ -136,7 +136,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const exportData = useCallback((): AppData => {
-    return { clientes };
+    return { clientes: clients }; // Corrected from 'clientes'
   }, [clients]);
 
   return (
