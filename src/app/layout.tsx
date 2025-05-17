@@ -1,19 +1,19 @@
 
 import type { Metadata } from 'next';
-import { Geist_Sans as GeistSans, Geist_Mono as GeistMono } from 'next/font/google';
+import { Inter, Roboto_Mono } from 'next/font/google';
 import './globals.css';
 import { AppDataProvider } from '@/contexts/AppDataContext';
 import { Toaster } from "@/components/ui/toaster";
 import { Header } from '@/components/layout/Header';
 
-const geistSans = GeistSans({
-  variable: '--font-geist-sans',
+const inter = Inter({
   subsets: ['latin'],
+  variable: '--font-sans',
 });
 
-const geistMono = GeistMono({
-  variable: '--font-geist-mono',
+const robotoMono = Roboto_Mono({
   subsets: ['latin'],
+  variable: '--font-mono',
 });
 
 export const metadata: Metadata = {
@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground min-h-screen flex flex-col`}>
+      <body className={`${inter.variable} ${robotoMono.variable} font-sans antialiased bg-background text-foreground min-h-screen flex flex-col`}>
         <AppDataProvider>
           <Header />
           <main className="flex-grow container mx-auto p-4 sm:p-6">
