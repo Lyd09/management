@@ -17,7 +17,7 @@ body {
     --popover: 217 8% 18%; /* Popover background */
     --popover-foreground: 0 0% 88%; /* Popover text */
 
-    --primary: 283 52% 57%; /* Saturated purple #A64AC9 */
+    --primary: 0 72% 51%; /* Red */
     --primary-foreground: 0 0% 100%; /* White #FFFFFF for text on primary */
 
     --secondary: 210 8% 25%; /* A bit lighter than background */
@@ -26,33 +26,33 @@ body {
     --muted: 210 8% 25%; /* Muted background */
     --muted-foreground: 210 8% 65%; /* Muted text */
 
-    --accent: 279 100% 94%; /* Light pink #F4E0FF */
-    --accent-foreground: 283 52% 20%; /* Dark Purple for text on accent */
+    --accent: 0 100% 94%; /* Light red/pink for accent - can be adjusted */
+    --accent-foreground: 0 72% 20%; /* Dark Red for text on accent - can be adjusted */
 
-    --destructive: 0 62.8% 30.6%; /* Default destructive */
+    --destructive: 0 62.8% 30.6%; /* Default destructive - kept for consistency */
     --destructive-foreground: 0 0% 98%; /* Default destructive foreground */
 
     --border: 217 6% 31%; /* Medium gray #4A4E54 */
     --input: 220 6% 24%; /* Medium gray #3A3D42 for input background */
-    --ring: 283 52% 57%; /* Saturated purple #A64AC9 for focus rings */
+    --ring: 0 72% 51%; /* Red for focus rings */
 
     --radius: 0.5rem;
 
-    --chart-1: 283 52% 57%;
-    --chart-2: 279 100% 80%;
+    --chart-1: 0 72% 51%; /* Red */
+    --chart-2: 0 100% 80%; /* Lighter Red/Pink */
     --chart-3: 210 8% 50%;
     --chart-4: 0 0% 70%;
-    --chart-5: 283 52% 30%;
+    --chart-5: 0 72% 30%; /* Darker Red */
     
     /* Sidebar variables, can be adjusted if a distinct sidebar theme is needed */
     --sidebar-background: 210 8% 12%; /* Slightly darker than main background */
     --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 283 52% 57%;
+    --sidebar-primary: 0 72% 51%; /* Red */
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 8% 20%;
     --sidebar-accent-foreground: 0 0% 94%;
     --sidebar-border: 217 6% 25%;
-    --sidebar-ring: 283 52% 57%;
+    --sidebar-ring: 0 72% 51%; /* Red */
   }
 
   /* Apply dark theme by default */
@@ -63,34 +63,34 @@ body {
     --card-foreground: 0 0% 88%;
     --popover: 217 8% 18%;
     --popover-foreground: 0 0% 88%;
-    --primary: 283 52% 57%;
+    --primary: 0 72% 51%; /* Red */
     --primary-foreground: 0 0% 100%;
     --secondary: 210 8% 25%;
     --secondary-foreground: 0 0% 94%;
     --muted: 210 8% 25%;
     --muted-foreground: 210 8% 65%;
-    --accent: 279 100% 94%;
-    --accent-foreground: 283 52% 20%;
+    --accent: 0 100% 94%; /* Light red/pink for accent */
+    --accent-foreground: 0 72% 20%; /* Dark Red for text on accent */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 217 6% 31%;
     --input: 220 6% 24%;
-    --ring: 283 52% 57%;
+    --ring: 0 72% 51%; /* Red */
 
-    --chart-1: 283 52% 57%;
-    --chart-2: 279 100% 80%;
+    --chart-1: 0 72% 51%; /* Red */
+    --chart-2: 0 100% 80%; /* Lighter Red/Pink */
     --chart-3: 210 8% 50%;
     --chart-4: 0 0% 70%;
-    --chart-5: 283 52% 30%;
+    --chart-5: 0 72% 30%; /* Darker Red */
     
     --sidebar-background: 210 8% 12%;
     --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 283 52% 57%;
+    --sidebar-primary: 0 72% 51%; /* Red */
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 8% 20%;
     --sidebar-accent-foreground: 0 0% 94%;
     --sidebar-border: 217 6% 25%;
-    --sidebar-ring: 283 52% 57%;
+    --sidebar-ring: 0 72% 51%; /* Red */
   }
 }
 
