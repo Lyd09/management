@@ -1,7 +1,7 @@
 
 "use client";
 
-import * as z from "zod"; // Added Zod import
+import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ const mockSuggestProjectStatus = async (projectType: ProjectType): Promise<strin
   // The flow would return tailored suggestions based on the project type.
   // For now, returning a few generic items plus type-specific default statuses
   const genericSuggestions = ["Aguardando Início", "Em Pausa", "Bloqueado"];
-  return [...new Set([...genericSuggestions, ...PROJECT_STATUS_OPTIONS[projectType]])];
+  return [...new Set([...genericSuggestions, ...PROJECT_STATUS_OPTIONS[projectType]])].sort();
 };
 
 
@@ -83,13 +83,13 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       tipo: project?.tipo,
       status: project?.status || (project?.tipo ? INITIAL_PROJECT_STATUS(project.tipo) : ""),
       descricao: project?.descricao || "",
-      prazo: project?.prazo ? parseISO(project.prazo) : undefined,
+      prazo: project?.prazo && isValid(parseISO(project.prazo)) ? parseISO(project.prazo) : undefined,
       notas: project?.notas || "",
       checklist: project?.checklist || [],
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "checklist",
   });
@@ -118,20 +118,33 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   useEffect(() => {
     if (project?.tipo) {
       setSelectedProjectType(project.tipo);
-      setStatusOptions(PROJECT_STATUS_OPTIONS[project.tipo]);
-      // If project exists, we might not want to immediately fetch AI suggestions unless type changes.
-      // Or, fetch them to enrich the existing status dropdown.
-      // For simplicity, let's assume AI suggestions are fetched on type change or initial load if type is set.
+      const defaultStatuses = PROJECT_STATUS_OPTIONS[project.tipo] || [];
+      setStatusOptions(defaultStatuses);
+       // Ensure initial status is valid or set to the first option
+      if (project.status && defaultStatuses.includes(project.status)) {
+        form.setValue("status", project.status);
+      } else if (defaultStatuses.length > 0) {
+        form.setValue("status", defaultStatuses[0]);
+      } else {
+        form.setValue("status", "");
+      }
       fetchAiSuggestions(project.tipo);
     }
-  }, [project?.tipo, fetchAiSuggestions]);
+     // Set initial date correctly
+     if (project?.prazo) {
+      const parsedDate = parseISO(project.prazo);
+      if (isValid(parsedDate)) {
+        form.setValue("prazo", parsedDate);
+      }
+    }
+  }, [project, form, fetchAiSuggestions]);
 
 
   const handleTypeChange = (value: string) => {
     const newType = value as ProjectType;
     setSelectedProjectType(newType);
     form.setValue("tipo", newType);
-    const defaultStatuses = PROJECT_STATUS_OPTIONS[newType];
+    const defaultStatuses = PROJECT_STATUS_OPTIONS[newType] || [];
     setStatusOptions(defaultStatuses);
     form.setValue("status", defaultStatuses.length > 0 ? defaultStatuses[0] : "");
     fetchAiSuggestions(newType);
@@ -142,212 +155,222 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       ...data,
       prazo: data.prazo ? format(data.prazo, "yyyy-MM-dd") : undefined,
     } as any); // type assertion due to date string conversion
-    if (!isPage) form.reset(); // Reset form if in a dialog
+    if (!isPage && onClose) { // Only reset if in dialog and onClose is provided
+      form.reset();
+    }
   };
 
-  const formContainerClass = isPage ? "max-w-2xl mx-auto p-6 bg-card shadow-lg rounded-lg" : "";
+  const formContainerClass = "max-w-2xl mx-auto p-6 bg-card shadow-lg rounded-lg";
   const formTitle = project ? "Editar Projeto" : "Criar Novo Projeto";
   const formDescription = project ? "Atualize os detalhes deste projeto." : "Preencha os dados para criar um novo projeto.";
 
+  const commonFields = (
+    <>
+      <FormField
+        control={form.control}
+        name="nome"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Nome do Projeto</FormLabel>
+            <FormControl>
+              <Input placeholder="Ex: Vídeo Institucional XPTO" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <FormField
+          control={form.control}
+          name="tipo"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Tipo de Projeto</FormLabel>
+              <Select onValueChange={handleTypeChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {PROJECT_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center">
+                Status do Projeto
+                {isLoadingAiSuggestions && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+              </FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
+                disabled={!selectedProjectType || isLoadingAiSuggestions}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {statusOptions.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      <FormField
+        control={form.control}
+        name="prazo"
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>Prazo de Entrega</FormLabel>
+            <Popover>
+              <PopoverTrigger asChild>
+                <FormControl>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full pl-3 text-left font-normal",
+                      !field.value && "text-muted-foreground"
+                    )}
+                  >
+                    {field.value ? (
+                      format(field.value, "PPP", { locale: ptBR })
+                    ) : (
+                      <span>Escolha uma data</span>
+                    )}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={field.value}
+                  onSelect={field.onChange}
+                  disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Disable past dates
+                  initialFocus
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="descricao"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Descrição do Projeto</FormLabel>
+            <FormControl>
+              <Textarea placeholder="Detalhes sobre o projeto..." {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="notas"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Notas Gerais</FormLabel>
+            <FormControl>
+              <Textarea placeholder="Observações, ideias, etc." {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <div>
+        <FormLabel>Checklist</FormLabel>
+        {fields.map((field, index) => (
+          <ChecklistItemInput
+            key={field.id}
+            item={field as ChecklistItem}
+            onChange={(updatedItem) => update(index, updatedItem)}
+            onRemove={() => remove(index)}
+          />
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={() => append({ id: uuidv4(), item: "", feito: false })}
+        >
+          <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Item ao Checklist
+        </Button>
+      </div>
+    </>
+  );
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className={cn("space-y-6", isPage ? formContainerClass : "")}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className={cn("space-y-6", !isPage ? formContainerClass : "")}>
         {!isPage && (
           <DialogHeader>
             <DialogTitle>{formTitle}</DialogTitle>
             <DialogDescription>{formDescription}</DialogDescription>
           </DialogHeader>
         )}
-        {isPage && (
-          <h1 className="text-3xl font-bold mb-6 text-primary">
-            {formTitle}
-          </h1>
-        )}
-        
-        <FormField
-          control={form.control}
-          name="nome"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nome do Projeto</FormLabel>
-              <FormControl>
-                <Input placeholder="Ex: Vídeo Institucional XPTO" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="tipo"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipo de Projeto</FormLabel>
-                <Select onValueChange={handleTypeChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {PROJECT_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="flex items-center">
-                  Status do Projeto
-                  {isLoadingAiSuggestions && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                </FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectType || isLoadingAiSuggestions}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {statusOptions.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        
-        <FormField
-          control={form.control}
-          name="prazo"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Prazo de Entrega</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value ? (
-                        format(field.value, "PPP", { locale: ptBR })
-                      ) : (
-                        <span>Escolha uma data</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Disable past dates
-                    initialFocus
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="descricao"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Descrição do Projeto</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Detalhes sobre o projeto..." {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="notas"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Notas Gerais</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Observações, ideias, etc." {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div>
-          <FormLabel>Checklist</FormLabel>
-          {fields.map((field, index) => (
-            <ChecklistItemInput
-              key={field.id}
-              item={field}
-              onChange={(updatedItem) => {
-                const currentChecklist = form.getValues("checklist") || [];
-                currentChecklist[index] = updatedItem;
-                form.setValue("checklist", currentChecklist);
-              }}
-              onRemove={() => remove(index)}
-            />
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-2"
-            onClick={() => append({ id: uuidv4(), item: "", feito: false })}
-          >
-            <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Item ao Checklist
-          </Button>
-        </div>
-        
         {isPage ? (
-          <div className="flex justify-end gap-2 mt-8">
-            <Button type="submit" disabled={form.formState.isSubmitting || isLoadingAiSuggestions}>
-              {isLoadingAiSuggestions || form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {project ? "Salvar Alterações" : "Criar Projeto"}
-            </Button>
+          <div className={formContainerClass}>
+            <h1 className="text-3xl font-bold mb-6 text-primary">
+              {formTitle}
+            </h1>
+            {commonFields}
+            <div className="flex justify-end gap-2 mt-8">
+              <Button type="submit" disabled={form.formState.isSubmitting || isLoadingAiSuggestions}>
+                {(isLoadingAiSuggestions || form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {project ? "Salvar Alterações" : "Criar Projeto"}
+              </Button>
+            </div>
           </div>
         ) : (
-          <DialogFooter>
-            {onClose && (
-              <DialogClose asChild>
-                <Button type="button" variant="outline" onClick={onClose}>
-                  Cancelar
-                </Button>
-              </DialogClose>
-            )}
-            <Button type="submit" disabled={form.formState.isSubmitting || isLoadingAiSuggestions}>
-              {isLoadingAiSuggestions || form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {project ? "Salvar Alterações" : "Criar Projeto"}
-            </Button>
-          </DialogFooter>
+          <>
+            {commonFields}
+            <DialogFooter>
+              {onClose && (
+                <DialogClose asChild>
+                  <Button type="button" variant="outline" onClick={() => { form.reset(); if(onClose) onClose(); }}>
+                    Cancelar
+                  </Button>
+                </DialogClose>
+              )}
+              <Button type="submit" disabled={form.formState.isSubmitting || isLoadingAiSuggestions}>
+                {(isLoadingAiSuggestions || form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {project ? "Salvar Alterações" : "Criar Projeto"}
+              </Button>
+            </DialogFooter>
+          </>
         )}
       </form>
     </Form>
