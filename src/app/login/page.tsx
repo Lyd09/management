@@ -77,7 +77,6 @@ export default function LoginPage() {
               <Input
                 id="username"
                 type="text"
-                // placeholder="ff.admin" // Removido placeholder
                 {...form.register('username')}
                 autoComplete="username"
                 className="text-base"
@@ -92,7 +91,6 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
                   {...form.register('password')}
                   autoComplete="current-password"
                   className="text-base pr-10" // Adicionado padding para o ícone
