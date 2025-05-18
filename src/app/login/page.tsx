@@ -7,10 +7,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label'; // Corrigido para Label de shadcn
+import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
-import { AlertCircle, LogIn, Loader2 } from 'lucide-react';
+import { AlertCircle, LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const loginSchema = z.object({
@@ -24,6 +24,7 @@ export default function LoginPage() {
   const { login, loadingAuth } = useAuth();
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -40,7 +41,7 @@ export default function LoginPage() {
     if (!success) {
       setLoginError('Nome de usuário ou senha inválidos.');
     }
-    // O redirecionamento é tratado pelo AuthContext, então não precisamos chamar router.push aqui
+    // O redirecionamento é tratado pelo AuthContext
     setIsSubmitting(false);
   };
 
@@ -76,7 +77,7 @@ export default function LoginPage() {
               <Input
                 id="username"
                 type="text"
-                placeholder="ff.admin"
+                // placeholder="ff.admin" // Removido placeholder
                 {...form.register('username')}
                 autoComplete="username"
                 className="text-base"
@@ -87,14 +88,26 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password" className="font-medium">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...form.register('password')}
-                autoComplete="current-password"
-                className="text-base"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  {...form.register('password')}
+                  autoComplete="current-password"
+                  className="text-base pr-10" // Adicionado padding para o ícone
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute inset-y-0 right-0 flex items-center justify-center h-full px-3 text-foreground hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </Button>
+              </div>
               {form.formState.errors.password && (
                 <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
               )}
@@ -105,11 +118,10 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="text-center text-sm text-muted-foreground p-4 bg-card-foreground/5">
-          <p>&copy; {new Date().getFullYear()} Gestão de Clientes - FastFilms</p>
+        <CardFooter className="justify-center text-center text-sm text-muted-foreground p-4 bg-card-foreground/5">
+          <p>&copy; {new Date().getFullYear()} Gestão de Clientes</p>
         </CardFooter>
       </Card>
     </div>
   );
 }
-
