@@ -115,13 +115,32 @@ export default function DashboardPage() {
   };
 
   const filteredClients = useMemo(() => {
-    let tempClients = clients;
+    let tempClients = [...clients]; // Create a shallow copy for sorting
 
+    // Filter by priority
     if (priorityFilter !== "Todas") {
       tempClients = tempClients.filter(client => client.prioridade === priorityFilter);
     }
 
+    // Sort by project presence: clients with projects first, then clients without projects.
+    // The original 'clients' array from context is already sorted by createdAt.
+    // This sort will group them, and 'return 0' preserves relative order within groups.
+    tempClients.sort((a, b) => {
+      const aHasProjects = a.projetos.length > 0;
+      const bHasProjects = b.projetos.length > 0;
+
+      if (aHasProjects && !bHasProjects) {
+        return -1; // a (with projects) comes before b (without projects)
+      }
+      if (!aHasProjects && bHasProjects) {
+        return 1;  // b (with projects) comes before a (without projects)
+      }
+      return 0; // Maintain original relative order (based on createdAt)
+    });
+    
+    // Filter by search term
     if (!searchTerm) return tempClients;
+
     return tempClients.filter(client =>
       client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.projetos.some(project => project.nome.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -161,8 +180,6 @@ export default function DashboardPage() {
                     <li>Avisos visuais para prazos de projetos próximos ou vencidos.</li>
                     <li>Filtros implementados no painel (prioridade cliente) e na página de detalhes do cliente (tipo, status, prioridade projeto).</li>
                     <li>Seção de atualizações do site agora em um popover.</li>
-                    <li>Implementada tela de login básica.</li>
-                    <li>Migração de dados para Firebase Firestore.</li>
                   </ul>
                 </CardContent>
               </Card>
