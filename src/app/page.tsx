@@ -155,10 +155,14 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                    <li>Exibição de dias restantes para prazos de projetos no painel.</li>
+                    <li>Filtro por proximidade de prazo adicionado na página de detalhes do cliente.</li>
                     <li>Marcação de prioridade para clientes e projetos adicionada!</li>
                     <li>Avisos visuais para prazos de projetos próximos ou vencidos.</li>
-                    <li>Filtros básicos implementados no painel e na página de detalhes do cliente.</li>
+                    <li>Filtros implementados no painel (prioridade cliente) e na página de detalhes do cliente (tipo, status, prioridade projeto).</li>
                     <li>Seção de atualizações do site agora em um popover.</li>
+                    <li>Implementada tela de login básica.</li>
+                    <li>Migração de dados para Firebase Firestore.</li>
                   </ul>
                 </CardContent>
               </Card>
