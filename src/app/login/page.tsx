@@ -117,7 +117,7 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="justify-center text-center text-sm text-muted-foreground p-4 bg-card-foreground/5">
-          <p>&copy; {new Date().getFullYear()} Gestão de Clientes</p>
+          <p>&copy; {new Date().getFullYear()} Projetex</p>
         </CardFooter>
       </Card>
     </div>

@@ -18,7 +18,7 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Gestão de Clientes - FastFilms',
+  title: 'Projetex',
   description: 'Plataforma colaborativa para gestão de clientes e projetos.',
 };
 
