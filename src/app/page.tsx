@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/ClientForm";
 import type { ClientFormValues } from "@/components/ClientForm";
-import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Info } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,34 +22,53 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
+import type { PriorityType, Client } from '@/types';
+import { PRIORITIES } from '@/lib/constants';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+
+const getPriorityBadgeVariant = (priority?: PriorityType) => {
+  switch (priority) {
+    case "Alta":
+      return "destructive";
+    case "Média":
+      return "secondary";
+    case "Baixa":
+      return "outline";
+    default:
+      return "default";
+  }
+};
 
 export default function DashboardPage() {
   const { clients, addClient, updateClient, deleteClient, loading } = useAppData();
   const { toast } = useToast();
   const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   const [isEditClientDialogOpen, setIsEditClientDialogOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState<ReturnType<typeof useAppData>['clients'][0] | null>(null);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<PriorityType | "Todas">("Todas");
 
 
   const handleAddClient = (data: ClientFormValues) => {
-    addClient(data.nome);
+    addClient(data.nome, data.prioridade);
     setIsAddClientDialogOpen(false);
     toast({ title: "Cliente Adicionado", description: `O cliente ${data.nome} foi adicionado com sucesso.` });
   };
 
   const handleEditClient = (data: ClientFormValues) => {
     if (editingClient) {
-      updateClient(editingClient.id, data.nome);
+      updateClient(editingClient.id, data.nome, data.prioridade);
       setIsEditClientDialogOpen(false);
       setEditingClient(null);
       toast({ title: "Cliente Atualizado", description: `O cliente ${data.nome} foi atualizado.` });
     }
   };
   
-  const openEditDialog = (client: ReturnType<typeof useAppData>['clients'][0]) => {
+  const openEditDialog = (client: Client) => {
     setEditingClient(client);
     setIsEditClientDialogOpen(true);
   };
@@ -70,12 +89,18 @@ export default function DashboardPage() {
   };
 
   const filteredClients = useMemo(() => {
-    if (!searchTerm) return clients;
-    return clients.filter(client =>
+    let tempClients = clients;
+
+    if (priorityFilter !== "Todas") {
+      tempClients = tempClients.filter(client => client.prioridade === priorityFilter);
+    }
+
+    if (!searchTerm) return tempClients;
+    return tempClients.filter(client =>
       client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.projetos.some(project => project.nome.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [clients, searchTerm]);
+  }, [clients, searchTerm, priorityFilter]);
 
   if (loading) {
     return (
@@ -102,8 +127,8 @@ export default function DashboardPage() {
         </Dialog>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-grow">
+      <div className="flex flex-col sm:flex-row gap-4 items-center">
+        <div className="relative flex-grow w-full sm:w-auto">
           <Input
             type="search"
             placeholder="Buscar cliente ou projeto..."
@@ -113,10 +138,20 @@ export default function DashboardPage() {
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         </div>
-        {/* Placeholder for filter button */}
-        {/* <Button variant="outline">
-          <Filter className="mr-2 h-4 w-4" /> Filtros
-        </Button> */}
+        <div className="w-full sm:w-auto sm:min-w-[200px]">
+            <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as PriorityType | "Todas")}>
+                <SelectTrigger className="w-full">
+                    <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Filtrar por prioridade" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="Todas">Todas Prioridades</SelectItem>
+                    {PRIORITIES.map(priority => (
+                    <SelectItem key={priority} value={priority}>{priority}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
       </div>
 
       {filteredClients.length === 0 && !loading && (
@@ -127,10 +162,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <CardDescription>
-              {searchTerm ? `Nenhum cliente corresponde à sua busca "${searchTerm}".` : "Você ainda não adicionou nenhum cliente."}
+              {searchTerm || priorityFilter !== "Todas" ? `Nenhum cliente corresponde à sua busca/filtro.` : "Você ainda não adicionou nenhum cliente."}
             </CardDescription>
           </CardContent>
-          {!searchTerm && (
+          {!(searchTerm || priorityFilter !== "Todas") && (
              <CardFooter className="justify-center">
                 <Dialog open={isAddClientDialogOpen} onOpenChange={setIsAddClientDialogOpen}>
                 <DialogTrigger asChild>
@@ -153,11 +188,18 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex justify-between items-start">
                 <CardTitle className="text-xl">{client.nome}</CardTitle>
-                <Link href={`/clients/${client.id}`} passHref legacyBehavior>
-                  <Button variant="ghost" size="icon" aria-label={`Ver detalhes de ${client.nome}`}>
-                    <ExternalLink className="h-5 w-5 text-primary" />
-                  </Button>
-                </Link>
+                <div className="flex items-center gap-2">
+                    {client.prioridade && (
+                        <Badge variant={getPriorityBadgeVariant(client.prioridade)} className="text-xs">
+                            {client.prioridade}
+                        </Badge>
+                    )}
+                    <Link href={`/clients/${client.id}`} passHref legacyBehavior>
+                        <Button variant="ghost" size="icon" aria-label={`Ver detalhes de ${client.nome}`}>
+                            <ExternalLink className="h-5 w-5 text-primary" />
+                        </Button>
+                    </Link>
+                </div>
               </div>
               <CardDescription>{client.projetos.length} projeto(s)</CardDescription>
             </CardHeader>
@@ -210,6 +252,20 @@ export default function DashboardPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl"><Info className="mr-2 h-5 w-5 text-primary"/>Atualizações Recentes do Projetex</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+            <li>Marcação de prioridade para clientes e projetos adicionada!</li>
+            <li>Avisos visuais para prazos de projetos próximos ou vencidos.</li>
+            <li>Filtros básicos implementados no painel e na página de detalhes do cliente.</li>
+            <li>Seção de atualizações do site adicionada.</li>
+          </ul>
+        </CardContent>
+      </Card>
 
     </div>
   );

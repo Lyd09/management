@@ -23,22 +23,17 @@ import { CalendarIcon, PlusCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import type { Project, ChecklistItem, ProjectType } from "@/types";
-import { PROJECT_TYPES, PROJECT_STATUS_OPTIONS, INITIAL_PROJECT_STATUS } from "@/lib/constants";
+import type { Project, ChecklistItem, ProjectType, PriorityType } from "@/types";
+import { PROJECT_TYPES, PROJECT_STATUS_OPTIONS, INITIAL_PROJECT_STATUS, PRIORITIES } from "@/lib/constants";
 import { ChecklistItemInput } from "./ChecklistItemInput";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
 import React, { useState, useEffect, useCallback } from "react";
-// For AI integration:
-// Assuming a Genkit flow 'suggestProjectStatus' is registered and available.
-// import { runFlow } from '@genkit-ai/next/client'; // UNCOMMENT THIS FOR ACTUAL AI
-// Mock function for AI status suggestions - REPLACE THIS WITH ACTUAL runFlow CALL
+
+// Mock function for AI status suggestions
 const mockSuggestProjectStatus = async (projectType: ProjectType): Promise<string[]> => {
   console.log(`AI Suggestion: Called for ${projectType}`);
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-  // This is a mock. In a real scenario, this would call the Genkit AI flow.
-  // The flow would return tailored suggestions based on the project type.
-  // For now, returning a few generic items plus type-specific default statuses
+  await new Promise(resolve => setTimeout(resolve, 1000));
   const genericSuggestions = ["Aguardando Início", "Em Pausa", "Bloqueado"];
   return [...new Set([...genericSuggestions, ...PROJECT_STATUS_OPTIONS[projectType]])].sort();
 };
@@ -48,6 +43,7 @@ const projectFormSchema = z.object({
   nome: z.string().min(2, "O nome do projeto é obrigatório."),
   tipo: z.enum(PROJECT_TYPES, { required_error: "Selecione um tipo de projeto." }),
   status: z.string().min(1, "O status é obrigatório."),
+  prioridade: z.enum(PRIORITIES, {required_error: "Selecione uma prioridade."}).optional(),
   descricao: z.string().optional(),
   prazo: z.date().optional(),
   notas: z.string().optional(),
@@ -65,8 +61,8 @@ export type ProjectFormValues = z.infer<typeof projectFormSchema>;
 interface ProjectFormProps {
   project?: Project;
   onSubmit: (data: ProjectFormValues) => void;
-  onClose?: () => void; // Optional: if used in a dialog
-  isPage?: boolean; // True if used as a full page, false if in a dialog
+  onClose?: () => void; 
+  isPage?: boolean; 
 }
 
 export function ProjectForm({ project, onSubmit, onClose, isPage = false }: ProjectFormProps) {
@@ -82,6 +78,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       nome: project?.nome || "",
       tipo: project?.tipo,
       status: project?.status || (project?.tipo ? INITIAL_PROJECT_STATUS(project.tipo) : ""),
+      prioridade: project?.prioridade || "Média",
       descricao: project?.descricao || "",
       prazo: project?.prazo && isValid(parseISO(project.prazo)) ? parseISO(project.prazo) : undefined,
       notas: project?.notas || "",
@@ -98,17 +95,13 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     setIsLoadingAiSuggestions(true);
     setAiSuggestedStatuses([]);
     try {
-      // Replace mockSuggestProjectStatus with actual AI call:
-      // const suggestions = await runFlow('suggestProjectStatus', projectType) as string[]; // UNCOMMENT THIS
-      const suggestions = await mockSuggestProjectStatus(projectType); // REMOVE/COMMENT THIS MOCK CALL
+      const suggestions = await mockSuggestProjectStatus(projectType); 
       setAiSuggestedStatuses(suggestions);
-      // Optionally merge with default statuses or set as primary options
       setStatusOptions(prev => [...new Set([...suggestions, ...PROJECT_STATUS_OPTIONS[projectType]])].sort());
       toast({ title: "Sugestões de Status Carregadas", description: "Novas opções de status foram sugeridas pela IA."});
     } catch (error) {
       console.error("Error fetching AI status suggestions:", error);
       toast({ variant: "destructive", title: "Erro IA", description: "Não foi possível carregar sugestões de status." });
-      // Fallback to default statuses
       setStatusOptions(PROJECT_STATUS_OPTIONS[projectType]);
     } finally {
       setIsLoadingAiSuggestions(false);
@@ -120,7 +113,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       setSelectedProjectType(project.tipo);
       const defaultStatuses = PROJECT_STATUS_OPTIONS[project.tipo] || [];
       setStatusOptions(defaultStatuses);
-       // Ensure initial status is valid or set to the first option
       if (project.status && defaultStatuses.includes(project.status)) {
         form.setValue("status", project.status);
       } else if (defaultStatuses.length > 0) {
@@ -130,12 +122,14 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       }
       fetchAiSuggestions(project.tipo);
     }
-     // Set initial date correctly
      if (project?.prazo) {
       const parsedDate = parseISO(project.prazo);
       if (isValid(parsedDate)) {
         form.setValue("prazo", parsedDate);
       }
+    }
+    if (project?.prioridade) {
+      form.setValue("prioridade", project.prioridade);
     }
   }, [project, form, fetchAiSuggestions]);
 
@@ -154,9 +148,18 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     onSubmit({
       ...data,
       prazo: data.prazo ? format(data.prazo, "yyyy-MM-dd") : undefined,
-    } as any); // type assertion due to date string conversion
-    if (!isPage && onClose) { // Only reset if in dialog and onClose is provided
-      form.reset();
+    } as any); 
+    if (!isPage && onClose) { 
+      form.reset({
+        nome: "",
+        tipo: undefined,
+        status: "",
+        prioridade: "Média",
+        descricao: "",
+        prazo: undefined,
+        notas: "",
+        checklist: [],
+      });
     }
   };
 
@@ -239,46 +242,74 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         />
       </div>
 
-      <FormField
-        control={form.control}
-        name="prazo"
-        render={({ field }) => (
-          <FormItem className="flex flex-col">
-            <FormLabel>Prazo de Entrega</FormLabel>
-            <Popover>
-              <PopoverTrigger asChild>
-                <FormControl>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full pl-3 text-left font-normal",
-                      !field.value && "text-muted-foreground"
-                    )}
-                  >
-                    {field.value ? (
-                      format(field.value, "PPP", { locale: ptBR })
-                    ) : (
-                      <span>Escolha uma data</span>
-                    )}
-                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                  </Button>
-                </FormControl>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={field.value}
-                  onSelect={field.onChange}
-                  disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Disable past dates
-                  initialFocus
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <FormField
+            control={form.control}
+            name="prioridade"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Prioridade do Projeto</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value || "Média"}>
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Selecione a prioridade" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                    {PRIORITIES.map((priority) => (
+                        <SelectItem key={priority} value={priority}>
+                        {priority}
+                        </SelectItem>
+                    ))}
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+
+        <FormField
+            control={form.control}
+            name="prazo"
+            render={({ field }) => (
+            <FormItem className="flex flex-col">
+                <FormLabel>Prazo de Entrega</FormLabel>
+                <Popover>
+                <PopoverTrigger asChild>
+                    <FormControl>
+                    <Button
+                        variant={"outline"}
+                        className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground"
+                        )}
+                    >
+                        {field.value ? (
+                        format(field.value, "PPP", { locale: ptBR })
+                        ) : (
+                        <span>Escolha uma data</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                    </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } 
+                    initialFocus
+                    locale={ptBR}
+                    />
+                </PopoverContent>
+                </Popover>
+                <FormMessage />
+            </FormItem>
+            )}
+        />
+      </div>
+
 
       <FormField
         control={form.control}
@@ -313,7 +344,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         {fields.map((field, index) => (
           <ChecklistItemInput
             key={field.id}
-            item={field as ChecklistItem}
+            item={field as ChecklistItem} // Casting is okay here as we know the structure
             onChange={(updatedItem) => update(index, updatedItem)}
             onRemove={() => remove(index)}
           />
@@ -333,7 +364,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className={cn("space-y-6", !isPage ? formContainerClass : "")}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className={cn("space-y-6", isPage ? "" : "")}>
         {!isPage && (
           <DialogHeader>
             <DialogTitle>{formTitle}</DialogTitle>
@@ -355,12 +386,24 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
             </div>
           </div>
         ) : (
-          <>
+          <div className="p-0"> {/* No extra padding for dialog content as DialogContent has its own */}
             {commonFields}
-            <DialogFooter>
+            <DialogFooter className="mt-6">
               {onClose && (
                 <DialogClose asChild>
-                  <Button type="button" variant="outline" onClick={() => { form.reset(); if(onClose) onClose(); }}>
+                  <Button type="button" variant="outline" onClick={() => { 
+                      form.reset({
+                        nome: "",
+                        tipo: undefined,
+                        status: "",
+                        prioridade: "Média",
+                        descricao: "",
+                        prazo: undefined,
+                        notas: "",
+                        checklist: [],
+                      }); 
+                      if(onClose) onClose(); 
+                    }}>
                     Cancelar
                   </Button>
                 </DialogClose>
@@ -370,7 +413,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                 {project ? "Salvar Alterações" : "Criar Projeto"}
               </Button>
             </DialogFooter>
-          </>
+          </div>
         )}
       </form>
     </Form>

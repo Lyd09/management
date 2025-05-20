@@ -1,4 +1,6 @@
 
+export type PriorityType = "Baixa" | "Média" | "Alta";
+
 export interface ChecklistItem {
   id: string;
   item: string;
@@ -16,12 +18,14 @@ export interface Project {
   prazo?: string; // ISO date string: "YYYY-MM-DD"
   notas?: string;
   checklist: ChecklistItem[];
+  prioridade?: PriorityType;
 }
 
 export interface Client {
   id: string;
   nome: string;
   projetos: Project[];
+  prioridade?: PriorityType;
 }
 
 export interface AppData {

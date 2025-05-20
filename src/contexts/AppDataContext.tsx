@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import type { AppData, Client, Project, ProjectType, ChecklistItem } from '@/types';
+import type { AppData, Client, Project, ProjectType, ChecklistItem, PriorityType } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase';
 import {
@@ -21,11 +21,10 @@ import {
   Timestamp
 } from 'firebase/firestore';
 
-// const LOCAL_STORAGE_KEY = 'projetexData'; // No longer used
-
 interface FirebaseClientDoc {
   nome: string;
   createdAt: Timestamp;
+  prioridade?: PriorityType;
 }
 
 interface FirebaseProjectDoc {
@@ -37,21 +36,22 @@ interface FirebaseProjectDoc {
   notas?: string;
   checklist: ChecklistItem[];
   createdAt: Timestamp;
+  prioridade?: PriorityType;
 }
 
 interface AppDataContextType {
   clients: Client[];
   loading: boolean;
-  addClient: (nome: string) => Promise<void>;
-  updateClient: (clientId: string, nome: string) => Promise<void>;
+  addClient: (nome: string, prioridade?: PriorityType) => Promise<void>;
+  updateClient: (clientId: string, nome: string, prioridade?: PriorityType) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   getClientById: (clientId: string) => Client | undefined;
-  addProject: (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId'> & { checklist?: Partial<Project['checklist']> }) => Promise<void>;
+  addProject: (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType }) => Promise<void>;
   updateProject: (clientId: string, projectId: string, projectData: Partial<Project>) => Promise<void>;
   deleteProject: (clientId: string, projectId: string) => Promise<void>;
   getProjectById: (clientId: string, projectId: string) => Project | undefined;
-  importData: (jsonData: AppData) => boolean; // Will be deprecated
-  exportData: () => AppData; // Will be deprecated
+  importData: (jsonData: AppData) => boolean; 
+  exportData: () => AppData; 
 }
 
 export const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -68,20 +68,26 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       const clientsData: Client[] = [];
       for (const clientDoc of querySnapshot.docs) {
-        const client = {
+        const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
+        const client: Client = {
           id: clientDoc.id,
-          ...(clientDoc.data() as FirebaseClientDoc),
+          nome: clientFirebaseData.nome,
+          prioridade: clientFirebaseData.prioridade,
+          createdAt: clientFirebaseData.createdAt, // Mantém o timestamp se precisar
           projetos: [],
-        } as Client;
+        };
 
         const projectsCollectionRef = collection(db, 'clients', clientDoc.id, 'projects');
         const projectsQuery = query(projectsCollectionRef, orderBy('createdAt', 'desc'));
         const projectsSnapshot = await getDocs(projectsQuery);
         
-        client.projetos = projectsSnapshot.docs.map(projectDoc => ({
-          id: projectDoc.id,
-          ...(projectDoc.data() as FirebaseProjectDoc),
-        } as Project));
+        client.projetos = projectsSnapshot.docs.map(projectDoc => {
+          const projectFirebaseData = projectDoc.data() as FirebaseProjectDoc;
+          return {
+            id: projectDoc.id,
+            ...projectFirebaseData,
+          } as Project;
+        });
         clientsData.push(client);
       }
       setClients(clientsData);
@@ -95,12 +101,11 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => unsubscribe();
   }, []);
 
-  // localStorage saving logic removed
-
-  const addClient = useCallback(async (nome: string) => {
+  const addClient = useCallback(async (nome: string, prioridade?: PriorityType) => {
     try {
       await addDoc(collection(db, 'clients'), {
         nome,
+        prioridade: prioridade || "Média", // Default priority
         createdAt: serverTimestamp(),
       });
     } catch (error) {
@@ -108,10 +113,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, []);
 
-  const updateClient = useCallback(async (clientId: string, nome: string) => {
+  const updateClient = useCallback(async (clientId: string, nome: string, prioridade?: PriorityType) => {
     try {
       const clientDocRef = doc(db, 'clients', clientId);
-      await updateDoc(clientDocRef, { nome });
+      const updateData: Partial<FirebaseClientDoc> = { nome };
+      if (prioridade) {
+        updateData.prioridade = prioridade;
+      }
+      await updateDoc(clientDocRef, updateData);
     } catch (error) {
       console.error("Error updating client in Firestore:", error);
     }
@@ -138,15 +147,23 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     return clients.find(c => c.id === clientId);
   }, [clients]);
 
-  const addProject = useCallback(async (clientId: string, projectData: Omit<Project, 'id' | 'checklist'> & { checklist?: Partial<Project['checklist']> }) => {
+  const addProject = useCallback(async (clientId: string, projectData: Omit<Project, 'id' | 'checklist'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType }) => {
     try {
       const projectsCollectionRef = collection(db, 'clients', clientId, 'projects');
-      const newProjectData: FirebaseProjectDoc = {
-        ...projectData,
+      const newProjectData: Omit<FirebaseProjectDoc, 'createdAt'> = { // createdAt will be serverTimestamp
+        nome: projectData.nome,
+        tipo: projectData.tipo,
+        status: projectData.status,
+        descricao: projectData.descricao,
+        prazo: projectData.prazo,
+        notas: projectData.notas,
+        prioridade: projectData.prioridade || "Média", // Default priority
         checklist: (projectData.checklist || []).map(item => ({...item, id: item.id || uuidv4()})) as ChecklistItem[],
-        createdAt: serverTimestamp() as Timestamp, // Firestore will convert this
       };
-      await addDoc(projectsCollectionRef, newProjectData);
+      await addDoc(projectsCollectionRef, {
+        ...newProjectData,
+        createdAt: serverTimestamp(),
+      });
     } catch (error) {
       console.error("Error adding project to Firestore:", error);
     }
@@ -155,7 +172,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   const updateProject = useCallback(async (clientId: string, projectId: string, projectData: Partial<Project>) => {
     try {
       const projectDocRef = doc(db, 'clients', clientId, 'projects', projectId);
-      // Ensure checklist items have IDs if they are being updated
       const dataToUpdate = {...projectData};
       if (dataToUpdate.checklist) {
         dataToUpdate.checklist = dataToUpdate.checklist.map(item => ({
@@ -183,37 +199,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     return client?.projetos.find(p => p.id === projectId);
   }, [clients]);
 
-  // Import/Export data functions are now less relevant with cloud persistence.
-  // They could be adapted to backup/restore from Firestore if needed, but that's a more complex feature.
   const importData = useCallback((jsonData: AppData): boolean => {
     console.warn("Data import from JSON is deprecated. Data is now managed in Firestore.");
-    // setLoading(true);
-    // // This would require a more complex logic to write to Firestore,
-    // // handling existing data, IDs, subcollections etc.
-    // // For now, we'll just log a warning.
-    // try {
-    //   // Example: A very basic import, would overwrite everything or fail on duplicates
-    //   // jsonData.clientes.forEach(async client => {
-    //   //   const clientRef = doc(db, 'clients', client.id); // This assumes IDs are maintained
-    //   //   await setDoc(clientRef, { nome: client.nome, createdAt: serverTimestamp() });
-    //   //   client.projetos.forEach(async project => {
-    //   //     const projectRef = doc(db, 'clients', client.id, 'projects', project.id);
-    //   //     await setDoc(projectRef, { ...project, createdAt: serverTimestamp() });
-    //   //   });
-    //   // });
-    //   // setClients(jsonData.clientes); // Optimistically update UI or wait for onSnapshot
-    //   // setLoading(false);
-    //   return false; // Mark as not successful for now
-    // } catch (error) {
-    //   console.error("Error attempting to import data to Firestore:", error);
-    //   setLoading(false);
       return false;
-    // }
   }, []);
 
   const exportData = useCallback((): AppData => {
     console.warn("Data export to JSON is deprecated. Data is now managed in Firestore.");
-    return { clientes: clients }; // Returns current local state, might not be a full representation
+    return { clientes: clients };
   }, [clients]);
 
   return (

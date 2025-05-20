@@ -1,6 +1,9 @@
-import type { ProjectType } from '@/types';
+
+import type { ProjectType, PriorityType } from '@/types';
 
 export const PROJECT_TYPES: ProjectType[] = ["Produção de Vídeo", "Programação", "Animação de Logomarca"];
+
+export const PRIORITIES: PriorityType[] = ["Baixa", "Média", "Alta"];
 
 export const PROJECT_STATUS_OPTIONS: Record<ProjectType, string[]> = {
   "Produção de Vídeo": [

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAppData } from '@/hooks/useAppData';
@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, AlertTriangle, Filter, CalendarClock } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,8 +22,51 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
-import type { Client, Project, ProjectType } from '@/types';
+import type { Client, Project, ProjectType, PriorityType } from '@/types';
 import { Badge } from '@/components/ui/badge';
+import { differenceInDays, parseISO, startOfDay, isBefore } from 'date-fns';
+import { PRIORITIES, PROJECT_TYPES } from '@/lib/constants';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const getPriorityBadgeVariant = (priority?: PriorityType) => {
+  switch (priority) {
+    case "Alta":
+      return "destructive";
+    case "Média":
+      return "secondary"; // Using secondary as yellow might not fit the dark theme well
+    case "Baixa":
+      return "outline";
+    default:
+      return "default";
+  }
+};
+
+const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default" | "secondary" | "destructive" | "outline" } | null => {
+    if (!prazo) return null;
+    try {
+        const today = startOfDay(new Date());
+        const deadlineDate = startOfDay(parseISO(prazo)); // Ensure 'prazo' is a valid ISO string 'YYYY-MM-DD'
+        const daysRemaining = differenceInDays(deadlineDate, today);
+
+        if (isBefore(deadlineDate, today)) {
+            return { text: `Atrasado (${Math.abs(daysRemaining)}d)`, variant: "destructive" };
+        }
+        if (daysRemaining === 0) {
+            return { text: "Hoje!", variant: "destructive" };
+        }
+        if (daysRemaining <= 3) {
+            return { text: `${daysRemaining}d restantes`, variant: "destructive" }; // Using "destructive" for high alert
+        }
+        if (daysRemaining <= 7) {
+            return { text: `${daysRemaining}d restantes`, variant: "secondary" };
+        }
+        return null; // No special badge if more than 7 days
+    } catch (error) {
+        console.error("Error parsing prazo for deadline badge:", error);
+        return null; // Invalid date format
+    }
+};
+
 
 export default function ClientDetailPage() {
   const params = useParams();
@@ -37,6 +80,11 @@ export default function ClientDetailPage() {
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+
+  // Filters
+  const [typeFilter, setTypeFilter] = useState<ProjectType | "Todos">("Todos");
+  const [statusFilter, setStatusFilter] = useState<string | "Todos">("Todos");
+  const [priorityFilter, setPriorityFilter] = useState<PriorityType | "Todos">("Todos");
 
   useEffect(() => {
     if (!loading && clientId) {
@@ -52,16 +100,15 @@ export default function ClientDetailPage() {
 
   const handleAddProject = (data: ProjectFormValues) => {
     if (!client) return;
-    // data.prazo aqui já é uma string "YYYY-MM-DD" ou undefined,
-    // devido à transformação feita pelo ProjectForm antes de chamar onSubmit.
     const projectPayload: Omit<Project, 'id' | 'checklist'> & { checklist?: Partial<Project['checklist']> } = {
       nome: data.nome,
-      tipo: data.tipo as ProjectType, // data.tipo é string, mas ProjectType é mais específico
+      tipo: data.tipo as ProjectType, 
       status: data.status,
+      prioridade: data.prioridade,
       descricao: data.descricao,
-      prazo: data.prazo as (string | undefined), // Usar diretamente, já é string
+      prazo: data.prazo as (string | undefined), 
       notas: data.notas,
-      checklist: data.checklist, // Passar checklist como está (ChecklistItem[] | undefined)
+      checklist: data.checklist, 
     };
     addProject(client.id, projectPayload);
     setIsAddProjectDialogOpen(false);
@@ -82,6 +129,29 @@ export default function ClientDetailPage() {
     }
     setShowDeleteConfirm(false);
   };
+
+  const uniqueProjectTypes = useMemo(() => {
+    if (!client) return [];
+    const types = new Set(client.projetos.map(p => p.tipo));
+    return Array.from(types);
+  }, [client]);
+
+  const uniqueProjectStatuses = useMemo(() => {
+    if (!client) return [];
+    const statuses = new Set(client.projetos.map(p => p.status));
+    return Array.from(statuses);
+  }, [client]);
+
+  const filteredProjects = useMemo(() => {
+    if (!client) return [];
+    return client.projetos.filter(project => {
+      const typeMatch = typeFilter === "Todos" || project.tipo === typeFilter;
+      const statusMatch = statusFilter === "Todos" || project.status === statusFilter;
+      const priorityMatch = priorityFilter === "Todos" || project.prioridade === priorityFilter;
+      return typeMatch && statusMatch && priorityMatch;
+    });
+  }, [client, typeFilter, statusFilter, priorityFilter]);
+
 
   if (loading || !client) {
     return (
@@ -113,20 +183,77 @@ export default function ClientDetailPage() {
       </div>
 
       <h2 className="text-2xl font-semibold">Projetos</h2>
-      {client.projetos.length === 0 ? (
+
+      {client.projetos.length > 0 && (
+         <Card className="p-4">
+            <CardContent className="p-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                        <Label htmlFor="typeFilter">Filtrar por Tipo</Label>
+                        <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as ProjectType | "Todos")}>
+                            <SelectTrigger id="typeFilter">
+                                <SelectValue placeholder="Tipo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Todos">Todos os Tipos</SelectItem>
+                                {uniqueProjectTypes.map(type => (
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="statusFilter">Filtrar por Status</Label>
+                        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as string | "Todos")}>
+                            <SelectTrigger id="statusFilter">
+                                <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Todos">Todos os Status</SelectItem>
+                                {uniqueProjectStatuses.map(status => (
+                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="priorityFilter">Filtrar por Prioridade</Label>
+                        <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as PriorityType | "Todos")}>
+                            <SelectTrigger id="priorityFilter">
+                                <SelectValue placeholder="Prioridade" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Todos">Todas Prioridades</SelectItem>
+                                {PRIORITIES.map(priority => (
+                                <SelectItem key={priority} value={priority}>{priority}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            </CardContent>
+         </Card>
+      )}
+
+      {filteredProjects.length === 0 ? (
         <Card className="text-center py-10">
           <CardHeader>
              <FolderKanban className="mx-auto h-12 w-12 text-muted-foreground" />
-            <CardTitle className="mt-4 text-2xl">Nenhum projeto cadastrado</CardTitle>
+            <CardTitle className="mt-4 text-2xl">
+                {client.projetos.length === 0 ? "Nenhum projeto cadastrado" : "Nenhum projeto corresponde aos filtros"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <CardDescription>Este cliente ainda não possui projetos.</CardDescription>
+            <CardDescription>
+                {client.projetos.length === 0 ? "Este cliente ainda não possui projetos." : "Tente ajustar os filtros ou adicione um novo projeto."}
+            </CardDescription>
           </CardContent>
            <CardFooter className="justify-center">
               <Dialog open={isAddProjectDialogOpen} onOpenChange={setIsAddProjectDialogOpen}>
                 <DialogTrigger asChild>
                     <Button size="lg">
-                    <PlusCircle className="mr-2 h-5 w-5" /> Adicionar primeiro projeto
+                    <PlusCircle className="mr-2 h-5 w-5" /> 
+                    {client.projetos.length === 0 ? "Adicionar primeiro projeto" : "Adicionar Novo Projeto"}
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -137,7 +264,9 @@ export default function ClientDetailPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {client.projetos.map((project) => (
+          {filteredProjects.map((project) => {
+            const deadlineInfo = getDeadlineBadgeInfo(project.prazo);
+            return (
             <Card key={project.id} className="flex flex-col hover:shadow-primary/20 hover:shadow-md transition-shadow duration-300">
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -149,11 +278,23 @@ export default function ClientDetailPage() {
                     </Link>
                 </div>
                 <CardDescription>{project.tipo}</CardDescription>
+                <div className="flex flex-wrap gap-2 mt-2">
+                    {project.prioridade && (
+                        <Badge variant={getPriorityBadgeVariant(project.prioridade)} className="text-xs">
+                            {project.prioridade}
+                        </Badge>
+                    )}
+                    <Badge variant={project.status === "Projeto Concluído" ? "default" : "secondary"} className={`${project.status === "Projeto Concluído" ? "bg-green-600/80 text-white" : ""} text-xs`}>
+                        {project.status}
+                    </Badge>
+                    {deadlineInfo && (
+                        <Badge variant={deadlineInfo.variant} className="text-xs flex items-center">
+                           <CalendarClock className="mr-1 h-3 w-3" /> {deadlineInfo.text}
+                        </Badge>
+                    )}
+                </div>
               </CardHeader>
-              <CardContent className="flex-grow space-y-2">
-                <Badge variant={project.status === "Projeto Concluído" ? "default" : "secondary"} className={project.status === "Projeto Concluído" ? "bg-green-600/80 text-white" : ""}>
-                  {project.status}
-                </Badge>
+              <CardContent className="flex-grow space-y-2 mt-1">
                 <p className="text-sm text-muted-foreground line-clamp-2">{project.descricao || "Sem descrição."}</p>
                 {project.prazo && <p className="text-xs text-muted-foreground">Prazo: {new Date(project.prazo + "T00:00:00").toLocaleDateString('pt-BR')}</p>}
               </CardContent>
@@ -168,7 +309,8 @@ export default function ClientDetailPage() {
                 </Button>
               </CardFooter>
             </Card>
-          ))}
+          );
+        })}
         </div>
       )}
        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
