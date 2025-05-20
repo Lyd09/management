@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
 import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, AlertTriangle, Filter, CalendarClock } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,12 +29,22 @@ import { differenceInDays, parseISO, startOfDay, isBefore } from 'date-fns';
 import { PRIORITIES, PROJECT_TYPES } from '@/lib/constants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+type DeadlineFilterCategory = "Todos" | "Muito Próximos/Atrasados" | "Próximos" | "Distantes" | "Sem Prazo";
+
+const DEADLINE_FILTER_OPTIONS: DeadlineFilterCategory[] = [
+  "Todos",
+  "Muito Próximos/Atrasados",
+  "Próximos",
+  "Distantes",
+  "Sem Prazo",
+];
+
 const getPriorityBadgeVariant = (priority?: PriorityType) => {
   switch (priority) {
     case "Alta":
       return "destructive";
     case "Média":
-      return "secondary"; // Using secondary as yellow might not fit the dark theme well
+      return "secondary";
     case "Baixa":
       return "outline";
     default:
@@ -45,7 +56,7 @@ const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default
     if (!prazo) return null;
     try {
         const today = startOfDay(new Date());
-        const deadlineDate = startOfDay(parseISO(prazo)); // Ensure 'prazo' is a valid ISO string 'YYYY-MM-DD'
+        const deadlineDate = startOfDay(parseISO(prazo));
         const daysRemaining = differenceInDays(deadlineDate, today);
 
         if (isBefore(deadlineDate, today)) {
@@ -55,16 +66,35 @@ const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default
             return { text: "Hoje!", variant: "destructive" };
         }
         if (daysRemaining <= 3) {
-            return { text: `${daysRemaining}d restantes`, variant: "destructive" }; // Using "destructive" for high alert
+            return { text: `${daysRemaining}d restantes`, variant: "destructive" };
         }
         if (daysRemaining <= 7) {
             return { text: `${daysRemaining}d restantes`, variant: "secondary" };
         }
-        return null; // No special badge if more than 7 days
+        return null; 
     } catch (error) {
         console.error("Error parsing prazo for deadline badge:", error);
-        return null; // Invalid date format
+        return null;
     }
+};
+
+const categorizeDeadline = (prazo?: string): DeadlineFilterCategory => {
+  if (!prazo) return "Sem Prazo";
+  try {
+    const today = startOfDay(new Date());
+    const deadlineDate = startOfDay(parseISO(prazo));
+    const daysRemaining = differenceInDays(deadlineDate, today);
+
+    if (isBefore(deadlineDate, today) || daysRemaining <= 3) {
+      return "Muito Próximos/Atrasados";
+    }
+    if (daysRemaining <= 7) {
+      return "Próximos";
+    }
+    return "Distantes";
+  } catch (error) {
+    return "Sem Prazo"; // Fallback for invalid dates
+  }
 };
 
 
@@ -85,6 +115,8 @@ export default function ClientDetailPage() {
   const [typeFilter, setTypeFilter] = useState<ProjectType | "Todos">("Todos");
   const [statusFilter, setStatusFilter] = useState<string | "Todos">("Todos");
   const [priorityFilter, setPriorityFilter] = useState<PriorityType | "Todos">("Todos");
+  const [deadlineFilter, setDeadlineFilter] = useState<DeadlineFilterCategory>("Todos");
+
 
   useEffect(() => {
     if (!loading && clientId) {
@@ -148,9 +180,10 @@ export default function ClientDetailPage() {
       const typeMatch = typeFilter === "Todos" || project.tipo === typeFilter;
       const statusMatch = statusFilter === "Todos" || project.status === statusFilter;
       const priorityMatch = priorityFilter === "Todos" || project.prioridade === priorityFilter;
-      return typeMatch && statusMatch && priorityMatch;
+      const deadlineMatch = deadlineFilter === "Todos" || categorizeDeadline(project.prazo) === deadlineFilter;
+      return typeMatch && statusMatch && priorityMatch && deadlineMatch;
     });
-  }, [client, typeFilter, statusFilter, priorityFilter]);
+  }, [client, typeFilter, statusFilter, priorityFilter, deadlineFilter]);
 
 
   if (loading || !client) {
@@ -187,7 +220,7 @@ export default function ClientDetailPage() {
       {client.projetos.length > 0 && (
          <Card className="p-4">
             <CardContent className="p-0">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <Label htmlFor="typeFilter">Filtrar por Tipo</Label>
                         <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as ProjectType | "Todos")}>
@@ -226,6 +259,19 @@ export default function ClientDetailPage() {
                                 <SelectItem value="Todos">Todas Prioridades</SelectItem>
                                 {PRIORITIES.map(priority => (
                                 <SelectItem key={priority} value={priority}>{priority}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <div>
+                        <Label htmlFor="deadlineFilter">Filtrar por Prazo</Label>
+                        <Select value={deadlineFilter} onValueChange={(value) => setDeadlineFilter(value as DeadlineFilterCategory)}>
+                            <SelectTrigger id="deadlineFilter">
+                                <SelectValue placeholder="Prazo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {DEADLINE_FILTER_OPTIONS.map(option => (
+                                <SelectItem key={option} value={option}>{option}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -330,3 +376,5 @@ export default function ClientDetailPage() {
     </div>
   );
 }
+
+    
