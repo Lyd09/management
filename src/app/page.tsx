@@ -27,6 +27,7 @@ import type { PriorityType, Client } from '@/types';
 import { PRIORITIES } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { differenceInDays, parseISO, startOfDay, isBefore } from 'date-fns';
 
 
 const getPriorityBadgeVariant = (priority?: PriorityType) => {
@@ -41,6 +42,30 @@ const getPriorityBadgeVariant = (priority?: PriorityType) => {
       return "default";
   }
 };
+
+const getProjectDeadlineText = (prazo?: string): string | null => {
+  if (!prazo) return null;
+  try {
+    const today = startOfDay(new Date());
+    const deadlineDate = startOfDay(parseISO(prazo));
+    const daysRemaining = differenceInDays(deadlineDate, today);
+
+    if (isBefore(deadlineDate, today)) {
+      return `| Atrasado (${Math.abs(daysRemaining)}d)`;
+    }
+    if (daysRemaining === 0) {
+      return "| Hoje!";
+    }
+    if (daysRemaining > 0) {
+        return `| ${daysRemaining}d restantes`;
+    }
+    return null; 
+  } catch (error) {
+    // console.error("Error parsing prazo for deadline text:", error); // Pode ser muito verboso
+    return null;
+  }
+};
+
 
 export default function DashboardPage() {
   const { clients, addClient, updateClient, deleteClient, loading } = useAppData();
@@ -231,12 +256,15 @@ export default function DashboardPage() {
             <CardContent className="flex-grow">
               {client.projetos.length > 0 ? (
                 <ul className="space-y-1 text-sm text-muted-foreground">
-                  {client.projetos.slice(0, 3).map(p => (
-                    <li key={p.id} className="flex items-center">
-                      <FolderKanban className="h-4 w-4 mr-2 text-primary/70 shrink-0"/> 
-                      {p.nome}
-                    </li>
-                  ))}
+                  {client.projetos.slice(0, 3).map(p => {
+                    const deadlineText = getProjectDeadlineText(p.prazo);
+                    return (
+                      <li key={p.id} className="flex items-center">
+                        <FolderKanban className="h-4 w-4 mr-2 text-primary/70 shrink-0"/> 
+                        {p.nome} {deadlineText && <span className="ml-1 text-xs">{deadlineText}</span>}
+                      </li>
+                    );
+                  })}
                   {client.projetos.length > 3 && <li>E mais {client.projetos.length - 3}...</li>}
                 </ul>
               ) : (
@@ -280,5 +308,4 @@ export default function DashboardPage() {
     </div>
   );
 }
-
     
