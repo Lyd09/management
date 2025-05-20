@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from '@/hooks/use-toast';
-import type { PriorityType, Client } from '@/types';
+import type { PriorityType, Client, Project } from '@/types';
 import { PRIORITIES } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -61,9 +61,25 @@ const getProjectDeadlineText = (prazo?: string): string | null => {
     }
     return null; 
   } catch (error) {
-    // console.error("Error parsing prazo for deadline text:", error); // Pode ser muito verboso
+    // console.error("Error parsing prazo for deadline text:", error);
     return null;
   }
+};
+
+const projectHasImminentDeadline = (project: Project): boolean => {
+  if (!project.prazo) return false;
+  try {
+    const today = startOfDay(new Date());
+    const deadlineDate = startOfDay(parseISO(project.prazo));
+    const daysRemaining = differenceInDays(deadlineDate, today);
+    return isBefore(deadlineDate, today) || daysRemaining <= 3;
+  } catch (error) {
+    return false;
+  }
+};
+
+const clientHasImminentProject = (client: Client): boolean => {
+  return client.projetos.some(projectHasImminentDeadline);
 };
 
 
@@ -115,36 +131,46 @@ export default function DashboardPage() {
   };
 
   const filteredClients = useMemo(() => {
-    let tempClients = [...clients]; // Create a shallow copy for sorting
+    let tempClients = [...clients]; 
 
     // Filter by priority
     if (priorityFilter !== "Todas") {
       tempClients = tempClients.filter(client => client.prioridade === priorityFilter);
     }
+    
+    // Filter by search term
+    if (searchTerm) {
+        tempClients = tempClients.filter(client =>
+            client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            client.projetos.some(project => project.nome.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+    }
 
-    // Sort by project presence: clients with projects first, then clients without projects.
-    // The original 'clients' array from context is already sorted by createdAt.
-    // This sort will group them, and 'return 0' preserves relative order within groups.
+    // Sort clients
     tempClients.sort((a, b) => {
+      const aHasImminent = clientHasImminentProject(a);
+      const bHasImminent = clientHasImminentProject(b);
       const aHasProjects = a.projetos.length > 0;
       const bHasProjects = b.projetos.length > 0;
 
-      if (aHasProjects && !bHasProjects) {
-        return -1; // a (with projects) comes before b (without projects)
-      }
-      if (!aHasProjects && bHasProjects) {
-        return 1;  // b (with projects) comes before a (without projects)
-      }
-      return 0; // Maintain original relative order (based on createdAt)
+      // 1. Clients with imminent projects first
+      if (aHasImminent && !bHasImminent) return -1;
+      if (!aHasImminent && bHasImminent) return 1;
+
+      // 2. Then, clients with any projects before clients with no projects
+      if (aHasProjects && !bHasProjects) return -1;
+      if (!aHasProjects && bHasProjects) return 1;
+      
+      // 3. Maintain original relative order (based on createdAt from Firestore)
+      //    This is implicitly handled if clients array from context is already sorted
+      //    and the sort here returns 0 for items considered "equal" by the above criteria.
+      //    If `clients` is not guaranteed to be sorted by `createdAt` desc,
+      //    we might need to add: `return b.createdAt.toMillis() - a.createdAt.toMillis();`
+      //    However, AppDataContext already sorts by createdAt desc.
+      return 0; 
     });
     
-    // Filter by search term
-    if (!searchTerm) return tempClients;
-
-    return tempClients.filter(client =>
-      client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.projetos.some(project => project.nome.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    return tempClients;
   }, [clients, searchTerm, priorityFilter]);
 
   if (loading) {
@@ -180,6 +206,7 @@ export default function DashboardPage() {
                     <li>Avisos visuais para prazos de projetos próximos ou vencidos.</li>
                     <li>Filtros implementados no painel (prioridade cliente) e na página de detalhes do cliente (tipo, status, prioridade projeto).</li>
                     <li>Seção de atualizações do site agora em um popover.</li>
+                    <li>Ordenação de clientes no painel: clientes com projetos (especialmente com prazos urgentes) aparecem primeiro.</li>
                   </ul>
                 </CardContent>
               </Card>
@@ -329,4 +356,6 @@ export default function DashboardPage() {
     </div>
   );
 }
+    
+
     
