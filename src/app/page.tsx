@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from '@/hooks/use-toast';
 import type { PriorityType, Client } from '@/types';
 import { PRIORITIES } from '@/lib/constants';
@@ -114,7 +115,31 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="text-3xl font-bold text-primary">Painel de Clientes</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-bold text-primary">Painel de Clientes</h1>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Ver atualizações recentes">
+                <Info className="h-6 w-6 text-primary hover:text-primary/80" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 sm:w-96" side="bottom" align="start">
+              <Card className="border-none shadow-none">
+                <CardHeader className="p-4">
+                  <CardTitle className="flex items-center text-lg"><Info className="mr-2 h-5 w-5 text-primary"/>Atualizações Recentes do Projetex</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                    <li>Marcação de prioridade para clientes e projetos adicionada!</li>
+                    <li>Avisos visuais para prazos de projetos próximos ou vencidos.</li>
+                    <li>Filtros básicos implementados no painel e na página de detalhes do cliente.</li>
+                    <li>Seção de atualizações do site agora em um popover.</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </PopoverContent>
+          </Popover>
+        </div>
         <Dialog open={isAddClientDialogOpen} onOpenChange={setIsAddClientDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -252,21 +277,8 @@ export default function DashboardPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle className="flex items-center text-xl"><Info className="mr-2 h-5 w-5 text-primary"/>Atualizações Recentes do Projetex</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-            <li>Marcação de prioridade para clientes e projetos adicionada!</li>
-            <li>Avisos visuais para prazos de projetos próximos ou vencidos.</li>
-            <li>Filtros básicos implementados no painel e na página de detalhes do cliente.</li>
-            <li>Seção de atualizações do site adicionada.</li>
-          </ul>
-        </CardContent>
-      </Card>
-
     </div>
   );
 }
+
+    
