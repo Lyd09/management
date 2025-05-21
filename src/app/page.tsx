@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/ClientForm";
 import type { ClientFormValues } from "@/components/ClientForm";
-import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Info } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from '@/hooks/use-toast';
 import type { PriorityType, Client, Project } from '@/types';
 import { PRIORITIES } from '@/lib/constants';
@@ -164,9 +163,6 @@ export default function DashboardPage() {
       // 3. Maintain original relative order (based on createdAt from Firestore)
       //    This is implicitly handled if clients array from context is already sorted
       //    and the sort here returns 0 for items considered "equal" by the above criteria.
-      //    If `clients` is not guaranteed to be sorted by `createdAt` desc,
-      //    we might need to add: `return b.createdAt.toMillis() - a.createdAt.toMillis();`
-      //    However, AppDataContext already sorts by createdAt desc.
       return 0; 
     });
     
@@ -187,31 +183,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-bold text-primary">Painel de Clientes</h1>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Ver atualizações recentes">
-                <Info className="h-6 w-6 text-primary hover:text-primary/80" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 sm:w-96" side="bottom" align="start">
-              <Card className="border-none shadow-none">
-                <CardHeader className="p-4">
-                  <CardTitle className="flex items-center text-lg"><Info className="mr-2 h-5 w-5 text-primary"/>Atualizações Recentes do Projetex</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                    <li>Exibição de dias restantes para prazos de projetos no painel.</li>
-                    <li>Filtro por proximidade de prazo adicionado na página de detalhes do cliente.</li>
-                    <li>Marcação de prioridade para clientes e projetos adicionada!</li>
-                    <li>Avisos visuais para prazos de projetos próximos ou vencidos.</li>
-                    <li>Filtros implementados no painel (prioridade cliente) e na página de detalhes do cliente (tipo, status, prioridade projeto).</li>
-                    <li>Seção de atualizações do site agora em um popover.</li>
-                    <li>Ordenação de clientes no painel: clientes com projetos (especialmente com prazos urgentes) aparecem primeiro.</li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </PopoverContent>
-          </Popover>
+          {/* Popover for updates was here, now moved to Header.tsx */}
         </div>
         <Dialog open={isAddClientDialogOpen} onOpenChange={setIsAddClientDialogOpen}>
           <DialogTrigger asChild>

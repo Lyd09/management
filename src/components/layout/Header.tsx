@@ -35,7 +35,7 @@ export function Header() {
               <Card className="border-none shadow-none">
                 <CardHeader className="p-4 sticky top-0 bg-popover z-10">
                   <CardTitle className="flex items-center text-lg">
-                    <History className="mr-2 h-5 w-5 text-primary"/>Histórico de Modificações
+                    <History className="mr-2 h-5 w-5 text-primary"/>Atualizações Recentes do Projetex
                   </CardTitle>
                   <CardDescription>Acompanhe as principais atualizações do Projetex.</CardDescription>
                 </CardHeader>
