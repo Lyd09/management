@@ -19,6 +19,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CalendarIcon, PlusCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
@@ -28,7 +38,7 @@ import { PROJECT_TYPES, PROJECT_STATUS_OPTIONS, INITIAL_PROJECT_STATUS, PRIORITI
 import { ChecklistItemInput } from "./ChecklistItemInput";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 
 // Mock function for AI status suggestions
 const mockSuggestProjectStatus = async (projectType: ProjectType): Promise<string[]> => {
@@ -72,6 +82,10 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   const [aiSuggestedStatuses, setAiSuggestedStatuses] = useState<string[]>([]);
   const [isLoadingAiSuggestions, setIsLoadingAiSuggestions] = useState(false);
 
+  const [showCompleteConfirmation, setShowCompleteConfirmation] = useState(false);
+  const initialStatusOnLoadRef = useRef<string>(project?.status || (project?.tipo ? INITIAL_PROJECT_STATUS(project.tipo) : ""));
+
+
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
     defaultValues: {
@@ -85,6 +99,31 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       checklist: project?.checklist || [],
     },
   });
+
+  const watchedStatus = form.watch('status');
+
+  useEffect(() => {
+    // Update ref if project prop changes (e.g. navigating to edit a different project on the same page component instance)
+    initialStatusOnLoadRef.current = project?.status || (project?.tipo ? INITIAL_PROJECT_STATUS(project.tipo) : "");
+    // Reset form if project changes
+    form.reset({
+      nome: project?.nome || "",
+      tipo: project?.tipo,
+      status: project?.status || (project?.tipo ? INITIAL_PROJECT_STATUS(project.tipo) : ""),
+      prioridade: project?.prioridade || "Média",
+      descricao: project?.descricao || "",
+      prazo: project?.prazo && isValid(parseISO(project.prazo)) ? parseISO(project.prazo) : undefined,
+      notas: project?.notas || "",
+      checklist: project?.checklist || [],
+    });
+    if(project?.tipo) {
+        setSelectedProjectType(project.tipo);
+        const defaultStatuses = PROJECT_STATUS_OPTIONS[project.tipo] || [];
+        setStatusOptions(defaultStatuses);
+        // No AI fetch on initial load if project exists, do it on type change or if no project
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project]); // form.reset is safe in useEffect deps
 
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
@@ -109,29 +148,24 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   }, [toast]);
   
   useEffect(() => {
-    if (project?.tipo) {
-      setSelectedProjectType(project.tipo);
-      const defaultStatuses = PROJECT_STATUS_OPTIONS[project.tipo] || [];
-      setStatusOptions(defaultStatuses);
-      if (project.status && defaultStatuses.includes(project.status)) {
-        form.setValue("status", project.status);
-      } else if (defaultStatuses.length > 0) {
-        form.setValue("status", defaultStatuses[0]);
-      } else {
-        form.setValue("status", "");
-      }
-      fetchAiSuggestions(project.tipo);
+    if (project?.tipo && !project.status) { // Ensure status is set if project.tipo exists but status is somehow undefined
+        const initialStatus = INITIAL_PROJECT_STATUS(project.tipo);
+        form.setValue("status", initialStatus);
+        initialStatusOnLoadRef.current = initialStatus;
     }
-     if (project?.prazo) {
-      const parsedDate = parseISO(project.prazo);
-      if (isValid(parsedDate)) {
-        form.setValue("prazo", parsedDate);
-      }
+
+    const formChecklist = form.getValues('checklist');
+    const hasIncompleteItems = formChecklist?.some(item => !item.feito);
+
+    if (
+      watchedStatus === "Projeto Concluído" &&
+      initialStatusOnLoadRef.current !== "Projeto Concluído" &&
+      hasIncompleteItems &&
+      !showCompleteConfirmation // Only trigger if dialog isn't already open
+    ) {
+      setShowCompleteConfirmation(true);
     }
-    if (project?.prioridade) {
-      form.setValue("prioridade", project.prioridade);
-    }
-  }, [project, form, fetchAiSuggestions]);
+  }, [watchedStatus, form, project, showCompleteConfirmation]);
 
 
   const handleTypeChange = (value: string) => {
@@ -139,8 +173,10 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     setSelectedProjectType(newType);
     form.setValue("tipo", newType);
     const defaultStatuses = PROJECT_STATUS_OPTIONS[newType] || [];
+    const newInitialStatus = defaultStatuses.length > 0 ? defaultStatuses[0] : "";
     setStatusOptions(defaultStatuses);
-    form.setValue("status", defaultStatuses.length > 0 ? defaultStatuses[0] : "");
+    form.setValue("status", newInitialStatus);
+    initialStatusOnLoadRef.current = newInitialStatus; // Update ref when type changes status
     fetchAiSuggestions(newType);
   };
 
@@ -160,8 +196,33 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         notas: "",
         checklist: [],
       });
+      initialStatusOnLoadRef.current = ""; // Reset ref for new form
+    } else if (isPage) {
+        // If it's a page, after submission, the new "initial" status is the one just submitted
+        initialStatusOnLoadRef.current = data.status;
     }
   };
+
+  const handleMarkAllAndProceed = () => {
+    const currentChecklistValues = form.getValues('checklist');
+    if (currentChecklistValues) {
+      const updatedChecklist = currentChecklistValues.map(item => ({ ...item, feito: true }));
+      form.setValue('checklist', updatedChecklist, { shouldDirty: true, shouldValidate: true });
+    }
+    initialStatusOnLoadRef.current = "Projeto Concluído"; // Mark this as the "new initial"
+    setShowCompleteConfirmation(false);
+  };
+
+  const handleProceedWithoutMarking = () => {
+    initialStatusOnLoadRef.current = "Projeto Concluído"; // Mark this as the "new initial"
+    setShowCompleteConfirmation(false);
+  };
+
+  const handleCancelCompletionChange = () => {
+    form.setValue('status', initialStatusOnLoadRef.current); // Revert to the status before "Projeto Concluído" was attempted
+    setShowCompleteConfirmation(false);
+  };
+
 
   const formContainerClass = "max-w-2xl mx-auto p-6 bg-card shadow-lg rounded-lg";
   const formTitle = project ? "Editar Projeto" : "Criar Novo Projeto";
@@ -190,7 +251,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tipo de Projeto</FormLabel>
-              <Select onValueChange={handleTypeChange} defaultValue={field.value}>
+              <Select onValueChange={handleTypeChange} value={field.value || ""} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o tipo" />
@@ -219,7 +280,10 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                 {isLoadingAiSuggestions && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
               </FormLabel>
               <Select
-                onValueChange={field.onChange}
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  // initialStatusOnLoadRef logic is handled by useEffect on watchedStatus
+                }}
                 value={field.value}
                 disabled={!selectedProjectType || isLoadingAiSuggestions}
               >
@@ -249,7 +313,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
             render={({ field }) => (
                 <FormItem>
                 <FormLabel>Prioridade do Projeto</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || "Média"}>
+                <Select onValueChange={field.onChange} value={field.value || "Média"} defaultValue={field.value || "Média"}>
                     <FormControl>
                     <SelectTrigger>
                         <SelectValue placeholder="Selecione a prioridade" />
@@ -341,11 +405,11 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
 
       <div>
         <FormLabel>Checklist</FormLabel>
-        {fields.map((field, index) => (
+        {fields.map((fieldItem, index) => (
           <ChecklistItemInput
-            key={field.id}
-            item={field as ChecklistItem} // Casting is okay here as we know the structure
-            onChange={(updatedItem) => update(index, updatedItem)}
+            key={fieldItem.id}
+            item={fieldItem as ChecklistItem}
+            onChange={(updatedSubItem) => update(index, updatedSubItem)}
             onRemove={() => remove(index)}
           />
         ))}
@@ -386,7 +450,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
             </div>
           </div>
         ) : (
-          <div className="p-0"> {/* No extra padding for dialog content as DialogContent has its own */}
+          <div className="p-0"> 
             {commonFields}
             <DialogFooter className="mt-6">
               {onClose && (
@@ -401,7 +465,8 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                         prazo: undefined,
                         notas: "",
                         checklist: [],
-                      }); 
+                      });
+                      initialStatusOnLoadRef.current = ""; 
                       if(onClose) onClose(); 
                     }}>
                     Cancelar
@@ -416,6 +481,24 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
           </div>
         )}
       </form>
+
+      <AlertDialog open={showCompleteConfirmation} onOpenChange={setShowCompleteConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Conclusão do Projeto</AlertDialogTitle>
+            <AlertDialogDescription>
+              O projeto tem itens pendentes no checklist. Deseja marcar todos os itens como concluídos automaticamente?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={handleCancelCompletionChange}>Cancelar Mudança de Status</Button>
+            <AlertDialogAction onClick={handleProceedWithoutMarking}>Concluir Assim Mesmo</AlertDialogAction>
+            <AlertDialogAction onClick={handleMarkAllAndProceed} className="bg-primary hover:bg-primary/90">Marcar Todos e Concluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Form>
   );
 }
+
+    
