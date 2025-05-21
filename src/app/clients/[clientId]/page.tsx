@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, AlertTriangle, Filter, CalendarClock } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent } from "lucide-react"; // Removed AlertTriangle, Filter
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -71,7 +71,7 @@ const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default
         if (daysRemaining <= 7) {
             return { text: `${daysRemaining}d restantes`, variant: "secondary" };
         }
-        return null; 
+        return null;
     } catch (error) {
         console.error("Error parsing prazo for deadline badge:", error);
         return null;
@@ -93,8 +93,30 @@ const categorizeDeadline = (prazo?: string): DeadlineFilterCategory => {
     }
     return "Distantes";
   } catch (error) {
-    return "Sem Prazo"; // Fallback for invalid dates
+    return "Sem Prazo";
   }
+};
+
+// Calculate project completion percentage
+const getProjectCompletionPercentage = (project: Project): number | null => {
+  if (project.status === "Projeto Concluído") {
+    return 100;
+  }
+  if (!project.checklist || project.checklist.length === 0) {
+    return null; // Don't show badge if checklist is empty and project is not "Concluído"
+  }
+  const totalItems = project.checklist.length;
+  const completedItems = project.checklist.filter(item => item.feito).length;
+  if (totalItems === 0) return 0; // Should be caught by the null check above, but safeguard
+  return Math.round((completedItems / totalItems) * 100);
+};
+
+// Determine badge variant and class based on completion percentage
+const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
+  if (percentage === null) return { variant: "secondary", className: "" }; // Fallback, should not be rendered
+  if (percentage === 100) return { variant: "default", className: "bg-green-600/80 hover:bg-green-600/70 text-white" };
+  if (percentage >= 50) return { variant: "default", className: "" }; // Uses primary color (red in current theme)
+  return { variant: "secondary", className: "" };
 };
 
 
@@ -102,7 +124,7 @@ export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const clientId = typeof params.clientId === 'string' ? params.clientId : '';
-  
+
   const { getClientById, addProject, deleteProject, loading } = useAppData();
   const { toast } = useToast();
 
@@ -111,7 +133,6 @@ export default function ClientDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
-  // Filters
   const [typeFilter, setTypeFilter] = useState<ProjectType | "Todos">("Todos");
   const [statusFilter, setStatusFilter] = useState<string | "Todos">("Todos");
   const [priorityFilter, setPriorityFilter] = useState<PriorityType | "Todos">("Todos");
@@ -134,19 +155,19 @@ export default function ClientDetailPage() {
     if (!client) return;
     const projectPayload: Omit<Project, 'id' | 'checklist'> & { checklist?: Partial<Project['checklist']> } = {
       nome: data.nome,
-      tipo: data.tipo as ProjectType, 
+      tipo: data.tipo as ProjectType,
       status: data.status,
       prioridade: data.prioridade,
       descricao: data.descricao,
-      prazo: data.prazo as (string | undefined), 
+      prazo: data.prazo as (string | undefined),
       notas: data.notas,
-      checklist: data.checklist, 
+      checklist: data.checklist,
     };
     addProject(client.id, projectPayload);
     setIsAddProjectDialogOpen(false);
     toast({ title: "Projeto Adicionado", description: `O projeto ${data.nome} foi adicionado.` });
   };
-  
+
   const confirmDeleteProject = (projectId: string) => {
     setProjectToDelete(projectId);
     setShowDeleteConfirm(true);
@@ -194,13 +215,13 @@ export default function ClientDetailPage() {
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-6">
       <Button variant="outline" onClick={() => router.push('/')} className="mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao Painel
       </Button>
-      
+
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <h1 className="text-3xl font-bold text-primary">{client.nome}</h1>
         <Dialog open={isAddProjectDialogOpen} onOpenChange={setIsAddProjectDialogOpen}>
@@ -298,7 +319,7 @@ export default function ClientDetailPage() {
               <Dialog open={isAddProjectDialogOpen} onOpenChange={setIsAddProjectDialogOpen}>
                 <DialogTrigger asChild>
                     <Button size="lg">
-                    <PlusCircle className="mr-2 h-5 w-5" /> 
+                    <PlusCircle className="mr-2 h-5 w-5" />
                     {client.projetos.length === 0 ? "Adicionar primeiro projeto" : "Adicionar Novo Projeto"}
                     </Button>
                 </DialogTrigger>
@@ -312,6 +333,9 @@ export default function ClientDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => {
             const deadlineInfo = getDeadlineBadgeInfo(project.prazo);
+            const completionPercentage = getProjectCompletionPercentage(project);
+            const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage);
+
             return (
             <Card key={project.id} className="flex flex-col hover:shadow-primary/20 hover:shadow-md transition-shadow duration-300">
               <CardHeader>
@@ -330,13 +354,24 @@ export default function ClientDetailPage() {
                             {project.prioridade}
                         </Badge>
                     )}
-                    <Badge variant={project.status === "Projeto Concluído" ? "default" : "secondary"} className={`${project.status === "Projeto Concluído" ? "bg-green-600/80 text-white" : ""} text-xs`}>
+                    <Badge 
+                      variant={project.status === "Projeto Concluído" ? "default" : "secondary"} 
+                      className={`${project.status === "Projeto Concluído" ? "bg-green-600/80 hover:bg-green-600/70 text-white" : ""} text-xs`}
+                    >
                         {project.status}
                     </Badge>
                     {deadlineInfo && (
                         <Badge variant={deadlineInfo.variant} className="text-xs flex items-center">
                            <CalendarClock className="mr-1 h-3 w-3" /> {deadlineInfo.text}
                         </Badge>
+                    )}
+                    {completionPercentage !== null && (
+                       <Badge
+                        variant={completionBadgeStyle.variant}
+                        className={`text-xs ${completionBadgeStyle.className}`}
+                       >
+                        <Percent className="mr-1 h-3 w-3" /> {completionPercentage}%
+                       </Badge>
                     )}
                 </div>
               </CardHeader>
@@ -376,5 +411,3 @@ export default function ClientDetailPage() {
     </div>
   );
 }
-
-    

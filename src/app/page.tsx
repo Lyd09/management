@@ -10,7 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/ClientForm";
 import type { ClientFormValues } from "@/components/ClientForm";
-import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Percent, History } from "lucide-react"; // Added Percent
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +26,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import type { PriorityType, Client, Project } from '@/types';
-import { PRIORITIES } from '@/lib/constants';
+import { PRIORITIES, CHANGELOG_DATA } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { differenceInDays, parseISO, startOfDay, isBefore } from 'date-fns';
@@ -58,9 +61,8 @@ const getProjectDeadlineText = (prazo?: string): string | null => {
     if (daysRemaining > 0) {
         return `| ${daysRemaining}d restantes`;
     }
-    return null; 
+    return null;
   } catch (error) {
-    // console.error("Error parsing prazo for deadline text:", error);
     return null;
   }
 };
@@ -79,6 +81,27 @@ const projectHasImminentDeadline = (project: Project): boolean => {
 
 const clientHasImminentProject = (client: Client): boolean => {
   return client.projetos.some(projectHasImminentDeadline);
+};
+
+const getProjectCompletionPercentage = (project: Project): number | null => {
+  if (project.status === "Projeto Concluído") {
+    return 100;
+  }
+  if (!project.checklist || project.checklist.length === 0) {
+    return null; // Não mostrar badge se checklist vazio e não concluído
+  }
+  const totalItems = project.checklist.length;
+  const completedItems = project.checklist.filter(item => item.feito).length;
+  if (totalItems === 0) return 0; // Should be caught by the null check above
+  return Math.round((completedItems / totalItems) * 100);
+};
+
+// Determine badge variant and class based on completion percentage
+const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
+  if (percentage === null) return { variant: "secondary", className: "" }; // Fallback, should not be rendered
+  if (percentage === 100) return { variant: "default", className: "bg-green-600/80 hover:bg-green-600/70 text-white" };
+  if (percentage >= 50) return { variant: "default", className: "" }; // Uses primary color (red in current theme)
+  return { variant: "secondary", className: "" };
 };
 
 
@@ -108,7 +131,7 @@ export default function DashboardPage() {
       toast({ title: "Cliente Atualizado", description: `O cliente ${data.nome} foi atualizado.` });
     }
   };
-  
+
   const openEditDialog = (client: Client) => {
     setEditingClient(client);
     setIsEditClientDialogOpen(true);
@@ -130,14 +153,12 @@ export default function DashboardPage() {
   };
 
   const filteredClients = useMemo(() => {
-    let tempClients = [...clients]; 
+    let tempClients = [...clients];
 
-    // Filter by priority
     if (priorityFilter !== "Todas") {
       tempClients = tempClients.filter(client => client.prioridade === priorityFilter);
     }
-    
-    // Filter by search term
+
     if (searchTerm) {
         tempClients = tempClients.filter(client =>
             client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -145,27 +166,21 @@ export default function DashboardPage() {
         );
     }
 
-    // Sort clients
     tempClients.sort((a, b) => {
       const aHasImminent = clientHasImminentProject(a);
       const bHasImminent = clientHasImminentProject(b);
       const aHasProjects = a.projetos.length > 0;
       const bHasProjects = b.projetos.length > 0;
 
-      // 1. Clients with imminent projects first
       if (aHasImminent && !bHasImminent) return -1;
       if (!aHasImminent && bHasImminent) return 1;
 
-      // 2. Then, clients with any projects before clients with no projects
       if (aHasProjects && !bHasProjects) return -1;
       if (!aHasProjects && bHasProjects) return 1;
-      
-      // 3. Maintain original relative order (based on createdAt from Firestore)
-      //    This is implicitly handled if clients array from context is already sorted
-      //    and the sort here returns 0 for items considered "equal" by the above criteria.
-      return 0; 
+
+      return 0;
     });
-    
+
     return tempClients;
   }, [clients, searchTerm, priorityFilter]);
 
@@ -183,7 +198,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-bold text-primary">Painel de Clientes</h1>
-          {/* Popover for updates was here, now moved to Header.tsx */}
+           {/* Popover for updates moved to Header.tsx */}
         </div>
         <Dialog open={isAddClientDialogOpen} onOpenChange={setIsAddClientDialogOpen}>
           <DialogTrigger asChild>
@@ -275,17 +290,30 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="flex-grow">
               {client.projetos.length > 0 ? (
-                <ul className="space-y-1 text-sm text-muted-foreground">
+                <ul className="space-y-2 text-sm text-muted-foreground">
                   {client.projetos.slice(0, 3).map(p => {
                     const deadlineText = getProjectDeadlineText(p.prazo);
+                    const completionPercentage = getProjectCompletionPercentage(p);
+                    const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage);
                     return (
-                      <li key={p.id} className="flex items-center">
-                        <FolderKanban className="h-4 w-4 mr-2 text-primary/70 shrink-0"/> 
-                        {p.nome} {deadlineText && <span className="ml-1 text-xs">{deadlineText}</span>}
+                      <li key={p.id} className="flex flex-col items-start">
+                        <div className="flex items-center">
+                          <FolderKanban className="h-4 w-4 mr-2 text-primary/70 shrink-0"/>
+                          <span>{p.nome}</span>
+                          {deadlineText && <span className="ml-1 text-xs text-muted-foreground/80">{deadlineText}</span>}
+                        </div>
+                        {completionPercentage !== null && (
+                           <Badge
+                            variant={completionBadgeStyle.variant}
+                            className={`text-xs mt-1 ml-6 ${completionBadgeStyle.className}`} // Adjust margin as needed
+                           >
+                            <Percent className="mr-1 h-3 w-3" /> {completionPercentage}%
+                           </Badge>
+                        )}
                       </li>
                     );
                   })}
-                  {client.projetos.length > 3 && <li>E mais {client.projetos.length - 3}...</li>}
+                  {client.projetos.length > 3 && <li className="mt-1 ml-6">E mais {client.projetos.length - 3}...</li>}
                 </ul>
               ) : (
                 <p className="text-sm text-muted-foreground italic">Nenhum projeto cadastrado para este cliente.</p>
