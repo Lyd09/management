@@ -103,19 +103,19 @@ const getProjectCompletionPercentage = (project: Project): number | null => {
     return 100;
   }
   if (!project.checklist || project.checklist.length === 0) {
-    return null; // Don't show badge if checklist is empty and project is not "Concluído"
+    return null; 
   }
   const totalItems = project.checklist.length;
   const completedItems = project.checklist.filter(item => item.feito).length;
-  if (totalItems === 0) return 0; // Should be caught by the null check above, but safeguard
+  if (totalItems === 0) return 0; 
   return Math.round((completedItems / totalItems) * 100);
 };
 
 // Determine badge variant and class based on completion percentage
 const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
-  if (percentage === null) return { variant: "secondary", className: "" }; // Fallback, should not be rendered
+  if (percentage === null) return { variant: "secondary", className: "" }; 
   if (percentage === 100) return { variant: "default", className: "bg-green-600/80 hover:bg-green-600/70 text-white" };
-  if (percentage >= 50) return { variant: "default", className: "" }; // Uses primary color (red in current theme)
+  if (percentage >= 50) return { variant: "default", className: "" }; 
   return { variant: "secondary", className: "" };
 };
 
@@ -370,7 +370,7 @@ export default function ClientDetailPage() {
                         variant={completionBadgeStyle.variant}
                         className={`text-xs ${completionBadgeStyle.className}`}
                        >
-                        <Percent className="mr-1 h-3 w-3" /> {completionPercentage}%
+                        <Percent className="mr-1 h-3 w-3" /> {completionPercentage}
                        </Badge>
                     )}
                 </div>

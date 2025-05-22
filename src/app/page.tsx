@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/ClientForm";
 import type { ClientFormValues } from "@/components/ClientForm";
-import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Percent, History } from "lucide-react"; // Added Percent
+import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Percent, History } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -80,27 +80,28 @@ const projectHasImminentDeadline = (project: Project): boolean => {
 };
 
 const clientHasImminentProject = (client: Client): boolean => {
-  return client.projetos.some(projectHasImminentDeadline);
+  return client.projetos.some(project => project.status !== "Projeto Concluído" && projectHasImminentDeadline(project));
 };
 
+// Calculate project completion percentage
 const getProjectCompletionPercentage = (project: Project): number | null => {
   if (project.status === "Projeto Concluído") {
     return 100;
   }
   if (!project.checklist || project.checklist.length === 0) {
-    return null; // Não mostrar badge se checklist vazio e não concluído
+    return null; 
   }
   const totalItems = project.checklist.length;
   const completedItems = project.checklist.filter(item => item.feito).length;
-  if (totalItems === 0) return 0; // Should be caught by the null check above
+  if (totalItems === 0) return 0;
   return Math.round((completedItems / totalItems) * 100);
 };
 
 // Determine badge variant and class based on completion percentage
 const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
-  if (percentage === null) return { variant: "secondary", className: "" }; // Fallback, should not be rendered
+  if (percentage === null) return { variant: "secondary", className: "" };
   if (percentage === 100) return { variant: "default", className: "bg-green-600/80 hover:bg-green-600/70 text-white" };
-  if (percentage >= 50) return { variant: "default", className: "" }; // Uses primary color (red in current theme)
+  if (percentage >= 50) return { variant: "default", className: "" };
   return { variant: "secondary", className: "" };
 };
 
@@ -166,18 +167,24 @@ export default function DashboardPage() {
         );
     }
 
+    // Prioritize clients with imminent project deadlines, then clients with any active projects, then clients with no projects.
     tempClients.sort((a, b) => {
       const aHasImminent = clientHasImminentProject(a);
       const bHasImminent = clientHasImminentProject(b);
-      const aHasProjects = a.projetos.length > 0;
-      const bHasProjects = b.projetos.length > 0;
+      const aHasActiveProjects = a.projetos.some(p => p.status !== "Projeto Concluído");
+      const bHasActiveProjects = b.projetos.some(p => p.status !== "Projeto Concluído");
 
       if (aHasImminent && !bHasImminent) return -1;
       if (!aHasImminent && bHasImminent) return 1;
 
-      if (aHasProjects && !bHasProjects) return -1;
-      if (!aHasProjects && bHasProjects) return 1;
-
+      if (aHasActiveProjects && !bHasActiveProjects) return -1;
+      if (!aHasActiveProjects && bHasActiveProjects) return 1;
+      
+      // Fallback for clients with no active projects or no imminent deadlines - could be creation date or name
+      // For now, Firestore's default ordering by createdAt (desc) or name might be sufficient if no other criteria match.
+      // If we used Firebase's `createdAt` which is a Timestamp, we could sort by that more explicitly here.
+      // Since `createdAt` is not directly on the `Client` type in JS (it's part of Firestore data),
+      // we'll rely on the initial fetch order or other filters for now.
       return 0;
     });
 
@@ -198,7 +205,6 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-bold text-primary">Painel de Clientes</h1>
-           {/* Popover for updates moved to Header.tsx */}
         </div>
         <Dialog open={isAddClientDialogOpen} onOpenChange={setIsAddClientDialogOpen}>
           <DialogTrigger asChild>
@@ -268,7 +274,12 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredClients.map((client) => (
+        {filteredClients.map((client) => {
+          const nonCompletedProjects = client.projetos.filter(p => p.status !== "Projeto Concluído");
+          const projectsToDisplay = nonCompletedProjects.slice(0, 3);
+          const remainingProjectsCount = nonCompletedProjects.length - projectsToDisplay.length;
+
+          return (
           <Card key={client.id} className="flex flex-col hover:shadow-primary/20 hover:shadow-md transition-shadow duration-300">
             <CardHeader>
               <div className="flex justify-between items-start">
@@ -286,12 +297,17 @@ export default function DashboardPage() {
                     </Link>
                 </div>
               </div>
-              <CardDescription>{client.projetos.length} projeto(s)</CardDescription>
+              <CardDescription>
+                {nonCompletedProjects.length > 0 
+                    ? `${nonCompletedProjects.length} projeto(s) em andamento` 
+                    : (client.projetos.length > 0 ? "Todos os projetos concluídos" : "Nenhum projeto")
+                }
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex-grow">
-              {client.projetos.length > 0 ? (
+              {projectsToDisplay.length > 0 ? (
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  {client.projetos.slice(0, 3).map(p => {
+                  {projectsToDisplay.map(p => {
                     const deadlineText = getProjectDeadlineText(p.prazo);
                     const completionPercentage = getProjectCompletionPercentage(p);
                     const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage);
@@ -302,21 +318,23 @@ export default function DashboardPage() {
                           <span>{p.nome}</span>
                           {deadlineText && <span className="ml-1 text-xs text-muted-foreground/80">{deadlineText}</span>}
                         </div>
-                        {completionPercentage !== null && (
+                        {completionPercentage !== null && p.status !== "Projeto Concluído" && (
                            <Badge
                             variant={completionBadgeStyle.variant}
-                            className={`text-xs mt-1 ml-6 ${completionBadgeStyle.className}`} // Adjust margin as needed
+                            className={`text-xs mt-1 ml-6 ${completionBadgeStyle.className}`}
                            >
-                            <Percent className="mr-1 h-3 w-3" /> {completionPercentage}%
+                            <Percent className="mr-1 h-3 w-3" /> {completionPercentage}
                            </Badge>
                         )}
                       </li>
                     );
                   })}
-                  {client.projetos.length > 3 && <li className="mt-1 ml-6">E mais {client.projetos.length - 3}...</li>}
+                  {remainingProjectsCount > 0 && <li className="mt-1 ml-6">E mais {remainingProjectsCount}...</li>}
                 </ul>
               ) : (
-                <p className="text-sm text-muted-foreground italic">Nenhum projeto cadastrado para este cliente.</p>
+                <p className="text-sm text-muted-foreground italic">
+                  {client.projetos.length > 0 ? "Nenhum projeto em andamento para exibir." : "Nenhum projeto cadastrado para este cliente."}
+                </p>
               )}
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
@@ -328,7 +346,8 @@ export default function DashboardPage() {
               </Button>
             </CardFooter>
           </Card>
-        ))}
+        );
+      })}
       </div>
 
       {editingClient && (
@@ -357,5 +376,4 @@ export default function DashboardPage() {
   );
 }
     
-
     
