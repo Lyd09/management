@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -101,21 +101,20 @@ const getProjectCompletionPercentage = (project: Project): number | null => {
   if (project.status === "Aguardando Início") {
     return 0;
   }
-  if (project.status === "Projeto Concluído") { // This status implies 100% regardless of checklist
-    return 100;
-  }
+  // "Projeto Concluído" is handled by the main status badge, so no percentage badge needed for it.
+  // Or, if we wanted to show "100%" specifically for it, we'd handle it here.
+  // For now, if status is "Projeto Concluído", this function effectively won't be called
+  // for the percentage badge in the UI logic below.
+
   if (!project.checklist || project.checklist.length === 0) {
-    return null; // No checklist items, so no percentage to show unless "Aguardando Início" or "Concluído"
+    return null; // No checklist items, so no percentage to show
   }
   const totalItems = project.checklist.length;
   const completedItems = project.checklist.filter(item => item.feito).length;
   return Math.round((completedItems / totalItems) * 100);
 };
 
-const getCompletionBadgeStyle = (percentage: number | null, status: string): { variant: "secondary" | "default"; className: string } => {
-  if (status === "Projeto Concluído") { // Should be handled by the main status badge (green)
-      return { variant: "default", className: "bg-green-600 hover:bg-green-600/90 text-white" };
-  }
+const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
   if (percentage === null) return { variant: "secondary", className: "" };
   if (percentage >= 50) return { variant: "default", className: "" }; // Red (primary)
   return { variant: "secondary", className: "" }; // Gray
@@ -336,7 +335,7 @@ export default function ClientDetailPage() {
           {filteredProjects.map((project) => {
             const deadlineInfo = getDeadlineBadgeInfo(project.prazo);
             const completionPercentage = getProjectCompletionPercentage(project);
-            const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage, project.status);
+            const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage);
 
             return (
             <Card key={project.id} className="flex flex-col hover:shadow-primary/20 hover:shadow-md transition-shadow duration-300">
@@ -362,7 +361,7 @@ export default function ClientDetailPage() {
                     >
                         {project.status}
                     </Badge>
-                    {deadlineInfo && (
+                    {project.status !== "Projeto Concluído" && deadlineInfo && (
                         <Badge variant={deadlineInfo.variant} className="text-xs flex items-center">
                            <CalendarClock className="mr-1 h-3 w-3" /> {deadlineInfo.text}
                         </Badge>
@@ -418,5 +417,3 @@ export default function ClientDetailPage() {
     </div>
   );
 }
-
-    

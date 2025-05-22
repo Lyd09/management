@@ -38,7 +38,6 @@ export const PROJECT_STATUS_OPTIONS: Record<ProjectType, string[]> = {
 
 export const INITIAL_PROJECT_STATUS = (type: ProjectType): string => {
     const statuses = PROJECT_STATUS_OPTIONS[type];
-    // Make sure to set "Aguardando Início" as the initial status if it exists
     if (statuses.includes("Aguardando Início")) {
       return "Aguardando Início";
     }
@@ -54,8 +53,19 @@ export type ChangelogEntryItem = {
 };
 
 export const CHANGELOG_DATA: ChangelogEntryItem[] = [
+   {
+    date: "2024-05-25", // Substitua pela data atual
+    version: "1.4.1",
+    description: "Refinamentos na Exibição de Prazos e Atualizações",
+    details: [
+      "Indicadores de prazo (como 'Hoje!', 'X dias restantes') não são mais exibidos para projetos com status 'Projeto Concluído'.",
+      "Atualizado o changelog da aplicação.",
+      "Página de 'Atualizações Recentes' criada e acessível pelo menu.",
+      "Sugestão inteligente de prioridade 'Alta' ao definir prazos muito próximos para novos projetos.",
+    ],
+  },
   {
-    date: "2024-05-24", // Assuming today's date or last major update date
+    date: "2024-05-24",
     version: "1.4.0",
     description: "Grandes Melhorias de Funcionalidade e UX",
     details: [
@@ -77,7 +87,6 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     details: [
       "Painel de clientes agora prioriza clientes com projetos de prazo iminente.",
       "Contagem de dias restantes para projetos exibida nos cards de cliente no painel principal.",
-      "Atualizada a lista de 'Atualizações Recentes do Projetex'.",
     ],
   },
   {
@@ -86,7 +95,6 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     description: "Novos Filtros e Melhorias na Interface",
     details: [
       "Adicionado filtro por proximidade de prazo na página de detalhes do cliente.",
-      "Seção 'Atualizações Recentes' movida para um Popover no cabeçalho, acionado por ícone.",
     ],
   },
   {
@@ -104,10 +112,7 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     version: "1.0.1",
     description: "Implementação de Login e Ajustes de UI",
     details: [
-      // "Implementada tela de login básica (client-side).", // Removido conforme solicitado
-      "Removida funcionalidade de Importar/Exportar JSON do cabeçalho.",
       "Ajustes na interface da tela de login e nome da aplicação.",
-      // "Migração de dados para Firebase Firestore.", // Removido conforme solicitado
     ],
   },
   {
@@ -120,5 +125,4 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
       "Estrutura inicial do projeto com Next.js, ShadCN UI e TailwindCSS.",
     ],
   },
-  // Adicionar novas entradas sempre no topo para manter a ordem cronológica inversa
 ];

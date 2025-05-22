@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/ClientForm";
 import type { ClientFormValues } from "@/components/ClientForm";
-import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Percent } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,12 +81,12 @@ const clientHasImminentProject = (client: Client): boolean => {
 };
 
 const getProjectCompletionPercentage = (project: Project): number | null => {
-  if (project.status === "Projeto Concluído") { // Should already be filtered out on dashboard
-    return 100;
-  }
   if (project.status === "Aguardando Início") {
     return 0;
   }
+  // "Projeto Concluído" status projects are filtered out from display on this dashboard page.
+  // So, this function will effectively not be called for them in this context.
+
   if (!project.checklist || project.checklist.length === 0) {
     return null;
   }
@@ -96,8 +96,6 @@ const getProjectCompletionPercentage = (project: Project): number | null => {
 };
 
 const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
-  // This is for the percentage badge on the dashboard.
-  // "Projeto Concluído" status projects are filtered out, so no green here.
   if (percentage === null) return { variant: "secondary", className: "" };
   if (percentage >= 50) return { variant: "default", className: "" }; // Red (primary)
   return { variant: "secondary", className: "" }; // Gray
@@ -178,9 +176,6 @@ export default function DashboardPage() {
       if (aHasActiveNonCompletedProjects && !bHasActiveNonCompletedProjects) return -1;
       if (!aHasActiveNonCompletedProjects && bHasActiveNonCompletedProjects) return 1;
       
-      // Firestore already sorts by createdAt desc, so no need for explicit date sort here if not needed.
-      // If specific name sorting is needed as a final tie-breaker:
-      // return a.nome.localeCompare(b.nome); 
       return 0; 
     });
 
@@ -313,16 +308,20 @@ export default function DashboardPage() {
                         <div className="flex items-center">
                           <FolderKanban className="h-4 w-4 mr-2 text-primary/70 shrink-0"/>
                           <span>{p.nome}</span>
-                          {deadlineText && <span className="ml-1 text-xs text-muted-foreground/80">{deadlineText}</span>}
+                          {p.status !== "Projeto Concluído" && deadlineText && <span className="ml-1 text-xs text-muted-foreground/80">{deadlineText}</span>}
                         </div>
-                         {/* Badge de porcentagem, não mostrado se status for "Projeto Concluído" (já filtrado) ou se checklist for vazio (completionPercentage será null) */}
-                        {completionPercentage !== null && (
+                        {p.status !== "Aguardando Início" && completionPercentage !== null && p.checklist && p.checklist.length > 0 && (
                            <Badge
                             variant={badgeStyle.variant}
                             className={`text-xs mt-1 ml-6 ${badgeStyle.className}`}
                            >
                             <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}%
                            </Badge>
+                        )}
+                        {p.status === "Aguardando Início" && (
+                            <Badge variant="secondary" className="text-xs mt-1 ml-6">
+                                <span role="img" aria-label="target" className="mr-1">🎯</span> 0%
+                            </Badge>
                         )}
                       </li>
                     );

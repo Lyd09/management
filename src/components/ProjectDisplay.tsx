@@ -55,11 +55,11 @@ const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default
 };
 
 const getProjectCompletionPercentage = (project: Project): number | null => {
-  if (project.status === "Projeto Concluído") {
-    return 100;
-  }
   if (project.status === "Aguardando Início") {
     return 0;
+  }
+   if (project.status === "Projeto Concluído") { // Already handled by main status badge, effectively
+    return 100;
   }
   if (!project.checklist || project.checklist.length === 0) {
     return null;
@@ -77,6 +77,12 @@ interface ProjectDisplayProps {
 export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
   const deadlineInfo = getDeadlineBadgeInfo(project.prazo);
   const completionPercentage = getProjectCompletionPercentage(project);
+
+  const completionBadgeStyle = {
+    variant: (completionPercentage !== null && completionPercentage >= 50) ? "default" : "secondary",
+    className: (completionPercentage !== null && completionPercentage >= 50 && project.status !== "Projeto Concluído") ? "" : ""
+  } as { variant: "secondary" | "default"; className: string };
+
 
   return (
     <div className="space-y-6">
@@ -132,7 +138,7 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
               {project.prazo ? (
                 <div className="flex items-center gap-2">
                     <p className="text-base font-semibold">{format(parseISO(project.prazo), "PPP", { locale: ptBR })}</p>
-                    {deadlineInfo && (
+                    {project.status !== "Projeto Concluído" && deadlineInfo && (
                         <Badge variant={deadlineInfo.variant} className="text-xs flex items-center">
                         <CalendarClock className="mr-1 h-3 w-3" /> {deadlineInfo.text}
                         </Badge>
@@ -144,17 +150,26 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
             </div>
           </div>
           
-          {project.status !== "Projeto Concluído" && completionPercentage !== null && (
+          {project.status !== "Projeto Concluído" && project.status !== "Aguardando Início" && completionPercentage !== null && project.checklist && project.checklist.length > 0 && (
             <div>
                 <Label className="text-sm font-medium text-muted-foreground">Progresso do Checklist</Label>
                 <Badge
-                    variant={completionPercentage < 50 ? "secondary" : "default"}
-                    className={`text-base px-3 py-1 ${completionPercentage === 100 && project.status !== "Projeto Concluído" ? "bg-primary hover:bg-primary/90" : ""}`}
+                    variant={completionBadgeStyle.variant}
+                    className={`text-base px-3 py-1 ${completionBadgeStyle.className}`}
                 >
-                    <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}%
+                  <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}%
                 </Badge>
             </div>
           )}
+          {project.status === "Aguardando Início" && (
+             <div>
+                <Label className="text-sm font-medium text-muted-foreground">Progresso do Checklist</Label>
+                <Badge variant="secondary" className="text-base px-3 py-1">
+                    <span role="img" aria-label="target" className="mr-1">🎯</span> 0%
+                </Badge>
+            </div>
+          )}
+
 
         </CardContent>
       </Card>
@@ -203,5 +218,4 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
     </div>
   );
 }
-
     
