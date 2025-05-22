@@ -57,11 +57,7 @@ export function Header() {
 
   return (
     <header className="py-4 px-6 border-b border-border sticky top-0 bg-background z-50">
-      <div className="container mx-auto flex justify-between items-center">
-        <Link href="/" className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity" onClick={() => setIsSheetOpen(false)}>
-          Projetex
-        </Link>
-        
+      <div className="container mx-auto flex items-center gap-4"> {/* Alterado de justify-between para gap-4 */}
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Abrir menu">
@@ -115,6 +111,10 @@ export function Header() {
             </div>
           </SheetContent>
         </Sheet>
+
+        <Link href="/" className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity" onClick={() => setIsSheetOpen(false)}>
+          Projetex
+        </Link>
       </div>
     </header>
   );
