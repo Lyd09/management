@@ -4,12 +4,8 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, History, LayoutDashboard, Menu, Home, Info } from 'lucide-react'; // Adicionado Home e Info
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { LogOut, History, LayoutDashboard, Menu, Home } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { CHANGELOG_DATA } from "@/lib/constants";
 import React from 'react';
 
 export function Header() {
@@ -19,41 +15,6 @@ export function Header() {
   if (loadingAuth || !isLoggedIn) {
     return null;
   }
-
-  const changelogPopoverContent = (
-    <PopoverContent className="w-96 sm:w-[450px] max-h-[70vh] p-0" side="bottom" align="end">
-      <Card className="border-none shadow-none">
-        <CardHeader className="p-4 sticky top-0 bg-popover z-10">
-          <CardTitle className="flex items-center text-lg">
-            <History className="mr-2 h-5 w-5 text-primary"/>Atualizações Recentes do Projetex
-          </CardTitle>
-          <CardDescription>Acompanhe as principais atualizações do Projetex.</CardDescription>
-        </CardHeader>
-        <ScrollArea className="h-[calc(70vh-120px)]"> {/* Ajuste de altura */}
-          <CardContent className="p-4 pt-0">
-            {CHANGELOG_DATA.map((entry, index) => (
-              <div key={index} className="mb-4 pb-4 border-b border-border last:border-b-0 last:mb-0 last:pb-0">
-                <div className="flex justify-between items-baseline mb-1">
-                  <h4 className="font-semibold text-base text-foreground">{entry.description}</h4>
-                  {entry.version && (
-                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm">
-                      v{entry.version}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mb-2">{entry.date}</p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                  {entry.details.map((detail, detailIndex) => (
-                    <li key={detailIndex}>{detail}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </CardContent>
-        </ScrollArea>
-      </Card>
-    </PopoverContent>
-  );
 
   return (
     <header className="py-4 px-6 border-b border-border sticky top-0 bg-background z-50">
@@ -66,20 +27,20 @@ export function Header() {
           </SheetTrigger>
           <SheetContent side="left" className="w-[280px] p-4 flex flex-col">
             <SheetHeader className="mb-6 text-left">
-              <SheetTitle>
-                <Link href="/" passHref>
-                   <span className="text-2xl font-bold text-primary" onClick={() => setIsSheetOpen(false)}>
-                      Projetex
-                   </span>
-                </Link>
-              </SheetTitle>
+                <SheetTitle>
+                    <Link href="/" passHref>
+                       <span className="text-2xl font-bold text-primary" onClick={() => setIsSheetOpen(false)}>
+                          Projetex
+                       </span>
+                    </Link>
+                </SheetTitle>
             </SheetHeader>
             
             <nav className="flex flex-col gap-3 flex-grow">
               <SheetClose asChild>
                 <Link href="/" passHref>
                   <Button variant="ghost" className="w-full justify-start text-base py-3">
-                    <Home className="mr-2 h-5 w-5 text-primary" /> {/* Ícone alterado para Home */}
+                    <Home className="mr-2 h-5 w-5 text-primary" />
                     Início
                   </Button>
                 </Link>
@@ -92,17 +53,14 @@ export function Header() {
                   </Button>
                 </Link>
               </SheetClose>
-              
-              <Popover>
-                <PopoverTrigger asChild>
+              <SheetClose asChild>
+                <Link href="/updates" passHref>
                   <Button variant="ghost" className="w-full justify-start text-base py-3">
                     <History className="mr-2 h-5 w-5 text-primary" />
                     Atualizações
                   </Button>
-                </PopoverTrigger>
-                {changelogPopoverContent}
-              </Popover>
-
+                </Link>
+              </SheetClose>
             </nav>
             <div className="mt-auto">
                 <SheetClose asChild>
