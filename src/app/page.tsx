@@ -11,8 +11,6 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/ClientForm";
 import type { ClientFormValues } from "@/components/ClientForm";
 import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,7 +65,7 @@ const getProjectDeadlineText = (prazo?: string): string | null => {
 };
 
 const projectHasImminentDeadline = (project: Project): boolean => {
-  if (!project.prazo) return false;
+  if (!project.prazo || project.status === "Projeto Concluído") return false; // Ignore concluded projects
   try {
     const today = startOfDay(new Date());
     const deadlineDate = startOfDay(parseISO(project.prazo));
@@ -82,27 +80,27 @@ const clientHasImminentProject = (client: Client): boolean => {
   return client.projetos.some(project => project.status !== "Projeto Concluído" && projectHasImminentDeadline(project));
 };
 
-// Calculate project completion percentage
 const getProjectCompletionPercentage = (project: Project): number | null => {
   if (project.status === "Projeto Concluído") {
-    return 100; 
+    return 100;
   }
   if (!project.checklist || project.checklist.length === 0) {
-    return null; 
+    return null;
   }
   const totalItems = project.checklist.length;
   const completedItems = project.checklist.filter(item => item.feito).length;
-  if (totalItems === 0) return null; // Treat as no checklist if empty after all for percentage
   return Math.round((completedItems / totalItems) * 100);
 };
 
-// Determine badge variant and class based on completion percentage
-const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
+const getCompletionBadgeStyle = (percentage: number | null, projectStatus: string): { variant: "secondary" | "default"; className: string } => {
+  if (projectStatus === "Projeto Concluído") {
+    // This style is for the main status badge, not the percentage badge
+    return { variant: "default", className: "bg-green-600 hover:bg-green-600/90 text-white" };
+  }
+  // For the percentage badge itself
   if (percentage === null) return { variant: "secondary", className: "" };
-  // Note: 100% for non-concluded projects handled by default or secondary.
-  // "Projeto Concluído" status will handle its own green badge separately.
-  if (percentage >= 50) return { variant: "default", className: "" }; // default is primary (red)
-  return { variant: "secondary", className: "" }; // secondary is muted
+  if (percentage >= 50) return { variant: "default", className: "" }; // Red
+  return { variant: "secondary", className: "" }; // Gray
 };
 
 
@@ -179,7 +177,7 @@ export default function DashboardPage() {
       if (aHasActiveNonCompletedProjects && !bHasActiveNonCompletedProjects) return -1;
       if (!aHasActiveNonCompletedProjects && bHasActiveNonCompletedProjects) return 1;
       
-      return 0;
+      return 0; // Mantém a ordem do Firestore (por createdAt) como desempate final
     });
 
     return tempClients;
@@ -270,8 +268,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClients.map((client) => {
           const nonCompletedProjects = client.projetos.filter(p => p.status !== "Projeto Concluído");
-          const projectsToDisplay = nonCompletedProjects.slice(0, 3);
-          const remainingProjectsCount = nonCompletedProjects.length - projectsToDisplay.length;
+          const projectsToDisplay = nonCompletedProjects.slice(0, 3); // Display first 3 non-completed projects
+          const remainingNonCompletedProjectsCount = nonCompletedProjects.length - projectsToDisplay.length;
 
           return (
           <Card key={client.id} className="flex flex-col hover:shadow-primary/20 hover:shadow-md transition-shadow duration-300">
@@ -304,7 +302,9 @@ export default function DashboardPage() {
                   {projectsToDisplay.map(p => {
                     const deadlineText = getProjectDeadlineText(p.prazo);
                     const completionPercentage = getProjectCompletionPercentage(p);
-                    const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage);
+                    // Use project's status for badge styling if it's not "Projeto Concluído"
+                    const badgeStyle = getCompletionBadgeStyle(completionPercentage, p.status);
+
                     return (
                       <li key={p.id} className="flex flex-col items-start">
                         <div className="flex items-center">
@@ -312,18 +312,18 @@ export default function DashboardPage() {
                           <span>{p.nome}</span>
                           {deadlineText && <span className="ml-1 text-xs text-muted-foreground/80">{deadlineText}</span>}
                         </div>
-                        {p.status !== "Projeto Concluído" && completionPercentage !== null && (
+                        {p.status !== "Projeto Concluído" && completionPercentage !== null && p.checklist && p.checklist.length > 0 && (
                            <Badge
-                            variant={completionBadgeStyle.variant}
-                            className={`text-xs mt-1 ml-6 ${completionBadgeStyle.className}`}
+                            variant={badgeStyle.variant} // Use the calculated variant
+                            className={`text-xs mt-1 ml-6 ${badgeStyle.className}`} // Apply className
                            >
-                            <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}
+                            <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}%
                            </Badge>
                         )}
                       </li>
                     );
                   })}
-                  {remainingProjectsCount > 0 && <li className="mt-1 ml-6">E mais {remainingProjectsCount}...</li>}
+                  {remainingNonCompletedProjectsCount > 0 && <li className="mt-1 ml-6">E mais {remainingNonCompletedProjectsCount}...</li>}
                 </ul>
               ) : (
                 <p className="text-sm text-muted-foreground italic">
@@ -369,5 +369,5 @@ export default function DashboardPage() {
     </div>
   );
 }
-
     
+  

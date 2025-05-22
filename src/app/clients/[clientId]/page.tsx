@@ -97,29 +97,25 @@ const categorizeDeadline = (prazo?: string): DeadlineFilterCategory => {
   }
 };
 
-// Calculate project completion percentage
 const getProjectCompletionPercentage = (project: Project): number | null => {
-  // If status is "Projeto Concluído", we won't show a separate percentage badge,
-  // as the main status badge already indicates completion.
-  // This function is now mainly for projects NOT yet completed.
   if (project.status === "Projeto Concluído") {
-    return 100; // Still useful for internal logic if needed, but won't be displayed directly.
+    return 100; 
   }
   if (!project.checklist || project.checklist.length === 0) {
-    return null; // No checklist, no percentage to show for incomplete projects.
+    return null; 
   }
   const totalItems = project.checklist.length;
   const completedItems = project.checklist.filter(item => item.feito).length;
   return Math.round((completedItems / totalItems) * 100);
 };
 
-// Determine badge variant and class based on completion percentage
-const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
+const getCompletionBadgeStyle = (percentage: number | null, projectStatus: string): { variant: "secondary" | "default"; className: string } => {
+  if (projectStatus === "Projeto Concluído") {
+    return { variant: "default", className: "bg-green-600 hover:bg-green-600/90 text-white" };
+  }
   if (percentage === null) return { variant: "secondary", className: "" }; 
-  // Note: 100% for non-concluded projects is handled by `default` or `secondary` based on threshold below.
-  // The specific green "100%" badge is now implicitly handled by the main "Projeto Concluído" status badge.
-  if (percentage >= 50) return { variant: "default", className: "" }; // Default is primary (red in current theme)
-  return { variant: "secondary", className: "" }; // Secondary is a muted color
+  if (percentage >= 50) return { variant: "default", className: "" }; // Vermelho
+  return { variant: "secondary", className: "" }; // Cinza
 };
 
 
@@ -337,7 +333,7 @@ export default function ClientDetailPage() {
           {filteredProjects.map((project) => {
             const deadlineInfo = getDeadlineBadgeInfo(project.prazo);
             const completionPercentage = getProjectCompletionPercentage(project);
-            const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage);
+            const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage, project.status);
 
             return (
             <Card key={project.id} className="flex flex-col hover:shadow-primary/20 hover:shadow-md transition-shadow duration-300">
@@ -368,12 +364,12 @@ export default function ClientDetailPage() {
                            <CalendarClock className="mr-1 h-3 w-3" /> {deadlineInfo.text}
                         </Badge>
                     )}
-                    {project.status !== "Projeto Concluído" && completionPercentage !== null && (
+                    {project.status !== "Projeto Concluído" && completionPercentage !== null && project.checklist && project.checklist.length > 0 && (
                        <Badge
                         variant={completionBadgeStyle.variant}
                         className={`text-xs ${completionBadgeStyle.className}`}
                        >
-                        <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}
+                        <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}%
                        </Badge>
                     )}
                 </div>
@@ -414,5 +410,5 @@ export default function ClientDetailPage() {
     </div>
   );
 }
-
     
+  
