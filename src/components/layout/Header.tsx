@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, History, LayoutDashboard, Menu } from 'lucide-react';
+import { LogOut, History, LayoutDashboard, Menu, Home, Info } from 'lucide-react'; // Adicionado Home e Info
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -79,7 +79,7 @@ export function Header() {
               <SheetClose asChild>
                 <Link href="/" passHref>
                   <Button variant="ghost" className="w-full justify-start text-base py-3">
-                    <LayoutDashboard className="mr-2 h-5 w-5 text-primary" />
+                    <Home className="mr-2 h-5 w-5 text-primary" /> {/* Ícone alterado para Home */}
                     Início
                   </Button>
                 </Link>
