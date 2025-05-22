@@ -65,7 +65,7 @@ const getProjectDeadlineText = (prazo?: string): string | null => {
 };
 
 const projectHasImminentDeadline = (project: Project): boolean => {
-  if (!project.prazo || project.status === "Projeto Concluído") return false; // Ignore concluded projects
+  if (!project.prazo || project.status === "Projeto Concluído") return false; 
   try {
     const today = startOfDay(new Date());
     const deadlineDate = startOfDay(parseISO(project.prazo));
@@ -81,8 +81,11 @@ const clientHasImminentProject = (client: Client): boolean => {
 };
 
 const getProjectCompletionPercentage = (project: Project): number | null => {
-  if (project.status === "Projeto Concluído") {
+  if (project.status === "Projeto Concluído") { // Should already be filtered out on dashboard
     return 100;
+  }
+  if (project.status === "Aguardando Início") {
+    return 0;
   }
   if (!project.checklist || project.checklist.length === 0) {
     return null;
@@ -92,14 +95,11 @@ const getProjectCompletionPercentage = (project: Project): number | null => {
   return Math.round((completedItems / totalItems) * 100);
 };
 
-const getCompletionBadgeStyle = (percentage: number | null, projectStatus: string): { variant: "secondary" | "default"; className: string } => {
-  if (projectStatus === "Projeto Concluído") {
-    // This style is for the main status badge, not the percentage badge
-    return { variant: "default", className: "bg-green-600 hover:bg-green-600/90 text-white" };
-  }
-  // For the percentage badge itself
+const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
+  // This is for the percentage badge on the dashboard.
+  // "Projeto Concluído" status projects are filtered out, so no green here.
   if (percentage === null) return { variant: "secondary", className: "" };
-  if (percentage >= 50) return { variant: "default", className: "" }; // Red
+  if (percentage >= 50) return { variant: "default", className: "" }; // Red (primary)
   return { variant: "secondary", className: "" }; // Gray
 };
 
@@ -161,13 +161,14 @@ export default function DashboardPage() {
     if (searchTerm) {
         tempClients = tempClients.filter(client =>
             client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            client.projetos.some(project => project.nome.toLowerCase().includes(searchTerm.toLowerCase()))
+            client.projetos.some(project => project.status !== "Projeto Concluído" && project.nome.toLowerCase().includes(searchTerm.toLowerCase()))
         );
     }
 
     tempClients.sort((a, b) => {
       const aHasImminent = clientHasImminentProject(a);
       const bHasImminent = clientHasImminentProject(b);
+      
       const aHasActiveNonCompletedProjects = a.projetos.some(p => p.status !== "Projeto Concluído");
       const bHasActiveNonCompletedProjects = b.projetos.some(p => p.status !== "Projeto Concluído");
 
@@ -177,7 +178,10 @@ export default function DashboardPage() {
       if (aHasActiveNonCompletedProjects && !bHasActiveNonCompletedProjects) return -1;
       if (!aHasActiveNonCompletedProjects && bHasActiveNonCompletedProjects) return 1;
       
-      return 0; // Mantém a ordem do Firestore (por createdAt) como desempate final
+      // Firestore already sorts by createdAt desc, so no need for explicit date sort here if not needed.
+      // If specific name sorting is needed as a final tie-breaker:
+      // return a.nome.localeCompare(b.nome); 
+      return 0; 
     });
 
     return tempClients;
@@ -268,7 +272,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClients.map((client) => {
           const nonCompletedProjects = client.projetos.filter(p => p.status !== "Projeto Concluído");
-          const projectsToDisplay = nonCompletedProjects.slice(0, 3); // Display first 3 non-completed projects
+          const projectsToDisplay = nonCompletedProjects.slice(0, 3); 
           const remainingNonCompletedProjectsCount = nonCompletedProjects.length - projectsToDisplay.length;
 
           return (
@@ -290,8 +294,8 @@ export default function DashboardPage() {
                 </div>
               </div>
               <CardDescription>
-                {nonCompletedProjects.length > 0 
-                    ? `${nonCompletedProjects.length} projeto(s) em andamento` 
+                {nonCompletedProjects.length > 0
+                    ? `${nonCompletedProjects.length} projeto(s) em andamento`
                     : (client.projetos.length > 0 ? "Todos os projetos concluídos" : "Nenhum projeto")
                 }
               </CardDescription>
@@ -302,8 +306,7 @@ export default function DashboardPage() {
                   {projectsToDisplay.map(p => {
                     const deadlineText = getProjectDeadlineText(p.prazo);
                     const completionPercentage = getProjectCompletionPercentage(p);
-                    // Use project's status for badge styling if it's not "Projeto Concluído"
-                    const badgeStyle = getCompletionBadgeStyle(completionPercentage, p.status);
+                    const badgeStyle = getCompletionBadgeStyle(completionPercentage);
 
                     return (
                       <li key={p.id} className="flex flex-col items-start">
@@ -312,10 +315,11 @@ export default function DashboardPage() {
                           <span>{p.nome}</span>
                           {deadlineText && <span className="ml-1 text-xs text-muted-foreground/80">{deadlineText}</span>}
                         </div>
-                        {p.status !== "Projeto Concluído" && completionPercentage !== null && p.checklist && p.checklist.length > 0 && (
+                         {/* Badge de porcentagem, não mostrado se status for "Projeto Concluído" (já filtrado) ou se checklist for vazio (completionPercentage será null) */}
+                        {completionPercentage !== null && (
                            <Badge
-                            variant={badgeStyle.variant} // Use the calculated variant
-                            className={`text-xs mt-1 ml-6 ${badgeStyle.className}`} // Apply className
+                            variant={badgeStyle.variant}
+                            className={`text-xs mt-1 ml-6 ${badgeStyle.className}`}
                            >
                             <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}%
                            </Badge>
@@ -369,5 +373,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-    
-  

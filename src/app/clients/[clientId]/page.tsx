@@ -99,23 +99,25 @@ const categorizeDeadline = (prazo?: string): DeadlineFilterCategory => {
 
 const getProjectCompletionPercentage = (project: Project): number | null => {
   if (project.status === "Projeto Concluído") {
-    return 100; 
+    return 100;
+  }
+  if (project.status === "Aguardando Início") {
+    return 0;
   }
   if (!project.checklist || project.checklist.length === 0) {
-    return null; 
+    return null;
   }
   const totalItems = project.checklist.length;
   const completedItems = project.checklist.filter(item => item.feito).length;
   return Math.round((completedItems / totalItems) * 100);
 };
 
-const getCompletionBadgeStyle = (percentage: number | null, projectStatus: string): { variant: "secondary" | "default"; className: string } => {
-  if (projectStatus === "Projeto Concluído") {
-    return { variant: "default", className: "bg-green-600 hover:bg-green-600/90 text-white" };
-  }
-  if (percentage === null) return { variant: "secondary", className: "" }; 
-  if (percentage >= 50) return { variant: "default", className: "" }; // Vermelho
-  return { variant: "secondary", className: "" }; // Cinza
+const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
+  // This function is only for the percentage badge, not the main status badge.
+  // The main status badge handles its own green color for "Projeto Concluído".
+  if (percentage === null) return { variant: "secondary", className: "" }; // Should not be hit if status is "Aguardando Início" as 0 is returned
+  if (percentage >= 50) return { variant: "default", className: "" }; // Will be red (primary color)
+  return { variant: "secondary", className: "" }; // Will be gray
 };
 
 
@@ -333,7 +335,7 @@ export default function ClientDetailPage() {
           {filteredProjects.map((project) => {
             const deadlineInfo = getDeadlineBadgeInfo(project.prazo);
             const completionPercentage = getProjectCompletionPercentage(project);
-            const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage, project.status);
+            const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage);
 
             return (
             <Card key={project.id} className="flex flex-col hover:shadow-primary/20 hover:shadow-md transition-shadow duration-300">
@@ -353,8 +355,8 @@ export default function ClientDetailPage() {
                             {project.prioridade}
                         </Badge>
                     )}
-                    <Badge 
-                      variant={project.status === "Projeto Concluído" ? "default" : "secondary"} 
+                    <Badge
+                      variant={project.status === "Projeto Concluído" ? "default" : "secondary"}
                       className={`${project.status === "Projeto Concluído" ? "bg-green-600 hover:bg-green-600/90 text-white" : ""} text-xs`}
                     >
                         {project.status}
@@ -364,7 +366,7 @@ export default function ClientDetailPage() {
                            <CalendarClock className="mr-1 h-3 w-3" /> {deadlineInfo.text}
                         </Badge>
                     )}
-                    {project.status !== "Projeto Concluído" && completionPercentage !== null && project.checklist && project.checklist.length > 0 && (
+                    {project.status !== "Projeto Concluído" && completionPercentage !== null && (
                        <Badge
                         variant={completionBadgeStyle.variant}
                         className={`text-xs ${completionBadgeStyle.className}`}
@@ -410,5 +412,3 @@ export default function ClientDetailPage() {
     </div>
   );
 }
-    
-  
