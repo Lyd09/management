@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/ClientForm";
 import type { ClientFormValues } from "@/components/ClientForm";
-import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Percent, History } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -26,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import type { PriorityType, Client, Project } from '@/types';
-import { PRIORITIES, CHANGELOG_DATA } from '@/lib/constants';
+import { PRIORITIES } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { differenceInDays, parseISO, startOfDay, isBefore } from 'date-fns';
@@ -86,23 +85,24 @@ const clientHasImminentProject = (client: Client): boolean => {
 // Calculate project completion percentage
 const getProjectCompletionPercentage = (project: Project): number | null => {
   if (project.status === "Projeto Concluído") {
-    return 100;
+    return 100; 
   }
   if (!project.checklist || project.checklist.length === 0) {
     return null; 
   }
   const totalItems = project.checklist.length;
   const completedItems = project.checklist.filter(item => item.feito).length;
-  if (totalItems === 0) return 0;
+  if (totalItems === 0) return null; // Treat as no checklist if empty after all for percentage
   return Math.round((completedItems / totalItems) * 100);
 };
 
 // Determine badge variant and class based on completion percentage
 const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
   if (percentage === null) return { variant: "secondary", className: "" };
-  if (percentage === 100) return { variant: "default", className: "bg-green-600/80 hover:bg-green-600/70 text-white" };
-  if (percentage >= 50) return { variant: "default", className: "" };
-  return { variant: "secondary", className: "" };
+  // Note: 100% for non-concluded projects handled by default or secondary.
+  // "Projeto Concluído" status will handle its own green badge separately.
+  if (percentage >= 50) return { variant: "default", className: "" }; // default is primary (red)
+  return { variant: "secondary", className: "" }; // secondary is muted
 };
 
 
@@ -167,24 +167,18 @@ export default function DashboardPage() {
         );
     }
 
-    // Prioritize clients with imminent project deadlines, then clients with any active projects, then clients with no projects.
     tempClients.sort((a, b) => {
       const aHasImminent = clientHasImminentProject(a);
       const bHasImminent = clientHasImminentProject(b);
-      const aHasActiveProjects = a.projetos.some(p => p.status !== "Projeto Concluído");
-      const bHasActiveProjects = b.projetos.some(p => p.status !== "Projeto Concluído");
+      const aHasActiveNonCompletedProjects = a.projetos.some(p => p.status !== "Projeto Concluído");
+      const bHasActiveNonCompletedProjects = b.projetos.some(p => p.status !== "Projeto Concluído");
 
       if (aHasImminent && !bHasImminent) return -1;
       if (!aHasImminent && bHasImminent) return 1;
 
-      if (aHasActiveProjects && !bHasActiveProjects) return -1;
-      if (!aHasActiveProjects && bHasActiveProjects) return 1;
+      if (aHasActiveNonCompletedProjects && !bHasActiveNonCompletedProjects) return -1;
+      if (!aHasActiveNonCompletedProjects && bHasActiveNonCompletedProjects) return 1;
       
-      // Fallback for clients with no active projects or no imminent deadlines - could be creation date or name
-      // For now, Firestore's default ordering by createdAt (desc) or name might be sufficient if no other criteria match.
-      // If we used Firebase's `createdAt` which is a Timestamp, we could sort by that more explicitly here.
-      // Since `createdAt` is not directly on the `Client` type in JS (it's part of Firestore data),
-      // we'll rely on the initial fetch order or other filters for now.
       return 0;
     });
 
@@ -318,12 +312,12 @@ export default function DashboardPage() {
                           <span>{p.nome}</span>
                           {deadlineText && <span className="ml-1 text-xs text-muted-foreground/80">{deadlineText}</span>}
                         </div>
-                        {completionPercentage !== null && p.status !== "Projeto Concluído" && (
+                        {p.status !== "Projeto Concluído" && completionPercentage !== null && (
                            <Badge
                             variant={completionBadgeStyle.variant}
                             className={`text-xs mt-1 ml-6 ${completionBadgeStyle.className}`}
                            >
-                            <Percent className="mr-1 h-3 w-3" /> {completionPercentage}
+                            <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}
                            </Badge>
                         )}
                       </li>
@@ -375,5 +369,5 @@ export default function DashboardPage() {
     </div>
   );
 }
-    
+
     
