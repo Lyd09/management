@@ -104,9 +104,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   const watchedPrazo = form.watch('prazo');
 
   useEffect(() => {
-    // Update ref if project prop changes (e.g. navigating to edit a different project on the same page component instance)
     initialStatusOnLoadRef.current = project?.status || (project?.tipo ? INITIAL_PROJECT_STATUS(project.tipo) : "");
-    // Reset form if project changes
     form.reset({
       nome: project?.nome || "",
       tipo: project?.tipo,
@@ -170,48 +168,51 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
 
   // Effect for smart priority suggestion
   useEffect(() => {
-    // Only for new projects
-    if (!project) {
+    if (!project) { // Only for new projects
       const currentPriority = form.getValues('prioridade');
   
       if (watchedPrazo && isValid(new Date(watchedPrazo))) {
         const today = startOfDay(new Date());
         const deadlineDate = startOfDay(new Date(watchedPrazo));
         const daysRemaining = differenceInDays(deadlineDate, today);
+        const isDeadlineUrgent = isBefore(deadlineDate, today) || daysRemaining <= 3;
   
-        if (isBefore(deadlineDate, today) || daysRemaining <= 3) {
-          // If deadline is very close
-          if (currentPriority !== 'Alta') {
+        if (isDeadlineUrgent) {
+          // Suggest 'Alta' only if current priority is 'Média' (or default initial)
+          if (currentPriority === 'Média') {
             form.setValue('prioridade', 'Alta', { shouldDirty: true });
             toast({
               title: "Sugestão de Prioridade",
-              description: "Prazo próximo detectado. Prioridade do projeto definida como Alta.",
+              description: "Prazo próximo detectado. Prioridade do projeto sugerida como Alta.",
               duration: 4000
             });
           }
         } else {
-          // If deadline is not very close, and priority was 'Alta' (likely due to suggestion)
+          // Deadline is not urgent. If current priority is 'Alta' (likely due to a previous suggestion),
+          // suggest reverting to 'Média'.
           if (currentPriority === 'Alta') {
             form.setValue('prioridade', 'Média', { shouldDirty: true });
             toast({
               title: "Sugestão de Prioridade",
-              description: "Prazo não é mais considerado próximo. Prioridade revertida para Média.",
+              description: "Prazo não é mais considerado urgente. Prioridade sugerida como Média.",
               duration: 4000
             });
           }
         }
-      } else if (!watchedPrazo) {
-        // If deadline is cleared, and priority was 'Alta' (likely due to suggestion)
+      } else if (!watchedPrazo) { // Deadline was cleared
+        // If deadline was cleared and current priority is 'Alta' (likely due to a previous suggestion),
+        // suggest reverting to 'Média'.
         if (currentPriority === 'Alta') {
           form.setValue('prioridade', 'Média', { shouldDirty: true });
           toast({
               title: "Sugestão de Prioridade",
-              description: "Prazo removido. Prioridade revertida para Média.",
+              description: "Prazo removido. Prioridade sugerida como Média.",
               duration: 4000
             });
         }
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedPrazo, project, form, toast]);
 
 
@@ -257,13 +258,11 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     }
     initialStatusOnLoadRef.current = "Projeto Concluído"; 
     setShowCompleteConfirmation(false);
-    // form.handleSubmit(handleSubmitLogic)(); // Optionally submit form right after
   };
 
   const handleProceedWithoutMarking = () => {
     initialStatusOnLoadRef.current = "Projeto Concluído"; 
     setShowCompleteConfirmation(false);
-    // form.handleSubmit(handleSubmitLogic)(); // Optionally submit form right after
   };
 
   const handleCancelCompletionChange = () => {
@@ -454,7 +453,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         <FormLabel>Checklist</FormLabel>
         {fields.map((fieldItem, index) => (
           <ChecklistItemInput
-            key={fieldItem.id} // react-hook-form uses id from field, not fieldItem.id directly for its key
+            key={fieldItem.id} 
             item={fieldItem as ChecklistItem}
             onChange={(updatedSubItem) => update(index, updatedSubItem)}
             onRemove={() => remove(index)}
