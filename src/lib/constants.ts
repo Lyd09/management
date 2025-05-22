@@ -38,6 +38,10 @@ export const PROJECT_STATUS_OPTIONS: Record<ProjectType, string[]> = {
 
 export const INITIAL_PROJECT_STATUS = (type: ProjectType): string => {
     const statuses = PROJECT_STATUS_OPTIONS[type];
+    // Make sure to set "Aguardando Início" as the initial status if it exists
+    if (statuses.includes("Aguardando Início")) {
+      return "Aguardando Início";
+    }
     return statuses.length > 0 ? statuses[0] : "";
 }
 
@@ -50,6 +54,22 @@ export type ChangelogEntryItem = {
 };
 
 export const CHANGELOG_DATA: ChangelogEntryItem[] = [
+  {
+    date: "2024-05-24", // Assuming today's date or last major update date
+    version: "1.4.0",
+    description: "Grandes Melhorias de Funcionalidade e UX",
+    details: [
+      "Implementada página de visualização de projeto (somente leitura).",
+      "Adicionada porcentagem de conclusão de projeto (🎯 X%) baseada no checklist.",
+      "  - 0% para status 'Aguardando Início'.",
+      "  - Cores condicionais para o badge de porcentagem.",
+      "  - Não exibe se checklist vazio e projeto não concluído.",
+      "  - Não exibe se projeto já está com status 'Projeto Concluído'.",
+      "Modal de confirmação ao marcar projeto como 'Concluído' com itens de checklist pendentes.",
+      "Projetos concluídos não são mais exibidos na lista de projetos do painel de clientes.",
+      "Atualizada lista de status para 'Produção de Vídeo'.",
+    ],
+  },
   {
     date: "2024-05-23",
     version: "1.3.0",
@@ -66,7 +86,7 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     description: "Novos Filtros e Melhorias na Interface",
     details: [
       "Adicionado filtro por proximidade de prazo na página de detalhes do cliente.",
-      "Seção 'Atualizações Recentes' movida para um Popover acionado por ícone no painel de clientes.",
+      "Seção 'Atualizações Recentes' movida para um Popover no cabeçalho, acionado por ícone.",
     ],
   },
   {
@@ -77,7 +97,6 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
       "Implementada marcação de prioridade para clientes e projetos.",
       "Adicionados avisos visuais para prazos de projetos próximos ou vencidos.",
       "Adicionados filtros por prioridade (cliente) e tipo/status/prioridade (projeto).",
-      "Criada seção 'Atualizações Recentes do Projetex' (versão popover).",
     ],
   },
   {
@@ -103,4 +122,3 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
   },
   // Adicionar novas entradas sempre no topo para manter a ordem cronológica inversa
 ];
-
