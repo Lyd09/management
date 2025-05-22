@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, History } from 'lucide-react';
+import { LogOut, History, LayoutDashboard } from 'lucide-react'; // Adicionado LayoutDashboard
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -25,9 +25,20 @@ export function Header() {
           Projetex
         </Link>
         <div className="flex items-center gap-2">
+          <Link href="/dashboard" passHref>
+            <Button variant="outline" size="sm" className="hidden sm:flex">
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Métricas
+            </Button>
+          </Link>
+           <Link href="/dashboard" passHref>
+             <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Dashboard de Métricas">
+                <LayoutDashboard className="h-5 w-5 text-primary hover:text-primary/80" />
+              </Button>
+          </Link>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Ver histórico de modificações">
+              <Button variant="ghost" size="icon" aria-label="Ver atualizações recentes">
                 <History className="h-5 w-5 text-primary hover:text-primary/80" />
               </Button>
             </PopoverTrigger>
