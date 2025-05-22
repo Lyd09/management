@@ -7,11 +7,14 @@ export const PRIORITIES: PriorityType[] = ["Baixa", "Média", "Alta"];
 
 export const PROJECT_STATUS_OPTIONS: Record<ProjectType, string[]> = {
   "Produção de Vídeo": [
+    "Aguardando Início",
     "Gravação Agendada",
     "Gravação Concluída",
     "Edição em Andamento",
     "Edição Finalizada",
     "Revisão do Cliente",
+    "Em Pausa",
+    "Bloqueado",
     "Projeto Concluído",
   ],
   "Programação": [
@@ -82,9 +85,10 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     version: "1.0.1",
     description: "Implementação de Login e Ajustes de UI",
     details: [
-      "Implementada tela de login básica (client-side).",
+      // "Implementada tela de login básica (client-side).", // Removido conforme solicitado
       "Removida funcionalidade de Importar/Exportar JSON do cabeçalho.",
       "Ajustes na interface da tela de login e nome da aplicação.",
+      // "Migração de dados para Firebase Firestore.", // Removido conforme solicitado
     ],
   },
   {
@@ -99,3 +103,4 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
   },
   // Adicionar novas entradas sempre no topo para manter a ordem cronológica inversa
 ];
+
