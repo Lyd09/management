@@ -98,26 +98,27 @@ const categorizeDeadline = (prazo?: string): DeadlineFilterCategory => {
 };
 
 const getProjectCompletionPercentage = (project: Project): number | null => {
-  if (project.status === "Projeto Concluído") {
-    return 100;
-  }
   if (project.status === "Aguardando Início") {
     return 0;
   }
+  if (project.status === "Projeto Concluído") { // This status implies 100% regardless of checklist
+    return 100;
+  }
   if (!project.checklist || project.checklist.length === 0) {
-    return null;
+    return null; // No checklist items, so no percentage to show unless "Aguardando Início" or "Concluído"
   }
   const totalItems = project.checklist.length;
   const completedItems = project.checklist.filter(item => item.feito).length;
   return Math.round((completedItems / totalItems) * 100);
 };
 
-const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
-  // This function is only for the percentage badge, not the main status badge.
-  // The main status badge handles its own green color for "Projeto Concluído".
-  if (percentage === null) return { variant: "secondary", className: "" }; // Should not be hit if status is "Aguardando Início" as 0 is returned
-  if (percentage >= 50) return { variant: "default", className: "" }; // Will be red (primary color)
-  return { variant: "secondary", className: "" }; // Will be gray
+const getCompletionBadgeStyle = (percentage: number | null, status: string): { variant: "secondary" | "default"; className: string } => {
+  if (status === "Projeto Concluído") { // Should be handled by the main status badge (green)
+      return { variant: "default", className: "bg-green-600 hover:bg-green-600/90 text-white" };
+  }
+  if (percentage === null) return { variant: "secondary", className: "" };
+  if (percentage >= 50) return { variant: "default", className: "" }; // Red (primary)
+  return { variant: "secondary", className: "" }; // Gray
 };
 
 
@@ -335,15 +336,15 @@ export default function ClientDetailPage() {
           {filteredProjects.map((project) => {
             const deadlineInfo = getDeadlineBadgeInfo(project.prazo);
             const completionPercentage = getProjectCompletionPercentage(project);
-            const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage);
+            const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage, project.status);
 
             return (
             <Card key={project.id} className="flex flex-col hover:shadow-primary/20 hover:shadow-md transition-shadow duration-300">
               <CardHeader>
                 <div className="flex justify-between items-start">
                     <CardTitle className="text-xl">{project.nome}</CardTitle>
-                    <Link href={`/clients/${client.id}/projects/${project.id}`} passHref legacyBehavior>
-                        <Button variant="ghost" size="icon" aria-label={`Editar projeto ${project.nome}`}>
+                    <Link href={`/clients/${client.id}/projects/${project.id}/view`} passHref legacyBehavior>
+                        <Button variant="ghost" size="icon" aria-label={`Visualizar projeto ${project.nome}`}>
                             <ExternalLink className="h-5 w-5 text-primary" />
                         </Button>
                     </Link>
@@ -366,13 +367,18 @@ export default function ClientDetailPage() {
                            <CalendarClock className="mr-1 h-3 w-3" /> {deadlineInfo.text}
                         </Badge>
                     )}
-                    {project.status !== "Projeto Concluído" && completionPercentage !== null && (
+                    {project.status !== "Projeto Concluído" && project.status !== "Aguardando Início" && completionPercentage !== null && project.checklist && project.checklist.length > 0 && (
                        <Badge
                         variant={completionBadgeStyle.variant}
                         className={`text-xs ${completionBadgeStyle.className}`}
                        >
                         <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}%
                        </Badge>
+                    )}
+                     {project.status === "Aguardando Início" && (
+                        <Badge variant="secondary" className="text-xs">
+                            <span role="img" aria-label="target" className="mr-1">🎯</span> 0%
+                        </Badge>
                     )}
                 </div>
               </CardHeader>
@@ -383,7 +389,7 @@ export default function ClientDetailPage() {
               <CardFooter className="flex justify-end gap-2">
                 <Link href={`/clients/${client.id}/projects/${project.id}`} passHref legacyBehavior>
                   <Button variant="outline" size="sm">
-                    <Edit2 className="mr-1 h-3 w-3" /> Detalhes/Editar
+                    <Edit2 className="mr-1 h-3 w-3" /> Editar
                   </Button>
                 </Link>
                 <Button variant="destructive" size="sm" onClick={() => confirmDeleteProject(project.id)}>
@@ -412,3 +418,5 @@ export default function ClientDetailPage() {
     </div>
   );
 }
+
+    
