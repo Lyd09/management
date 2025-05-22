@@ -8,7 +8,7 @@ import { LogOut, History, LayoutDashboard, Menu } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { CHANGELOG_DATA } from "@/lib/constants";
 import React from 'react';
 
@@ -57,7 +57,7 @@ export function Header() {
 
   return (
     <header className="py-4 px-6 border-b border-border sticky top-0 bg-background z-50">
-      <div className="container mx-auto flex items-center gap-4"> {/* Alterado de justify-between para gap-4 */}
+      <div className="container mx-auto flex items-center gap-4">
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Abrir menu">
@@ -65,13 +65,16 @@ export function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[280px] p-4 flex flex-col">
-            <div className="mb-6">
-              <Link href="/" passHref>
-                 <span className="text-2xl font-bold text-primary" onClick={() => setIsSheetOpen(false)}>
-                    Projetex
-                 </span>
-              </Link>
-            </div>
+            <SheetHeader className="mb-6 text-left">
+              <SheetTitle>
+                <Link href="/" passHref>
+                   <span className="text-2xl font-bold text-primary" onClick={() => setIsSheetOpen(false)}>
+                      Projetex
+                   </span>
+                </Link>
+              </SheetTitle>
+            </SheetHeader>
+            
             <nav className="flex flex-col gap-3 flex-grow">
               <SheetClose asChild>
                 <Link href="/" passHref>
