@@ -71,8 +71,8 @@ export type ProjectFormValues = z.infer<typeof projectFormSchema>;
 interface ProjectFormProps {
   project?: Project;
   onSubmit: (data: ProjectFormValues) => void;
-  onClose?: () => void; 
-  isPage?: boolean; 
+  onClose?: () => void;
+  isPage?: boolean;
 }
 
 export function ProjectForm({ project, onSubmit, onClose, isPage = false }: ProjectFormProps) {
@@ -102,6 +102,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
 
   const watchedStatus = form.watch('status');
   const watchedPrazo = form.watch('prazo');
+  const { formState } = form; // Para acessar dirtyFields
 
   useEffect(() => {
     initialStatusOnLoadRef.current = project?.status || (project?.tipo ? INITIAL_PROJECT_STATUS(project.tipo) : "");
@@ -121,7 +122,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         setStatusOptions(defaultStatuses);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project]); 
+  }, [project]);
 
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
@@ -132,7 +133,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     setIsLoadingAiSuggestions(true);
     setAiSuggestedStatuses([]);
     try {
-      const suggestions = await mockSuggestProjectStatus(projectType); 
+      const suggestions = await mockSuggestProjectStatus(projectType);
       setAiSuggestedStatuses(suggestions);
       setStatusOptions(prev => [...new Set([...suggestions, ...PROJECT_STATUS_OPTIONS[projectType]])].sort());
       toast({ title: "Sugestões de Status Carregadas", description: "Novas opções de status foram sugeridas pela IA."});
@@ -144,9 +145,9 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       setIsLoadingAiSuggestions(false);
     }
   }, [toast]);
-  
+
   useEffect(() => {
-    if (project?.tipo && !project.status) { 
+    if (project?.tipo && !project.status) {
         const initialStatus = INITIAL_PROJECT_STATUS(project.tipo);
         form.setValue("status", initialStatus);
         initialStatusOnLoadRef.current = initialStatus;
@@ -159,61 +160,64 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       watchedStatus === "Projeto Concluído" &&
       initialStatusOnLoadRef.current !== "Projeto Concluído" &&
       hasIncompleteItems &&
-      !showCompleteConfirmation 
+      !showCompleteConfirmation
     ) {
       setShowCompleteConfirmation(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedStatus, form, project, showCompleteConfirmation]);
 
 
   // Effect for smart priority suggestion
   useEffect(() => {
-    if (!project) { // Only for new projects
-      const currentPriority = form.getValues('prioridade');
-  
+    // Só para novos projetos E se a prioridade não foi alterada manualmente pelo usuário
+    if (!project && !formState.dirtyFields.prioridade) {
+      const currentPriorityValue = form.getValues('prioridade');
+
       if (watchedPrazo && isValid(new Date(watchedPrazo))) {
         const today = startOfDay(new Date());
         const deadlineDate = startOfDay(new Date(watchedPrazo));
         const daysRemaining = differenceInDays(deadlineDate, today);
         const isDeadlineUrgent = isBefore(deadlineDate, today) || daysRemaining <= 3;
-  
+
         if (isDeadlineUrgent) {
-          // Suggest 'Alta' only if current priority is 'Média' (or default initial)
-          if (currentPriority === 'Média') {
-            form.setValue('prioridade', 'Alta', { shouldDirty: true });
+          // Se o prazo é urgente e a prioridade atual (que não foi tocada manualmente e é 'Média' por padrão em novos projetos)
+          // sugere 'Alta'.
+          if (currentPriorityValue === 'Média') {
+            form.setValue('prioridade', 'Alta', { shouldDirty: false }); // shouldDirty: false para não marcar como "tocado pelo usuário"
             toast({
               title: "Sugestão de Prioridade",
-              description: "Prazo próximo detectado. Prioridade do projeto sugerida como Alta.",
+              description: "Prazo próximo. Prioridade sugerida: Alta.",
               duration: 4000
             });
           }
         } else {
-          // Deadline is not urgent. If current priority is 'Alta' (likely due to a previous suggestion),
-          // suggest reverting to 'Média'.
-          if (currentPriority === 'Alta') {
-            form.setValue('prioridade', 'Média', { shouldDirty: true });
+          // Prazo não é urgente. Se a prioridade foi programaticamente para 'Alta'
+          // (e o usuário não tocou), reverte para 'Média'.
+          if (currentPriorityValue === 'Alta') {
+            form.setValue('prioridade', 'Média', { shouldDirty: false });
             toast({
               title: "Sugestão de Prioridade",
-              description: "Prazo não é mais considerado urgente. Prioridade sugerida como Média.",
+              description: "Prazo não é mais considerado urgente. Prioridade sugerida: Média.",
               duration: 4000
             });
           }
         }
-      } else if (!watchedPrazo) { // Deadline was cleared
-        // If deadline was cleared and current priority is 'Alta' (likely due to a previous suggestion),
-        // suggest reverting to 'Média'.
-        if (currentPriority === 'Alta') {
-          form.setValue('prioridade', 'Média', { shouldDirty: true });
+      } else if (!watchedPrazo) { // Prazo foi limpo
+        // Se a prioridade foi programaticamente para 'Alta'
+        // (e o usuário não tocou), reverte para 'Média'.
+        if (currentPriorityValue === 'Alta') {
+          form.setValue('prioridade', 'Média', { shouldDirty: false });
           toast({
               title: "Sugestão de Prioridade",
-              description: "Prazo removido. Prioridade sugerida como Média.",
+              description: "Prazo removido. Prioridade sugerida: Média.",
               duration: 4000
             });
         }
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedPrazo, project, form, toast]);
+  }, [watchedPrazo, project, form, toast, formState.dirtyFields.prioridade]);
 
 
   const handleTypeChange = (value: string) => {
@@ -224,7 +228,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     const newInitialStatus = defaultStatuses.length > 0 ? INITIAL_PROJECT_STATUS(newType) : "";
     setStatusOptions(defaultStatuses);
     form.setValue("status", newInitialStatus);
-    initialStatusOnLoadRef.current = newInitialStatus; 
+    initialStatusOnLoadRef.current = newInitialStatus;
     fetchAiSuggestions(newType);
   };
 
@@ -232,8 +236,8 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     onSubmit({
       ...data,
       prazo: data.prazo ? format(data.prazo, "yyyy-MM-dd") : undefined,
-    } as any); 
-    if (!isPage && onClose) { 
+    } as any);
+    if (!isPage && onClose) {
       form.reset({
         nome: "",
         tipo: undefined,
@@ -244,7 +248,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         notas: "",
         checklist: [],
       });
-      initialStatusOnLoadRef.current = ""; 
+      initialStatusOnLoadRef.current = "";
     } else if (isPage) {
         initialStatusOnLoadRef.current = data.status;
     }
@@ -256,17 +260,17 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       const updatedChecklist = currentChecklistValues.map(item => ({ ...item, feito: true }));
       form.setValue('checklist', updatedChecklist, { shouldDirty: true, shouldValidate: true });
     }
-    initialStatusOnLoadRef.current = "Projeto Concluído"; 
+    initialStatusOnLoadRef.current = "Projeto Concluído";
     setShowCompleteConfirmation(false);
   };
 
   const handleProceedWithoutMarking = () => {
-    initialStatusOnLoadRef.current = "Projeto Concluído"; 
+    initialStatusOnLoadRef.current = "Projeto Concluído";
     setShowCompleteConfirmation(false);
   };
 
   const handleCancelCompletionChange = () => {
-    form.setValue('status', initialStatusOnLoadRef.current); 
+    form.setValue('status', initialStatusOnLoadRef.current);
     setShowCompleteConfirmation(false);
   };
 
@@ -408,7 +412,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                     mode="single"
                     selected={field.value}
                     onSelect={field.onChange}
-                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } 
+                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) }
                     initialFocus
                     locale={ptBR}
                     />
@@ -428,7 +432,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
           <FormItem>
             <FormLabel>Descrição do Projeto</FormLabel>
             <FormControl>
-              <Textarea placeholder="Detalhes sobre o projeto..." {...field} />
+              <Textarea placeholder="Detalhes sobre o projeto..." {...field} value={field.value || ""} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -442,7 +446,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
           <FormItem>
             <FormLabel>Notas Gerais</FormLabel>
             <FormControl>
-              <Textarea placeholder="Observações, ideias, etc." {...field} />
+              <Textarea placeholder="Observações, ideias, etc." {...field} value={field.value || ""} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -453,7 +457,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         <FormLabel>Checklist</FormLabel>
         {fields.map((fieldItem, index) => (
           <ChecklistItemInput
-            key={fieldItem.id} 
+            key={fieldItem.id}
             item={fieldItem as ChecklistItem}
             onChange={(updatedSubItem) => update(index, updatedSubItem)}
             onRemove={() => remove(index)}
@@ -496,12 +500,12 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
             </div>
           </div>
         ) : (
-          <div className="p-0"> 
+          <div className="p-0">
             {commonFields}
             <DialogFooter className="mt-6">
               {onClose && (
                 <DialogClose asChild>
-                  <Button type="button" variant="outline" onClick={() => { 
+                  <Button type="button" variant="outline" onClick={() => {
                       form.reset({
                         nome: "",
                         tipo: undefined,
@@ -513,9 +517,9 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                         checklist: [],
                       });
                       setSelectedProjectType(undefined);
-                      setStatusOptions([]);
-                      initialStatusOnLoadRef.current = ""; 
-                      if(onClose) onClose(); 
+setStatusOptions([]);
+                      initialStatusOnLoadRef.current = "";
+                      if(onClose) onClose();
                     }}>
                     Cancelar
                   </Button>
@@ -548,3 +552,4 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     </Form>
   );
 }
+    
