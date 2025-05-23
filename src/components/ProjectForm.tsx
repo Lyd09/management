@@ -28,6 +28,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { CalendarIcon, PlusCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,10 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   const [showCompleteConfirmation, setShowCompleteConfirmation] = useState(false);
   const initialStatusOnLoadRef = useRef<string>(project?.status || (project?.tipo ? INITIAL_PROJECT_STATUS(project.tipo) : ""));
 
+  const [showPrioritySuggestionDialog, setShowPrioritySuggestionDialog] = useState(false);
+  const [prioritySuggestionDetails, setPrioritySuggestionDetails] = useState<{ suggested: PriorityType; reason: string } | null>(null);
+  const lastPrazoRef = useRef<Date | undefined | null>(null);
+
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
@@ -102,10 +107,14 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
 
   const watchedStatus = form.watch('status');
   const watchedPrazo = form.watch('prazo');
-  const { formState } = form; // Para acessar dirtyFields
+  const watchedPrioridade = form.watch('prioridade'); // Embora não usado diretamente no useEffect, é bom ter se precisar depurar
+  const { formState } = form;
 
   useEffect(() => {
     initialStatusOnLoadRef.current = project?.status || (project?.tipo ? INITIAL_PROJECT_STATUS(project.tipo) : "");
+    // Armazena o prazo inicial do projeto (ou undefined se não houver projeto)
+    // para que a primeira comparação no useEffect do watchedPrazo funcione corretamente.
+    lastPrazoRef.current = project?.prazo && isValid(parseISO(project.prazo)) ? parseISO(project.prazo) : undefined;
     form.reset({
       nome: project?.nome || "",
       tipo: project?.tipo,
@@ -122,7 +131,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         setStatusOptions(defaultStatuses);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project]);
+  }, [project]); // A dependência `form` foi removida para evitar resets indesejados, `project` é a chave.
 
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
@@ -140,14 +149,15 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     } catch (error) {
       console.error("Error fetching AI status suggestions:", error);
       toast({ variant: "destructive", title: "Erro IA", description: "Não foi possível carregar sugestões de status." });
-      setStatusOptions(PROJECT_STATUS_OPTIONS[projectType]);
+      // Em caso de erro, certifique-se de que as opções de status padrão ainda estão lá
+      setStatusOptions(PROJECT_STATUS_OPTIONS[projectType] || []);
     } finally {
       setIsLoadingAiSuggestions(false);
     }
-  }, [toast]);
+  }, [toast]); // Removido setStatusOptions da dependência, pois ele é atualizado dentro do hook.
 
   useEffect(() => {
-    if (project?.tipo && !project.status) {
+    if (project?.tipo && !project.status) { // Se é um projeto existente sem status, define o inicial
         const initialStatus = INITIAL_PROJECT_STATUS(project.tipo);
         form.setValue("status", initialStatus);
         initialStatusOnLoadRef.current = initialStatus;
@@ -158,21 +168,23 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
 
     if (
       watchedStatus === "Projeto Concluído" &&
-      initialStatusOnLoadRef.current !== "Projeto Concluído" &&
+      initialStatusOnLoadRef.current !== "Projeto Concluído" && // Só mostra se o status ANTERIOR não era "Concluído"
       hasIncompleteItems &&
-      !showCompleteConfirmation
+      !showCompleteConfirmation // Evita reabrir o diálogo se já estiver aberto ou se o usuário já interagiu
     ) {
       setShowCompleteConfirmation(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedStatus, form, project, showCompleteConfirmation]);
+  }, [watchedStatus, form, project, showCompleteConfirmation]); // Adicionado 'form' como dependência pois usamos getValues e setValue.
 
 
-  // Effect for smart priority suggestion
+  // Efeito para sugestão de prioridade com AlertDialog
   useEffect(() => {
-    // Só para novos projetos E se a prioridade não foi alterada manualmente pelo usuário
-    if (!project && !formState.dirtyFields.prioridade) {
-      const currentPriorityValue = form.getValues('prioridade');
+    // Só para novos projetos E se o prazo realmente mudou do valor anterior
+    if (!project && lastPrazoRef.current !== watchedPrazo) {
+      const currentFormPriority = form.getValues('prioridade');
+      let shouldShowDialog = false;
+      let newSuggestion: { suggested: PriorityType; reason: string } | null = null;
 
       if (watchedPrazo && isValid(new Date(watchedPrazo))) {
         const today = startOfDay(new Date());
@@ -180,65 +192,55 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         const daysRemaining = differenceInDays(deadlineDate, today);
         const isDeadlineUrgent = isBefore(deadlineDate, today) || daysRemaining <= 3;
 
-        if (isDeadlineUrgent) {
-          // Se o prazo é urgente e a prioridade atual (que não foi tocada manualmente e é 'Média' por padrão em novos projetos)
-          // sugere 'Alta'.
-          if (currentPriorityValue === 'Média') {
-            form.setValue('prioridade', 'Alta', { shouldDirty: false }); // shouldDirty: false para não marcar como "tocado pelo usuário"
-            toast({
-              title: "Sugestão de Prioridade",
-              description: "Prazo próximo. Prioridade sugerida: Alta.",
-              duration: 4000
-            });
-          }
-        } else {
-          // Prazo não é urgente. Se a prioridade foi programaticamente para 'Alta'
-          // (e o usuário não tocou), reverte para 'Média'.
-          if (currentPriorityValue === 'Alta') {
-            form.setValue('prioridade', 'Média', { shouldDirty: false });
-            toast({
-              title: "Sugestão de Prioridade",
-              description: "Prazo não é mais considerado urgente. Prioridade sugerida: Média.",
-              duration: 4000
-            });
-          }
+        if (isDeadlineUrgent && currentFormPriority !== 'Alta') {
+          newSuggestion = { suggested: 'Alta', reason: 'O prazo definido é muito próximo ou está vencido.' };
+          shouldShowDialog = true;
+        } else if (!isDeadlineUrgent && currentFormPriority === 'Alta') {
+          // Se o prazo não é mais urgente e a prioridade era 'Alta', sugere 'Média'
+          // Isso só faz sentido se 'Alta' não foi uma escolha manual explícita recente.
+          // Para simplificar, vamos sempre sugerir 'Média' neste caso, o usuário decide.
+          newSuggestion = { suggested: 'Média', reason: 'O prazo não é mais considerado urgente.' };
+          shouldShowDialog = true;
         }
-      } else if (!watchedPrazo) { // Prazo foi limpo
-        // Se a prioridade foi programaticamente para 'Alta'
-        // (e o usuário não tocou), reverte para 'Média'.
-        if (currentPriorityValue === 'Alta') {
-          form.setValue('prioridade', 'Média', { shouldDirty: false });
-          toast({
-              title: "Sugestão de Prioridade",
-              description: "Prazo removido. Prioridade sugerida: Média.",
-              duration: 4000
-            });
-        }
+      } else if (!watchedPrazo && currentFormPriority === 'Alta') {
+        // Prazo foi removido e a prioridade era 'Alta'
+        newSuggestion = { suggested: 'Média', reason: 'O prazo foi removido.' };
+        shouldShowDialog = true;
       }
+      
+      if (shouldShowDialog && newSuggestion) {
+        setPrioritySuggestionDetails(newSuggestion);
+        setShowPrioritySuggestionDialog(true);
+      } else {
+        // Se nenhuma sugestão for acionada, mas o diálogo estava aberto, fecha-o.
+        // No entanto, o diálogo deve ser fechado por ação do usuário.
+        // Não vamos fechar automaticamente aqui para evitar piscar.
+      }
+      lastPrazoRef.current = watchedPrazo; // Atualiza a referência do último prazo processado
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedPrazo, project, form, toast, formState.dirtyFields.prioridade]);
+  }, [watchedPrazo, project, form.getValues('prioridade')]); // Adicionado form.getValues para reavaliar quando a prioridade muda externamente ao useEffect
 
 
   const handleTypeChange = (value: string) => {
     const newType = value as ProjectType;
     setSelectedProjectType(newType);
-    form.setValue("tipo", newType);
+    form.setValue("tipo", newType); // Atualiza o valor do formulário
     const defaultStatuses = PROJECT_STATUS_OPTIONS[newType] || [];
     const newInitialStatus = defaultStatuses.length > 0 ? INITIAL_PROJECT_STATUS(newType) : "";
     setStatusOptions(defaultStatuses);
-    form.setValue("status", newInitialStatus);
-    initialStatusOnLoadRef.current = newInitialStatus;
-    fetchAiSuggestions(newType);
+    form.setValue("status", newInitialStatus); // Define o status inicial para o novo tipo
+    initialStatusOnLoadRef.current = newInitialStatus; // Atualiza a referência do status inicial
+    fetchAiSuggestions(newType); // Busca sugestões de IA para o novo tipo
   };
 
   const handleSubmitLogic = (data: ProjectFormValues) => {
     onSubmit({
       ...data,
       prazo: data.prazo ? format(data.prazo, "yyyy-MM-dd") : undefined,
-    } as any);
-    if (!isPage && onClose) {
-      form.reset({
+    } as any); // Cast to any to bypass strict type checking for prazo format, handled by format()
+    if (!isPage && onClose) { // Se for um dialog e tiver função de fechar
+      form.reset({ // Reseta o formulário para valores padrão de novo projeto
         nome: "",
         tipo: undefined,
         status: "",
@@ -248,9 +250,14 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         notas: "",
         checklist: [],
       });
-      initialStatusOnLoadRef.current = "";
-    } else if (isPage) {
-        initialStatusOnLoadRef.current = data.status;
+      setSelectedProjectType(undefined); // Limpa o tipo de projeto selecionado
+      setStatusOptions([]); // Limpa as opções de status
+      initialStatusOnLoadRef.current = ""; // Limpa a referência do status inicial
+      lastPrazoRef.current = undefined; // Limpa a referência do último prazo
+      // onClose(); // Chama a função para fechar o dialog (se fornecida) -- Isso já está no DialogClose
+    } else if (isPage) { // Se for uma página de edição
+        initialStatusOnLoadRef.current = data.status; // Atualiza a referência do status com o valor salvo
+        lastPrazoRef.current = data.prazo; // Atualiza a referência do prazo com o valor salvo
     }
   };
 
@@ -260,18 +267,33 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       const updatedChecklist = currentChecklistValues.map(item => ({ ...item, feito: true }));
       form.setValue('checklist', updatedChecklist, { shouldDirty: true, shouldValidate: true });
     }
-    initialStatusOnLoadRef.current = "Projeto Concluído";
+    initialStatusOnLoadRef.current = "Projeto Concluído"; // Para evitar que o modal reapareça
     setShowCompleteConfirmation(false);
+    // O status "Projeto Concluído" já está no form.getValues('status') se o usuário chegou aqui.
   };
 
   const handleProceedWithoutMarking = () => {
-    initialStatusOnLoadRef.current = "Projeto Concluído";
+    initialStatusOnLoadRef.current = "Projeto Concluído"; // Para evitar que o modal reapareça
     setShowCompleteConfirmation(false);
+    // O status "Projeto Concluído" já está no form.getValues('status').
   };
 
   const handleCancelCompletionChange = () => {
-    form.setValue('status', initialStatusOnLoadRef.current);
+    form.setValue('status', initialStatusOnLoadRef.current); // Reverte para o status original
     setShowCompleteConfirmation(false);
+  };
+
+  const handlePrioritySuggestionAccept = () => {
+    if (prioritySuggestionDetails?.suggested) {
+      form.setValue('prioridade', prioritySuggestionDetails.suggested, { shouldDirty: true, shouldValidate: true });
+    }
+    setShowPrioritySuggestionDialog(false);
+    setPrioritySuggestionDetails(null); // Limpa os detalhes da sugestão
+  };
+
+  const handlePrioritySuggestionDecline = () => {
+    setShowPrioritySuggestionDialog(false);
+    setPrioritySuggestionDetails(null); // Limpa os detalhes da sugestão
   };
 
 
@@ -333,6 +355,8 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
               <Select
                 onValueChange={(value) => {
                   field.onChange(value);
+                  // initialStatusOnLoadRef não deve ser atualizado aqui diretamente
+                  // ele é para o estado inicial ou após salvar.
                 }}
                 value={field.value}
                 disabled={!selectedProjectType || isLoadingAiSuggestions}
@@ -411,8 +435,11 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                     <Calendar
                     mode="single"
                     selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) }
+                    onSelect={(date) => {
+                        field.onChange(date);
+                        // A lógica de sugestão de prioridade será acionada pelo useEffect que observa 'watchedPrazo'
+                    }}
+                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Permite selecionar o dia de hoje
                     initialFocus
                     locale={ptBR}
                     />
@@ -457,8 +484,8 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         <FormLabel>Checklist</FormLabel>
         {fields.map((fieldItem, index) => (
           <ChecklistItemInput
-            key={fieldItem.id}
-            item={fieldItem as ChecklistItem}
+            key={fieldItem.id} // O id do fieldArray já é único e estável
+            item={fieldItem as ChecklistItem} // Cast para o tipo esperado
             onChange={(updatedSubItem) => update(index, updatedSubItem)}
             onRemove={() => remove(index)}
           />
@@ -479,14 +506,14 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmitLogic)} className={cn("space-y-6", isPage ? "" : "")}>
-        {!isPage && (
+        {!isPage && ( // Se não for uma página, renderiza como dialog
           <DialogHeader>
             <DialogTitle>{formTitle}</DialogTitle>
             <DialogDescription>{formDescription}</DialogDescription>
           </DialogHeader>
         )}
 
-        {isPage ? (
+        {isPage ? ( // Se for uma página, renderiza com layout de página
           <div className={formContainerClass}>
             <h1 className="text-3xl font-bold mb-6 text-primary">
               {formTitle}
@@ -499,14 +526,14 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
               </Button>
             </div>
           </div>
-        ) : (
-          <div className="p-0">
+        ) : ( // Se não for uma página (ou seja, é um dialog)
+          <div className="p-0"> {/* Ajustado para não ter padding extra dentro do DialogContent */}
             {commonFields}
             <DialogFooter className="mt-6">
               {onClose && (
                 <DialogClose asChild>
                   <Button type="button" variant="outline" onClick={() => {
-                      form.reset({
+                      form.reset({ // Reseta o formulário ao cancelar
                         nome: "",
                         tipo: undefined,
                         status: "",
@@ -517,9 +544,10 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                         checklist: [],
                       });
                       setSelectedProjectType(undefined);
-setStatusOptions([]);
+                      setStatusOptions([]);
                       initialStatusOnLoadRef.current = "";
-                      if(onClose) onClose();
+                      lastPrazoRef.current = undefined;
+                      if(onClose) onClose(); // Chama a função de fechar do dialog
                     }}>
                     Cancelar
                   </Button>
@@ -534,6 +562,7 @@ setStatusOptions([]);
         )}
       </form>
 
+      {/* Modal de confirmação para conclusão de projeto com itens pendentes */}
       <AlertDialog open={showCompleteConfirmation} onOpenChange={setShowCompleteConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -549,6 +578,24 @@ setStatusOptions([]);
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de sugestão de prioridade */}
+      {prioritySuggestionDetails && (
+        <AlertDialog open={showPrioritySuggestionDialog} onOpenChange={setShowPrioritySuggestionDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Sugestão de Prioridade</AlertDialogTitle>
+              <AlertDialogDescription>
+                {prioritySuggestionDetails.reason} Sugerimos alterar a prioridade para "{prioritySuggestionDetails.suggested}". Deseja aplicar esta sugestão?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handlePrioritySuggestionDecline}>Não, Manter Atual</AlertDialogCancel>
+              <AlertDialogAction onClick={handlePrioritySuggestionAccept}>Sim, Aplicar Sugestão</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </Form>
   );
 }
