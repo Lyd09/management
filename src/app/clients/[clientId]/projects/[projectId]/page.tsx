@@ -8,7 +8,7 @@ import { ProjectForm } from '@/components/ProjectForm';
 import type { ProjectFormValues } from "@/components/ProjectForm";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import type { Project, ProjectType } from '@/types';
+import type { Project, ProjectType, PriorityType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProjectEditPage() {
@@ -46,6 +46,7 @@ export default function ProjectEditPage() {
       nome: data.nome,
       tipo: data.tipo as ProjectType,
       status: data.status,
+      prioridade: data.prioridade as PriorityType, // Adicionado o campo prioridade
       descricao: data.descricao,
       prazo: data.prazo as (string | undefined), // Usar diretamente, já é string
       notas: data.notas,
