@@ -1,6 +1,7 @@
 
 "use client";
 
+import React, { useState } from 'react'; // Adicionado useState
 import type { Project, Client } from "@/types";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, Edit, CalendarClock, Percent, Info, StickyNote, ListChecks, DollarSign } from "lucide-react"; // Adicionado DollarSign
+import { ArrowLeft, Edit, CalendarClock, Percent, Info, StickyNote, ListChecks, DollarSign, Eye, EyeOff } from "lucide-react"; // Adicionado Eye, EyeOff
 import { PRIORITIES, PROJECT_TYPES, PROJECT_STATUS_OPTIONS } from "@/lib/constants";
 import type { PriorityType, ProjectType } from '@/types';
 import { differenceInDays, parseISO, startOfDay, isBefore, format } from 'date-fns';
@@ -75,6 +76,7 @@ interface ProjectDisplayProps {
 }
 
 export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
+  const [isValueVisible, setIsValueVisible] = useState(false); // Estado para visibilidade do valor
   const deadlineInfo = getDeadlineBadgeInfo(project.prazo);
   const completionPercentage = getProjectCompletionPercentage(project);
 
@@ -83,6 +85,9 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
     className: (completionPercentage !== null && completionPercentage >= 50 && project.status !== "Projeto Concluído") ? "" : ""
   } as { variant: "secondary" | "default"; className: string };
 
+  const toggleValueVisibility = () => {
+    setIsValueVisible(!isValueVisible);
+  };
 
   return (
     <div className="space-y-6">
@@ -152,9 +157,16 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
 
           {project.valor !== undefined && (
             <div>
-              <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/>Valor do Projeto</Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/>Valor do Projeto</Label>
+                <Button variant="ghost" size="icon" onClick={toggleValueVisibility} aria-label={isValueVisible ? "Ocultar valor" : "Mostrar valor"} className="h-6 w-6">
+                  {isValueVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
               <p className="text-base font-semibold">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(project.valor)}
+                {isValueVisible
+                  ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(project.valor)
+                  : "R$ ••••••"}
               </p>
             </div>
           )}
@@ -227,3 +239,4 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
     </div>
   );
 }
+
