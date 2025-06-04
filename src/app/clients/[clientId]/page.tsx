@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -25,10 +25,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { Client, Project, ProjectType, PriorityType } from '@/types';
 import { Badge } from '@/components/ui/badge';
-import { differenceInDays, parseISO, startOfDay, isBefore, format, getYear } from 'date-fns';
+import { differenceInDays, parseISO, startOfDay, isBefore, format, getYear, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PRIORITIES } from '@/lib/constants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import type { LucideIcon } from 'lucide-react';
 
 type DeadlineFilterCategory = "Todos" | "Muito Próximos/Atrasados" | "Próximos" | "Distantes" | "Sem Prazo";
 
@@ -56,11 +58,13 @@ const getPriorityBadgeVariant = (priority?: PriorityType) => {
 const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default" | "secondary" | "destructive" | "outline" } | null => {
     if (!prazo) return null;
     try {
+        const deadlineDate = parseISO(prazo);
+        if (!isValid(deadlineDate)) return null;
         const today = startOfDay(new Date());
-        const deadlineDate = startOfDay(parseISO(prazo));
-        const daysRemaining = differenceInDays(deadlineDate, today);
+        const deadlineDay = startOfDay(deadlineDate);
+        const daysRemaining = differenceInDays(deadlineDay, today);
 
-        if (isBefore(deadlineDate, today)) {
+        if (isBefore(deadlineDay, today)) {
             return { text: `Atrasado (${Math.abs(daysRemaining)}d)`, variant: "destructive" };
         }
         if (daysRemaining === 0) {
@@ -72,38 +76,91 @@ const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default
         if (daysRemaining <= 7) {
             return { text: `${daysRemaining}d restantes`, variant: "secondary" };
         }
-        return null; // Não retorna badge para prazos mais distantes, mas o texto no card mostrará
+        return null; 
     } catch (error) {
         console.error("Error parsing prazo for deadline badge:", error);
         return null;
     }
 };
 
-const formatProjectDeadlineForCard = (prazo?: string): { formattedDate: string; remainingText: string | null } | null => {
-  if (!prazo) return null;
+const formatProjectDateForCard = (
+  prazo?: string,
+  dataConclusao?: string,
+  status?: string
+): {
+  prefix: string;
+  formattedDate: string;
+  remainingText: string | null;
+  isConclusion: boolean;
+  variant: "default" | "secondary" | "destructive" | "outline" | null;
+  icon: LucideIcon | null;
+  iconColorClass: string;
+} | null => {
   try {
-    const today = startOfDay(new Date());
-    const deadlineDate = startOfDay(parseISO(prazo));
-    const currentYear = getYear(today);
-    const deadlineYear = getYear(deadlineDate);
-
-    const dateFormatString = deadlineYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
-    const formattedDate = format(deadlineDate, dateFormatString, { locale: ptBR });
-
-    const daysRemaining = differenceInDays(deadlineDate, today);
-    let remainingText: string | null = null;
-
-    if (isBefore(deadlineDate, today)) {
-      remainingText = `Atrasado (${Math.abs(daysRemaining)}d)`;
-    } else if (daysRemaining === 0) {
-      remainingText = "Hoje!";
-    } else {
-      remainingText = `${daysRemaining}d restantes`;
+    if (status === "Projeto Concluído") {
+      if (dataConclusao && typeof dataConclusao === 'string' && dataConclusao.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const conclusionDate = parseISO(dataConclusao);
+        if (isValid(conclusionDate)) {
+          const currentYear = getYear(new Date());
+          const conclusionYear = getYear(conclusionDate);
+          const dateFormatString = conclusionYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
+          return {
+            prefix: "Concluído em:",
+            formattedDate: format(conclusionDate, dateFormatString, { locale: ptBR }),
+            remainingText: null,
+            isConclusion: true,
+            variant: "default",
+            icon: CheckCircle2,
+            iconColorClass: 'text-green-500',
+          };
+        }
+      }
+      return null; // Concluído mas sem dataConclusao válida (legado), não exibe nada de data.
     }
 
-    return { formattedDate, remainingText };
+    // Se não está concluído, trata o prazo
+    if (!prazo || typeof prazo !== 'string' || !prazo.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return null; // Se não tem prazo válido e não está concluído, não mostra nada de data
+    }
+
+    const deadlineDate = parseISO(prazo);
+    if (!isValid(deadlineDate)) return null;
+
+    const today = startOfDay(new Date());
+    const deadlineDay = startOfDay(deadlineDate);
+    const currentYear = getYear(today);
+    const deadlineYear = getYear(deadlineDay);
+
+    const dateFormatString = deadlineYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
+    const formattedDate = format(deadlineDay, dateFormatString, { locale: ptBR });
+
+    const daysRemaining = differenceInDays(deadlineDay, today);
+    let remainingText: string | null = null;
+    let variant: "default" | "secondary" | "destructive" | "outline" | null = "default";
+
+    if (isBefore(deadlineDay, today)) {
+      remainingText = `Atrasado (${Math.abs(daysRemaining)}d)`;
+      variant = "destructive";
+    } else if (daysRemaining === 0) {
+      remainingText = "Hoje!";
+      variant = "destructive";
+    } else {
+      remainingText = `${daysRemaining}d restantes`;
+      if (daysRemaining <= 3) variant = "destructive";
+      else if (daysRemaining <= 7) variant = "secondary";
+    }
+
+    return {
+      prefix: "Prazo:",
+      formattedDate,
+      remainingText,
+      isConclusion: false,
+      variant,
+      icon: CalendarClock,
+      iconColorClass: 'text-destructive', // Ícone de calendário sempre vermelho para prazos
+    };
   } catch (error) {
-    console.error("Error formatting project deadline for card:", error);
+    console.error("Error formatting project date for card:", error);
     return null;
   }
 };
@@ -112,11 +169,14 @@ const formatProjectDeadlineForCard = (prazo?: string): { formattedDate: string; 
 const categorizeDeadline = (prazo?: string): DeadlineFilterCategory => {
   if (!prazo) return "Sem Prazo";
   try {
-    const today = startOfDay(new Date());
-    const deadlineDate = startOfDay(parseISO(prazo));
-    const daysRemaining = differenceInDays(deadlineDate, today);
+    const deadlineDate = parseISO(prazo);
+    if (!isValid(deadlineDate)) return "Sem Prazo";
 
-    if (isBefore(deadlineDate, today) || daysRemaining <= 3) {
+    const today = startOfDay(new Date());
+    const deadlineDay = startOfDay(deadlineDate);
+    const daysRemaining = differenceInDays(deadlineDay, today);
+
+    if (isBefore(deadlineDay, today) || daysRemaining <= 3) {
       return "Muito Próximos/Atrasados";
     }
     if (daysRemaining <= 7) {
@@ -131,6 +191,9 @@ const categorizeDeadline = (prazo?: string): DeadlineFilterCategory => {
 const getProjectCompletionPercentage = (project: Project): number | null => {
   if (project.status === "Aguardando Início") {
     return 0;
+  }
+  if (project.status === "Projeto Concluído") {
+      return 100;
   }
   if (!project.checklist || project.checklist.length === 0) {
     return null;
@@ -180,7 +243,7 @@ export default function ClientDetailPage() {
 
   const handleAddProject = (data: ProjectFormValues) => {
     if (!client) return;
-    const projectPayload: Omit<Project, 'id' | 'checklist' | 'clientId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number } = {
+    const projectPayload: Omit<Project, 'id' | 'checklist' | 'clientId' | 'dataConclusao'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number, dataConclusao?: string } = {
       nome: data.nome,
       tipo: data.tipo as ProjectType,
       status: data.status,
@@ -190,6 +253,7 @@ export default function ClientDetailPage() {
       valor: data.valor,
       notas: data.notas,
       checklist: data.checklist,
+      dataConclusao: data.dataConclusao
     };
     addProject(client.id, projectPayload);
     setIsAddProjectDialogOpen(false);
@@ -369,8 +433,8 @@ export default function ClientDetailPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => {
-            const deadlineBadgeDisplayInfo = getDeadlineBadgeInfo(project.prazo); // For badge
-            const deadlineCardDisplayInfo = formatProjectDeadlineForCard(project.prazo); // For card text
+            const deadlineBadgeDisplayInfo = getDeadlineBadgeInfo(project.prazo); 
+            const projectDateDisplayInfo = formatProjectDateForCard(project.prazo, project.dataConclusao, project.status);
             const completionPercentage = getProjectCompletionPercentage(project);
             const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage);
 
@@ -420,10 +484,30 @@ export default function ClientDetailPage() {
               </CardHeader>
               <CardContent className="flex-grow space-y-2 mt-1">
                 <p className="text-sm text-muted-foreground line-clamp-2">{project.descricao || "Sem descrição."}</p>
-                {project.status !== "Projeto Concluído" && deadlineCardDisplayInfo && (
-                  <p className="text-xs text-muted-foreground">
-                    Prazo: {deadlineCardDisplayInfo.formattedDate}
-                    {deadlineCardDisplayInfo.remainingText && ` | ${deadlineCardDisplayInfo.remainingText}`}
+                {projectDateDisplayInfo && (
+                  <p className="text-xs flex items-center mt-1">
+                    {projectDateDisplayInfo.icon && (
+                      <projectDateDisplayInfo.icon className={`mr-1 h-3.5 w-3.5 ${projectDateDisplayInfo.iconColorClass}`} />
+                    )}
+                    {projectDateDisplayInfo.isConclusion ? (
+                      <span className='text-green-600 font-medium'>
+                        {projectDateDisplayInfo.prefix} {projectDateDisplayInfo.formattedDate}
+                      </span>
+                    ) : (
+                      <>
+                        <span className='text-muted-foreground'>
+                          {projectDateDisplayInfo.prefix} {projectDateDisplayInfo.formattedDate}
+                        </span>
+                        {projectDateDisplayInfo.remainingText && (
+                          <span className={cn(
+                            "ml-1",
+                            projectDateDisplayInfo.variant === 'destructive' ? 'text-destructive font-medium' : 'text-muted-foreground/80'
+                          )}>
+                            | {projectDateDisplayInfo.remainingText}
+                          </span>
+                        )}
+                      </>
+                    )}
                   </p>
                 )}
               </CardContent>
@@ -462,6 +546,5 @@ export default function ClientDetailPage() {
     </div>
   );
 }
-
 
     
