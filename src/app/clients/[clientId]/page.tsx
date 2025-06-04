@@ -108,17 +108,16 @@ const formatProjectDateForCard = (
           formattedDate: format(conclusionDate, dateFormatString, { locale: ptBR }),
           remainingText: null,
           isConclusion: true,
-          variant: "default", // This variant is for the text, not directly used for badge here anymore
+          variant: "default", 
           icon: CheckCircle2,
           iconColorClass: 'text-green-500',
         };
       }
-      return null; // Concluído mas sem dataConclusao válida, não exibe nada de data/prazo
+      return null; 
     }
 
-    // Lógica para projetos não concluídos (exibição de prazo)
     if (!prazo || typeof prazo !== 'string' || !prazo.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return null; // Sem prazo válido
+      return null;
     }
 
     const deadlineDate = parseISO(prazo);
@@ -134,18 +133,18 @@ const formatProjectDateForCard = (
 
     const daysRemaining = differenceInDays(deadlineDay, today);
     let remainingText: string | null = null;
-    let variant: "default" | "secondary" | "destructive" | "outline" | null = "default";
+    let variantForBadge: "default" | "secondary" | "destructive" | "outline" | null = "default";
 
     if (isBefore(deadlineDay, today)) {
       remainingText = `Atrasado (${Math.abs(daysRemaining)}d)`;
-      variant = "destructive";
+      variantForBadge = "destructive";
     } else if (daysRemaining === 0) {
       remainingText = "Hoje!";
-      variant = "destructive";
+      variantForBadge = "destructive";
     } else {
       remainingText = `${daysRemaining}d restantes`;
-      if (daysRemaining <= 3) variant = "destructive";
-      else if (daysRemaining <= 7) variant = "secondary";
+      if (daysRemaining <= 3) variantForBadge = "destructive";
+      else if (daysRemaining <= 7) variantForBadge = "secondary";
     }
 
     return {
@@ -153,9 +152,9 @@ const formatProjectDateForCard = (
       formattedDate,
       remainingText,
       isConclusion: false,
-      variant, // This variant influences the color of remainingText
+      variant: variantForBadge, 
       icon: CalendarClock,
-      iconColorClass: 'text-destructive', // Ícone de calendário sempre vermelho para prazos
+      iconColorClass: 'text-destructive', 
     };
   } catch (error) {
     console.error("Error formatting project date for card:", error);
@@ -242,7 +241,7 @@ export default function ClientDetailPage() {
   const handleAddProject = (data: ProjectFormValues) => {
     if (!client) return;
     
-    const submissionData: Partial<Project> & { nome: string, tipo: ProjectType, status: string } = {
+    let submissionData: Partial<Project> & { nome: string, tipo: ProjectType, status: string, dataConclusao?: string } = {
       nome: data.nome,
       tipo: data.tipo,
       status: data.status,
@@ -259,13 +258,13 @@ export default function ClientDetailPage() {
       submissionData.prazo = undefined;
     }
     
-    if (data.status === "Projeto Concluído" && data.dataConclusao) {
+    if (data.status === "Projeto Concluído" && data.dataConclusao instanceof Date && isValid(data.dataConclusao)) {
         submissionData.dataConclusao = format(data.dataConclusao, "yyyy-MM-dd");
     } else {
         submissionData.dataConclusao = undefined;
     }
 
-    addProject(client.id, submissionData as Omit<Project, 'id' | 'clientId' | 'checklist'> & { checklist?: Partial<Project['checklist']> });
+    addProject(client.id, submissionData as Omit<Project, 'id' | 'clientId' | 'checklist'> & { checklist?: Partial<Project['checklist']>, dataConclusao?: string });
     setIsAddProjectDialogOpen(false);
     toast({ title: "Projeto Adicionado", description: `O projeto ${data.nome} foi adicionado.` });
   };
@@ -494,30 +493,33 @@ export default function ClientDetailPage() {
               </CardHeader>
               <CardContent className="flex-grow space-y-2 mt-1">
                 <p className="text-sm text-muted-foreground line-clamp-2">{project.descricao || "Sem descrição."}</p>
-                {projectDateDisplayInfo && (
+                
+                {projectDateDisplayInfo && projectDateDisplayInfo.isConclusion && (
                   <p className="text-xs flex items-center mt-1">
                     {projectDateDisplayInfo.icon && (
                       <projectDateDisplayInfo.icon className={`mr-1 h-3.5 w-3.5 ${projectDateDisplayInfo.iconColorClass}`} />
                     )}
-                    {projectDateDisplayInfo.isConclusion ? (
-                      <span className='text-green-600 font-medium'>
+                    <span className='text-green-600 font-medium'>
+                      {projectDateDisplayInfo.prefix} {projectDateDisplayInfo.formattedDate}
+                    </span>
+                  </p>
+                )}
+
+                {projectDateDisplayInfo && !projectDateDisplayInfo.isConclusion && (
+                  <p className="text-xs flex items-center mt-1">
+                    {projectDateDisplayInfo.icon && (
+                      <projectDateDisplayInfo.icon className={`mr-1 h-3.5 w-3.5 ${projectDateDisplayInfo.iconColorClass}`} />
+                    )}
+                    <>
+                      <span className='text-muted-foreground'>
                         {projectDateDisplayInfo.prefix} {projectDateDisplayInfo.formattedDate}
                       </span>
-                    ) : (
-                      <>
-                        <span className='text-muted-foreground'>
-                          {projectDateDisplayInfo.prefix} {projectDateDisplayInfo.formattedDate}
+                      {projectDateDisplayInfo.remainingText && (
+                        <span className="ml-1 text-muted-foreground/80">
+                          | {projectDateDisplayInfo.remainingText}
                         </span>
-                        {projectDateDisplayInfo.remainingText && (
-                          <span className={cn(
-                            "ml-1",
-                            projectDateDisplayInfo.variant === 'destructive' ? 'text-destructive font-medium' : 'text-muted-foreground/80'
-                          )}>
-                            | {projectDateDisplayInfo.remainingText}
-                          </span>
-                        )}
-                      </>
-                    )}
+                      )}
+                    </>
                   </p>
                 )}
               </CardContent>
@@ -556,6 +558,8 @@ export default function ClientDetailPage() {
     </div>
   );
 }
+    
+
     
 
     
