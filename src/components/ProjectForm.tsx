@@ -28,13 +28,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CalendarIcon, PlusCircle, Loader2, DollarSign, Eye, EyeOff } from "lucide-react";
+import { CalendarIcon, PlusCircle, Loader2, DollarSign, Eye, EyeOff, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid, differenceInDays, isBefore, startOfDay } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import type { Project, ChecklistItem, ProjectType, PriorityType } from "@/types";
-import { PROJECT_TYPES, PROJECT_STATUS_OPTIONS, INITIAL_PROJECT_STATUS, PRIORITIES } from "@/lib/constants";
+import { PROJECT_TYPES, PROJECT_STATUS_OPTIONS, INITIAL_PROJECT_STATUS, PRIORITIES, PREDEFINED_CHECKLISTS } from "@/lib/constants";
 import { ChecklistItemInput } from "./ChecklistItemInput";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
@@ -74,6 +75,7 @@ const projectFormSchema = z.object({
       feito: z.boolean(),
     })
   ).optional(),
+  dataConclusao: z.date().optional(),
 });
 
 export type ProjectFormValues = z.infer<typeof projectFormSchema>;
@@ -103,6 +105,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   const [dragOverItemIndex, setDragOverItemIndex] = useState<number | null>(null);
 
   const [isValueInputVisible, setIsValueInputVisible] = useState(false);
+  const [showLoadPredefinedChecklistConfirm, setShowLoadPredefinedChecklistConfirm] = useState(false);
 
 
   const form = useForm<ProjectFormValues>({
@@ -117,9 +120,11 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       valor: project?.valor || undefined,
       notas: project?.notas || "",
       checklist: project?.checklist || [],
+      dataConclusao: project?.dataConclusao && isValid(parseISO(project.dataConclusao)) ? parseISO(project.dataConclusao) : undefined,
     },
   });
 
+  const watchedTipo = form.watch('tipo');
   const watchedStatus = form.watch('status');
   const watchedPrazo = form.watch('prazo');
   const { formState } = form;
@@ -137,6 +142,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       valor: project?.valor || undefined,
       notas: project?.notas || "",
       checklist: project?.checklist || [],
+      dataConclusao: project?.dataConclusao && isValid(parseISO(project.dataConclusao)) ? parseISO(project.dataConclusao) : undefined,
     });
     if(project?.tipo) {
         setSelectedProjectType(project.tipo);
@@ -144,9 +150,9 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         setStatusOptions(defaultStatuses);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project]); 
+  }, [project]);
 
-  const { fields, append, remove, update, move } = useFieldArray({
+  const { fields, append, remove, update, move, replace } = useFieldArray({
     control: form.control,
     name: "checklist",
   });
@@ -166,10 +172,10 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     } finally {
       setIsLoadingAiSuggestions(false);
     }
-  }, [toast]); 
+  }, [toast]);
 
   useEffect(() => {
-    if (project?.tipo && !project.status) { 
+    if (project?.tipo && !project.status) {
         const initialStatus = INITIAL_PROJECT_STATUS(project.tipo);
         form.setValue("status", initialStatus);
         initialStatusOnLoadRef.current = initialStatus;
@@ -180,14 +186,14 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
 
     if (
       watchedStatus === "Projeto Concluído" &&
-      initialStatusOnLoadRef.current !== "Projeto Concluído" && 
+      initialStatusOnLoadRef.current !== "Projeto Concluído" &&
       hasIncompleteItems &&
-      !showCompleteConfirmation 
+      !showCompleteConfirmation
     ) {
       setShowCompleteConfirmation(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedStatus, form, project, showCompleteConfirmation]); 
+  }, [watchedStatus, form, project, showCompleteConfirmation]);
 
 
   useEffect(() => {
@@ -213,37 +219,38 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
             newSuggestion = { suggested: 'Média', reason: 'O prazo foi removido.' };
             shouldShowDialog = true;
         }
-        
+
         if (shouldShowDialog && newSuggestion) {
             setPrioritySuggestionDetails(newSuggestion);
             setShowPrioritySuggestionDialog(true);
         }
-        lastPrazoRef.current = watchedPrazo; 
+        lastPrazoRef.current = watchedPrazo;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedPrazo, project, formState.dirtyFields.prioridade]); 
+  }, [watchedPrazo, project, formState.dirtyFields.prioridade]);
 
 
   const handleTypeChange = (value: string) => {
     const newType = value as ProjectType;
     setSelectedProjectType(newType);
-    form.setValue("tipo", newType); 
+    form.setValue("tipo", newType);
     const defaultStatuses = PROJECT_STATUS_OPTIONS[newType] || [];
     const newInitialStatus = defaultStatuses.length > 0 ? INITIAL_PROJECT_STATUS(newType) : "";
     setStatusOptions(defaultStatuses);
-    form.setValue("status", newInitialStatus); 
-    initialStatusOnLoadRef.current = newInitialStatus; 
-    fetchAiSuggestions(newType); 
+    form.setValue("status", newInitialStatus);
+    initialStatusOnLoadRef.current = newInitialStatus;
+    fetchAiSuggestions(newType);
   };
 
   const handleSubmitLogic = (data: ProjectFormValues) => {
     onSubmit({
       ...data,
       prazo: data.prazo ? format(data.prazo, "yyyy-MM-dd") : undefined,
+      dataConclusao: data.dataConclusao ? format(data.dataConclusao, "yyyy-MM-dd") : undefined,
       valor: data.valor
-    } as any); 
-    if (!isPage && onClose) { 
-      form.reset({ 
+    } as any);
+    if (!isPage && onClose) {
+      form.reset({
         nome: "",
         tipo: undefined,
         status: "",
@@ -253,16 +260,16 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         valor: undefined,
         notas: "",
         checklist: [],
+        dataConclusao: undefined,
       });
-      setSelectedProjectType(undefined); 
-      setStatusOptions([]); 
-      initialStatusOnLoadRef.current = ""; 
-      lastPrazoRef.current = undefined; 
-      setIsValueInputVisible(false); // Reset visibility on close for dialogs
-    } else if (isPage) { 
-        initialStatusOnLoadRef.current = data.status; 
-        lastPrazoRef.current = data.prazo; 
-        // isValueInputVisible remains as is for page context
+      setSelectedProjectType(undefined);
+      setStatusOptions([]);
+      initialStatusOnLoadRef.current = "";
+      lastPrazoRef.current = undefined;
+      setIsValueInputVisible(false);
+    } else if (isPage) {
+        initialStatusOnLoadRef.current = data.status;
+        lastPrazoRef.current = data.prazo;
     }
   };
 
@@ -272,17 +279,20 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       const updatedChecklist = currentChecklistValues.map(item => ({ ...item, feito: true }));
       form.setValue('checklist', updatedChecklist, { shouldDirty: true, shouldValidate: true });
     }
-    initialStatusOnLoadRef.current = "Projeto Concluído"; 
+    form.setValue('dataConclusao', new Date(), { shouldDirty: true, shouldValidate: true });
+    initialStatusOnLoadRef.current = "Projeto Concluído";
     setShowCompleteConfirmation(false);
   };
 
   const handleProceedWithoutMarking = () => {
-    initialStatusOnLoadRef.current = "Projeto Concluído"; 
+    form.setValue('dataConclusao', new Date(), { shouldDirty: true, shouldValidate: true });
+    initialStatusOnLoadRef.current = "Projeto Concluído";
     setShowCompleteConfirmation(false);
   };
 
   const handleCancelCompletionChange = () => {
-    form.setValue('status', initialStatusOnLoadRef.current); 
+    form.setValue('status', initialStatusOnLoadRef.current);
+    form.setValue('dataConclusao', project?.dataConclusao && isValid(parseISO(project.dataConclusao)) ? parseISO(project.dataConclusao) : undefined, { shouldDirty: true });
     setShowCompleteConfirmation(false);
   };
 
@@ -291,13 +301,38 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       form.setValue('prioridade', prioritySuggestionDetails.suggested, { shouldDirty: false, shouldValidate: true });
     }
     setShowPrioritySuggestionDialog(false);
-    setPrioritySuggestionDetails(null); 
+    setPrioritySuggestionDetails(null);
   };
 
   const handlePrioritySuggestionDecline = () => {
     setShowPrioritySuggestionDialog(false);
-    setPrioritySuggestionDetails(null); 
+    setPrioritySuggestionDetails(null);
   };
+
+  const handleLoadPredefinedChecklist = () => {
+    const projectType = form.getValues('tipo');
+    if (!projectType) {
+      toast({ variant: "destructive", title: "Tipo de Projeto Não Selecionado", description: "Por favor, selecione um tipo de projeto primeiro." });
+      return;
+    }
+
+    const predefinedItems = PREDEFINED_CHECKLISTS[projectType];
+    if (!predefinedItems || predefinedItems.length === 0) {
+      toast({ title: "Sem Checklist Padrão", description: `Nenhum checklist padrão encontrado para "${projectType}".` });
+      return;
+    }
+
+    const newChecklistItems = predefinedItems.map(itemText => ({
+      id: uuidv4(),
+      item: itemText,
+      feito: false,
+    }));
+
+    replace(newChecklistItems); // Substitui todos os itens existentes
+    toast({ title: "Checklist Padrão Carregado", description: `O checklist para "${projectType}" foi carregado e substituiu o atual.` });
+    setShowLoadPredefinedChecklistConfirm(false);
+  };
+
 
   const handleChecklistItemDragStart = (index: number) => {
     setDraggedItemIndex(index);
@@ -322,7 +357,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     setDraggedItemIndex(null);
     setDragOverItemIndex(null);
   };
-  
+
   const handleChecklistItemDragLeave = () => {
     // Handled by dragEnd and Drop
   };
@@ -450,6 +485,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                         "w-full pl-3 text-left font-normal",
                         !field.value && "text-muted-foreground"
                         )}
+                        disabled={watchedStatus === "Projeto Concluído"}
                     >
                         {field.value ? (
                         format(field.value, "PPP", { locale: ptBR })
@@ -467,7 +503,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                     onSelect={(date) => {
                         field.onChange(date);
                     }}
-                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } 
+                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || watchedStatus === "Projeto Concluído" }
                     initialFocus
                     locale={ptBR}
                     />
@@ -478,7 +514,49 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
             )}
         />
       </div>
-      
+       {watchedStatus === "Projeto Concluído" && (
+        <FormField
+          control={form.control}
+          name="dataConclusao"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Data de Conclusão</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground"
+                      )}
+                    >
+                      {field.value ? (
+                        format(field.value, "PPP", { locale: ptBR })
+                      ) : (
+                        <span>Escolha a data de conclusão</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    // disabled={(date) => date > new Date() || date < new Date("1900-01-01")} // Opcional: restringir datas
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
       <FormField
         control={form.control}
         name="valor"
@@ -568,11 +646,38 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       />
 
       <div>
-        <FormLabel>Checklist (Arraste para reordenar)</FormLabel>
+        <div className="flex justify-between items-center mb-2">
+            <FormLabel>Checklist (Arraste para reordenar)</FormLabel>
+            <AlertDialog open={showLoadPredefinedChecklistConfirm} onOpenChange={setShowLoadPredefinedChecklistConfirm}>
+                <AlertDialogTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!watchedTipo}
+                        title={!watchedTipo ? "Selecione um Tipo de Projeto para habilitar" : "Carregar checklist padrão para o tipo selecionado"}
+                    >
+                        <Sparkles className="mr-2 h-4 w-4" /> Carregar Padrão
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Carregar Checklist Padrão?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Isso substituirá todos os itens do checklist atual pelos itens padrão para o tipo de projeto "{watchedTipo}". Deseja continuar?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleLoadPredefinedChecklist}>Sim, Substituir</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
         {fields.map((fieldItem, index) => (
           <ChecklistItemInput
-            key={fieldItem.id} 
-            item={fieldItem as ChecklistItem} 
+            key={fieldItem.id}
+            item={fieldItem as ChecklistItem}
             index={index}
             onChange={(updatedSubItem) => update(index, updatedSubItem)}
             onRemove={() => remove(index)}
@@ -601,14 +706,14 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmitLogic)} className={cn("space-y-6", isPage ? "" : "")}>
-        {!isPage && ( 
+        {!isPage && (
           <DialogHeader>
             <DialogTitle>{formTitle}</DialogTitle>
             <DialogDescription>{formDescription}</DialogDescription>
           </DialogHeader>
         )}
 
-        {isPage ? ( 
+        {isPage ? (
           <div className={formContainerClass}>
             <h1 className="text-3xl font-bold mb-6 text-primary">
               {formTitle}
@@ -621,14 +726,14 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
               </Button>
             </div>
           </div>
-        ) : ( 
-          <div className="p-0"> 
+        ) : (
+          <div className="p-0">
             {commonFields}
             <DialogFooter className="mt-6">
               {onClose && (
                 <DialogClose asChild>
                   <Button type="button" variant="outline" onClick={() => {
-                      form.reset({ 
+                      form.reset({
                         nome: "",
                         tipo: undefined,
                         status: "",
@@ -638,13 +743,14 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                         valor: undefined,
                         notas: "",
                         checklist: [],
+                        dataConclusao: undefined,
                       });
                       setSelectedProjectType(undefined);
                       setStatusOptions([]);
                       initialStatusOnLoadRef.current = "";
                       lastPrazoRef.current = undefined;
                       setIsValueInputVisible(false);
-                      if(onClose) onClose(); 
+                      if(onClose) onClose();
                     }}>
                     Cancelar
                   </Button>
@@ -664,7 +770,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Conclusão do Projeto</AlertDialogTitle>
             <AlertDialogDescription>
-              O projeto tem itens pendentes no checklist. Deseja marcar todos os itens como concluídos automaticamente?
+              O projeto tem itens pendentes no checklist. Deseja marcar todos os itens como concluídos e definir hoje como data de conclusão?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -695,5 +801,3 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   );
 }
 
-
-    

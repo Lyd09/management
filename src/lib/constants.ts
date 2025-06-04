@@ -44,6 +44,60 @@ export const INITIAL_PROJECT_STATUS = (type: ProjectType): string => {
     return statuses.length > 0 ? statuses[0] : "";
 }
 
+export const PREDEFINED_CHECKLISTS: Record<ProjectType, string[]> = {
+  "Produção de Vídeo": [
+    "Briefing e Roteiro definidos",
+    "Equipamentos reservados/preparados",
+    "Locações definidas e liberadas",
+    "Agendamento de equipe e talentos",
+    "Captação de imagens e áudio",
+    "Backup de material bruto",
+    "Decupagem do material",
+    "Primeira montagem (offline)",
+    "Trilha sonora e efeitos sonoros",
+    "Colorização e tratamento de imagem",
+    "Motion graphics e legendas (se houver)",
+    "Exportação para revisão interna",
+    "Ajustes pós-revisão interna",
+    "Exportação para revisão do cliente",
+    "Ajustes pós-revisão do cliente",
+    "Exportação final e entrega",
+  ],
+  "Programação": [
+    "Levantamento de requisitos concluído",
+    "Definição da arquitetura do sistema",
+    "Design de UI/UX aprovado",
+    "Configuração do ambiente de desenvolvimento",
+    "Desenvolvimento do backend (APIs, banco de dados)",
+    "Desenvolvimento do frontend (interfaces)",
+    "Integração frontend-backend",
+    "Testes unitários",
+    "Testes de integração",
+    "Testes de usabilidade (QA)",
+    "Correção de bugs",
+    "Preparação do ambiente de produção",
+    "Deploy em ambiente de homologação/staging",
+    "Testes finais em homologação",
+    "Deploy em produção",
+    "Documentação técnica e do usuário",
+    "Treinamento (se aplicável)",
+  ],
+  "Animação de Logomarca": [
+    "Recebimento e análise do briefing",
+    "Pesquisa de referências e estilos",
+    "Criação de storyboard/animatic",
+    "Aprovação do storyboard pelo cliente",
+    "Design dos elementos gráficos (se necessário)",
+    "Animação dos elementos",
+    "Sincronização com áudio (trilha/efeitos)",
+    "Renderização prévia para revisão",
+    "Ajustes pós-revisão interna/cliente",
+    "Renderização final em alta qualidade",
+    "Entrega dos arquivos nos formatos solicitados",
+  ],
+};
+
+
 // Changelog data
 export type ChangelogEntryItem = {
   date: string; // e.g., "2024-05-21"
@@ -76,7 +130,7 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
       "  - Não exibe se checklist vazio e projeto não concluído.",
       "  - Não exibe se projeto já está com status 'Projeto Concluído'.",
       "Modal de confirmação ao marcar projeto como 'Concluído' com itens de checklist pendentes.",
-      "Projetos concluídos não são mais exibidos na lista de projetos do painel de clientes.",
+      "Projetos concluídos não são exibidos na lista de projetos do painel de clientes.",
       "Atualizada lista de status para 'Produção de Vídeo'.",
     ],
   },
@@ -126,3 +180,4 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     ],
   },
 ];
+
