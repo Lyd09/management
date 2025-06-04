@@ -113,20 +113,29 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   useEffect(() => {
     console.log('[AppDataContext] useEffect for clientes. LoggedInUser ID:', loggedInUserFromAuthContext?.id);
-    if (!loggedInUserFromAuthContext) {
+    
+    if (!loggedInUserFromAuthContext || !loggedInUserFromAuthContext.id) {
       setClients([]);
       setLoading(false); 
+      console.log('[AppDataContext] No logged in user or no user ID, clearing clients.');
       return; 
     }
 
     setLoading(true);
-    const clientsCollectionRef = collection(db, 'clientes'); 
+    const clientesCollectionRef = collection(db, 'clientes'); 
     
+    // Diagnóstico: Tente primeiro sem o orderBy
     const q = query(
-      clientsCollectionRef, 
-      where('creatorUserId', '==', loggedInUserFromAuthContext.id), 
-      orderBy('createdAt', 'desc')
+      clientesCollectionRef, 
+      where('creatorUserId', '==', loggedInUserFromAuthContext.id)
+      // orderBy('createdAt', 'desc') // Temporariamente comentado para diagnóstico
     );
+
+    // Para diagnóstico mais aprofundado, se o acima não funcionar, tente apenas:
+    // const q = query(clientesCollectionRef);
+
+    console.log(`[AppDataContext] Querying 'clientes' where 'creatorUserId' == '${loggedInUserFromAuthContext.id}'`);
+
 
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
       console.log('[AppDataContext] Raw querySnapshot docs for clientes:', querySnapshot.docs.length, 'docs found.');
@@ -135,6 +144,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       const clientsData: Client[] = [];
       for (const clientDoc of querySnapshot.docs) {
         const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
+        
+        // Verificação adicional do creatorUserId
+        if (clientFirebaseData.creatorUserId !== loggedInUserFromAuthContext.id) {
+            console.warn(`[AppDataContext] Mismatch! Client doc ${clientDoc.id} has creatorUserId ${clientFirebaseData.creatorUserId} but expected ${loggedInUserFromAuthContext.id}. This client will be filtered out by the 'where' clause if it's working correctly.`);
+            // Se a cláusula 'where' estiver funcionando, este log não deveria aparecer para os documentos retornados.
+            // Se a cláusula 'where' for comentada para teste, este log se torna relevante.
+        }
+
         const client: Client = {
           id: clientDoc.id,
           nome: clientFirebaseData.nome,
@@ -161,7 +178,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       setLoading(false);
     }, (error) => {
       console.error("Error fetching clientes from Firestore:", error);
-      toast({ variant: "destructive", title: "Erro ao Carregar Clientes", description: "Não foi possível buscar os dados dos clientes." });
+      toast({ variant: "destructive", title: "Erro ao Carregar Clientes", description: `Não foi possível buscar os dados dos clientes. Detalhe: ${error.message}` });
       setClients([]);
       setLoading(false);
     });
@@ -345,7 +362,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [clients, users, toast]);
 
   const addUser = useCallback(async (userData: Omit<User, 'id' | 'createdAt'> & { password?: string }) => {
-    console.log('AppDataContext addUser received userData.password:', userData.password);
     const email = userData.email || ""; 
     const password = userData.password || ""; 
 
