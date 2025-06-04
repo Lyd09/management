@@ -98,28 +98,27 @@ const formatProjectDateForCard = (
 } | null => {
   try {
     if (status === "Projeto Concluído") {
-      if (dataConclusao && typeof dataConclusao === 'string' && dataConclusao.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      if (dataConclusao && typeof dataConclusao === 'string' && dataConclusao.match(/^\d{4}-\d{2}-\d{2}$/) && isValid(parseISO(dataConclusao))) {
         const conclusionDate = parseISO(dataConclusao);
-        if (isValid(conclusionDate)) {
-          const currentYear = getYear(new Date());
-          const conclusionYear = getYear(conclusionDate);
-          const dateFormatString = conclusionYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
-          return {
-            prefix: "Concluído em:",
-            formattedDate: format(conclusionDate, dateFormatString, { locale: ptBR }),
-            remainingText: null,
-            isConclusion: true,
-            variant: "default",
-            icon: CheckCircle2,
-            iconColorClass: 'text-green-500',
-          };
-        }
+        const currentYear = getYear(new Date());
+        const conclusionYear = getYear(conclusionDate);
+        const dateFormatString = conclusionYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
+        return {
+          prefix: "Concluído em:",
+          formattedDate: format(conclusionDate, dateFormatString, { locale: ptBR }),
+          remainingText: null,
+          isConclusion: true,
+          variant: "default", // This variant is for the text, not directly used for badge here anymore
+          icon: CheckCircle2,
+          iconColorClass: 'text-green-500',
+        };
       }
-      return null;
+      return null; // Concluído mas sem dataConclusao válida, não exibe nada de data/prazo
     }
 
+    // Lógica para projetos não concluídos (exibição de prazo)
     if (!prazo || typeof prazo !== 'string' || !prazo.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return null;
+      return null; // Sem prazo válido
     }
 
     const deadlineDate = parseISO(prazo);
@@ -154,9 +153,9 @@ const formatProjectDateForCard = (
       formattedDate,
       remainingText,
       isConclusion: false,
-      variant,
+      variant, // This variant influences the color of remainingText
       icon: CalendarClock,
-      iconColorClass: 'text-destructive', 
+      iconColorClass: 'text-destructive', // Ícone de calendário sempre vermelho para prazos
     };
   } catch (error) {
     console.error("Error formatting project date for card:", error);
@@ -242,19 +241,31 @@ export default function ClientDetailPage() {
 
   const handleAddProject = (data: ProjectFormValues) => {
     if (!client) return;
-    const projectPayload: Omit<Project, 'id' | 'checklist' | 'clientId' > & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number, dataConclusao?: string } = {
+    
+    const submissionData: Partial<Project> & { nome: string, tipo: ProjectType, status: string } = {
       nome: data.nome,
-      tipo: data.tipo as ProjectType,
+      tipo: data.tipo,
       status: data.status,
       prioridade: data.prioridade,
       descricao: data.descricao,
-      prazo: data.prazo,
-      valor: data.valor,
       notas: data.notas,
-      checklist: data.checklist,
-      dataConclusao: data.dataConclusao
+      checklist: data.checklist || [],
+      valor: data.valor,
     };
-    addProject(client.id, projectPayload);
+
+    if (data.prazo) {
+      submissionData.prazo = format(data.prazo, "yyyy-MM-dd");
+    } else {
+      submissionData.prazo = undefined;
+    }
+    
+    if (data.status === "Projeto Concluído" && data.dataConclusao) {
+        submissionData.dataConclusao = format(data.dataConclusao, "yyyy-MM-dd");
+    } else {
+        submissionData.dataConclusao = undefined;
+    }
+
+    addProject(client.id, submissionData as Omit<Project, 'id' | 'clientId' | 'checklist'> & { checklist?: Partial<Project['checklist']> });
     setIsAddProjectDialogOpen(false);
     toast({ title: "Projeto Adicionado", description: `O projeto ${data.nome} foi adicionado.` });
   };
@@ -494,11 +505,14 @@ export default function ClientDetailPage() {
                       </span>
                     ) : (
                       <>
-                        <span className='text-foreground'>
+                        <span className='text-muted-foreground'>
                           {projectDateDisplayInfo.prefix} {projectDateDisplayInfo.formattedDate}
                         </span>
                         {projectDateDisplayInfo.remainingText && (
-                          <span className="ml-1 text-foreground">
+                          <span className={cn(
+                            "ml-1",
+                            projectDateDisplayInfo.variant === 'destructive' ? 'text-destructive font-medium' : 'text-muted-foreground/80'
+                          )}>
                             | {projectDateDisplayInfo.remainingText}
                           </span>
                         )}
@@ -542,5 +556,6 @@ export default function ClientDetailPage() {
     </div>
   );
 }
+    
 
     
