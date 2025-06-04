@@ -13,16 +13,17 @@ import { PROJECT_TYPES } from '@/lib/constants';
 
 const COLORS_PIE = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
-const EXCLUDE_PROJECT_NAMES_GENERAL = ["SITE LOGS", "MY BROKER"]; // Projetos a excluir de contagens gerais e tipos por nome do projeto
-const EXCLUDE_CLIENT_NAME_GENERAL = "SITE LOGS"; // Cliente cujos projetos devem ser excluídos de contagens gerais e tipos
+// Renamed for clarity: Constants for general metrics (Active, Completed, By Type)
+const GENERAL_EXCLUDED_PROJECT_NAMES = ["SITE LOGS", "MY BROKER"];
+const GENERAL_EXCLUDED_CLIENT_NAMES = ["SITE LOGS", "MY BROKER"];
 
-const EXCLUDE_CLIENT_NAMES_FOR_TOP_CLIENTS = ["SITE LOGS", "MY BROKER"]; // Nomes de clientes a excluir do Top 5
-const EXCLUDE_PROJECT_NAMES_FOR_TOP_CLIENTS = ["SITE LOGS", "MY BROKER"]; // Nomes de projetos a excluir da contagem para Top 5
+const EXCLUDE_CLIENT_NAMES_FOR_TOP_CLIENTS = ["SITE LOGS", "MY BROKER"];
+const EXCLUDE_PROJECT_NAMES_FOR_TOP_CLIENTS = ["SITE LOGS", "MY BROKER"];
 
-const EXCLUDE_CLIENT_NAMES_FOR_TOTAL_CLIENTS = ["SITE LOGS"]; // Nomes de clientes a excluir do Total de Clientes
-const EXCLUDE_PROJECT_NAMES_FOR_TOTAL_CLIENTS_FILTER = ["SITE LOGS"]; // Projetos a excluir se forem os *únicos* de um cliente para Total de Clientes
+const EXCLUDE_CLIENT_NAMES_FOR_TOTAL_CLIENTS = ["SITE LOGS"];
+const EXCLUDE_PROJECT_NAMES_FOR_TOTAL_CLIENTS_FILTER = ["SITE LOGS"];
 
-const EXCLUDE_PROJECT_NAMES_FOR_OVERDUE = ["SITE LOGS"]; // Projetos a excluir da lista de atrasados
+const EXCLUDE_PROJECT_NAMES_FOR_OVERDUE = ["SITE LOGS"];
 
 
 export default function DashboardMetricsPage() {
@@ -40,12 +41,12 @@ export default function DashboardMetricsPage() {
       const projectNameUpper = p.nome.trim().toUpperCase();
       const clientNameUpper = p.clientName.trim().toUpperCase();
 
-      // Exclude if project name is in EXCLUDE_PROJECT_NAMES_GENERAL
-      if (EXCLUDE_PROJECT_NAMES_GENERAL.some(excluded => projectNameUpper === excluded.toUpperCase())) {
+      // Exclude if project name is in GENERAL_EXCLUDED_PROJECT_NAMES
+      if (GENERAL_EXCLUDED_PROJECT_NAMES.some(excluded => projectNameUpper === excluded.toUpperCase())) {
         return false;
       }
-      // Exclude if client name is EXCLUDE_CLIENT_NAME_GENERAL
-      if (clientNameUpper === EXCLUDE_CLIENT_NAME_GENERAL.toUpperCase()) {
+      // Exclude if client name is in GENERAL_EXCLUDED_CLIENT_NAMES
+      if (GENERAL_EXCLUDED_CLIENT_NAMES.some(excludedClient => clientNameUpper === excludedClient.toUpperCase())) {
         return false;
       }
       return true;
@@ -64,19 +65,22 @@ export default function DashboardMetricsPage() {
     return clients
       .filter(client => {
         const clientNameUpper = client.nome.trim().toUpperCase();
-        return !EXCLUDE_CLIENT_NAMES_FOR_TOTAL_CLIENTS.some(excludedClientName =>
+        // Exclude clients explicitly named in EXCLUDE_CLIENT_NAMES_FOR_TOTAL_CLIENTS
+        if (EXCLUDE_CLIENT_NAMES_FOR_TOTAL_CLIENTS.some(excludedClientName =>
           clientNameUpper === excludedClientName.toUpperCase()
-        );
-      })
-      .filter(client => {
-        if (client.projetos.length === 0) return true;
-
-        const allProjectsAreExcludedType = client.projetos.every(p =>
-          EXCLUDE_PROJECT_NAMES_FOR_TOTAL_CLIENTS_FILTER.some(excludedProjectName =>
-              p.nome.trim().toUpperCase() === excludedProjectName.toUpperCase()
-          )
-        );
-        return !allProjectsAreExcludedType;
+        )) {
+          return false;
+        }
+        // Further, exclude clients if all their projects are of a type to be filtered out for this count
+        if (client.projetos.length > 0) {
+            const allProjectsAreExcludedType = client.projetos.every(p =>
+              EXCLUDE_PROJECT_NAMES_FOR_TOTAL_CLIENTS_FILTER.some(excludedProjectName =>
+                  p.nome.trim().toUpperCase() === excludedProjectName.toUpperCase()
+              )
+            );
+            if (allProjectsAreExcludedType) return false;
+        }
+        return true;
       }).length;
   }, [clients]);
 
@@ -84,6 +88,7 @@ export default function DashboardMetricsPage() {
     return clients
       .filter(client => {
         const clientNameUpper = client.nome.trim().toUpperCase();
+        // Exclude clients explicitly named in EXCLUDE_CLIENT_NAMES_FOR_TOP_CLIENTS
         return !EXCLUDE_CLIENT_NAMES_FOR_TOP_CLIENTS.some(excludedClientName =>
           clientNameUpper === excludedClientName.toUpperCase()
         );
@@ -91,13 +96,15 @@ export default function DashboardMetricsPage() {
       .map(client => ({
         id: client.id,
         name: client.nome,
-        projectCount: client.projetos.filter(p =>
-            !EXCLUDE_PROJECT_NAMES_FOR_TOP_CLIENTS.some(excludedProjectName => // Use specific list for this metric
-              p.nome.trim().toUpperCase() === excludedProjectName.toUpperCase()
-            )
-        ).length,
+        projectCount: client.projetos.filter(p => {
+            const projectNameUpper = p.nome.trim().toUpperCase();
+            // Exclude projects explicitly named in EXCLUDE_PROJECT_NAMES_FOR_TOP_CLIENTS
+            return !EXCLUDE_PROJECT_NAMES_FOR_TOP_CLIENTS.some(excludedProjectName =>
+              projectNameUpper === excludedProjectName.toUpperCase()
+            );
+        }).length,
       }))
-      .filter(client => client.projectCount > 0)
+      .filter(client => client.projectCount > 0) // Only include clients with a non-zero count of relevant projects
       .sort((a, b) => b.projectCount - a.projectCount)
       .slice(0, 5);
   }, [clients]);
@@ -174,7 +181,7 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeProjectsCount}</div>
-            <p className="text-xs text-muted-foreground">Exclui projetos do cliente "{EXCLUDE_CLIENT_NAME_GENERAL}" e projetos nomeados "{EXCLUDE_PROJECT_NAMES_GENERAL.join('" ou "')}".</p>
+            <p className="text-xs text-muted-foreground">Exclui projetos dos clientes "{GENERAL_EXCLUDED_CLIENT_NAMES.join('" ou "')}" e projetos nomeados "{GENERAL_EXCLUDED_PROJECT_NAMES.join('" ou "')}".</p>
           </CardContent>
         </Card>
         <Card>
@@ -184,7 +191,7 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completedProjectsCount}</div>
-             <p className="text-xs text-muted-foreground">Exclui projetos do cliente "{EXCLUDE_CLIENT_NAME_GENERAL}" e projetos nomeados "{EXCLUDE_PROJECT_NAMES_GENERAL.join('" ou "')}".</p>
+             <p className="text-xs text-muted-foreground">Exclui projetos dos clientes "{GENERAL_EXCLUDED_CLIENT_NAMES.join('" ou "')}" e projetos nomeados "{GENERAL_EXCLUDED_PROJECT_NAMES.join('" ou "')}".</p>
           </CardContent>
         </Card>
          <Card>
@@ -248,7 +255,7 @@ export default function DashboardMetricsPage() {
        <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><PieChartIcon className="mr-2 h-5 w-5 text-primary" />Distribuição de Projetos por Tipo</CardTitle>
-          <CardDescription>Exclui projetos do cliente "{EXCLUDE_CLIENT_NAME_GENERAL}" e projetos nomeados "{EXCLUDE_PROJECT_NAMES_GENERAL.join('" ou "')}".</CardDescription>
+          <CardDescription>Exclui projetos dos clientes "{GENERAL_EXCLUDED_CLIENT_NAMES.join('" ou "')}" e projetos nomeados "{GENERAL_EXCLUDED_PROJECT_NAMES.join('" ou "')}".</CardDescription>
         </CardHeader>
         <CardContent className="h-[350px] w-full">
           {projectsByTypeChartData.length > 0 ? (
@@ -292,3 +299,4 @@ export default function DashboardMetricsPage() {
     </div>
   );
 }
+
