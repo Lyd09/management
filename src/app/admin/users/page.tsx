@@ -33,7 +33,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function AdminUsersPage() {
   const { users, addUser, updateUser, deleteUser, loading: appDataLoading } = useAppData();
-  const { currentUser } = useAuth(); // This is the logged-in admin
+  const { currentUser } = useAuth();
   const { toast } = useToast();
 
   const [isUserFormOpen, setIsUserFormOpen] = useState(false);
@@ -49,7 +49,7 @@ export default function AdminUsersPage() {
         username: data.username,
         email: data.email,
         role: data.role,
-        password: data.password, // Password is now passed
+        password: data.password, 
       });
       setIsUserFormOpen(false);
       toast({ title: "Usuário Adicionado", description: `O usuário ${data.username} foi adicionado.` });
@@ -61,15 +61,15 @@ export default function AdminUsersPage() {
   const handleEditUserSubmit = async (data: UserFormValues) => {
     if (editingUser) {
       try {
-        // Prepare data for Firestore update (excluding password initially)
         let dataToUpdate: Partial<Omit<User, 'id'| 'createdAt'>> & {newPassword?: string} = {
              email: data.email,
              username: data.username,
              role: data.role,
         };
 
-        // If a new password is provided in the form (and it's not empty), add it.
-        if (data.password && data.password.trim().length > 0) {
+        // Pass password only if editing self and a new password is provided
+        const isEditingSelf = editingUser.id === currentUser?.id;
+        if (isEditingSelf && data.password && data.password.trim().length > 0) {
           dataToUpdate.newPassword = data.password;
         }
 
@@ -131,7 +131,7 @@ export default function AdminUsersPage() {
         </div>
         <Dialog open={isUserFormOpen} onOpenChange={(isOpen) => {
           setIsUserFormOpen(isOpen);
-          if (!isOpen) setEditingUser(null); // Reset editingUser when dialog closes
+          if (!isOpen) setEditingUser(null); 
         }}>
           <DialogTrigger asChild>
             <Button>
@@ -140,7 +140,7 @@ export default function AdminUsersPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <UserForm
-              user={editingUser} // Pass null for add, or user object for edit
+              user={editingUser} 
               onSubmit={editingUser ? handleEditUserSubmit : handleAddUserSubmit}
               onClose={() => {
                 setIsUserFormOpen(false);
@@ -153,9 +153,9 @@ export default function AdminUsersPage() {
         </Dialog>
       </div>
       <CardDescription>
-        Adicione, edite ou remova usuários do sistema. O usuário 'ff.admin' possui restrições de edição e não pode ser excluído.
-        A alteração de senha de outros usuários através deste formulário não é efetivada diretamente por limitações de segurança do SDK cliente;
-        use o console do Firebase para tal. Se você (administrador) estiver editando sua própria senha, a alteração será tentada.
+        Adicione, edite ou remova usuários do sistema. O usuário 'ff.admin' possui restrições.
+        Para alterar sua própria senha (se você for administrador), edite seu perfil e preencha os campos de nova senha.
+        A alteração de senha de outros usuários deve ser feita através do console do Firebase.
       </CardDescription>
 
       {displayUsers.length === 0 ? (
@@ -181,11 +181,9 @@ export default function AdminUsersPage() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <UserForm
-                  // user={null} is implicit when editingUser is null
                   onSubmit={handleAddUserSubmit}
                   onClose={() => setIsUserFormOpen(false)}
                   currentUserIsAdmin={currentUser?.role === 'admin'}
-                  // editingSelf is not relevant for add
                 />
               </DialogContent>
             </Dialog>
@@ -258,4 +256,3 @@ export default function AdminUsersPage() {
     </div>
   );
 }
-

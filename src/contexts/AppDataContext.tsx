@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import type { AppData, Client, Project, ProjectType, ChecklistItem, PriorityType, User } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
-import { db, auth } from '@/lib/firebase'; // Import auth
+import { db, auth } from '@/lib/firebase';
 import {
   collection,
   onSnapshot,
@@ -19,8 +19,7 @@ import {
   getDocs,
   serverTimestamp,
   Timestamp,
-  // where, // Not currently used
-  setDoc // Import setDoc for specific ID
+  setDoc
 } from 'firebase/firestore';
 import { 
     createUserWithEmailAndPassword, 
@@ -29,8 +28,8 @@ import {
     deleteUser as firebaseDeleteUser, 
     type User as FirebaseUser 
 } from 'firebase/auth';
-import { useAuth } from '@/hooks/useAuth'; // To get the currently logged-in user
-import { useToast } from '@/hooks/use-toast'; // Import useToast
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 interface FirebaseClientDoc {
   nome: string;
@@ -93,13 +92,12 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   const { currentUser: loggedInUserFromAuthContext } = useAuth();
   const { toast } = useToast();
 
-  // Fetch Users
   useEffect(() => {
     const usersCollectionRef = collection(db, 'users');
     const qUsers = query(usersCollectionRef, orderBy('createdAt', 'desc'));
 
     const unsubscribeUsers = onSnapshot(qUsers, (querySnapshot) => {
-      const usersData: User[] = querySnapshot.docs.map(docSnap => ({ // Renamed doc to docSnap to avoid conflict
+      const usersData: User[] = querySnapshot.docs.map(docSnap => ({
         id: docSnap.id, 
         ...(docSnap.data() as FirebaseUserDoc),
       }));
@@ -131,7 +129,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         };
 
         const projectsCollectionRef = collection(db, 'clients', clientDoc.id, 'projects');
-        const projectsQuery = query(projectsCollectionRef, orderBy('createdAt', 'desc'));
+        // const projectsQuery = query(projectsCollectionRef, orderBy('createdAt', 'desc')); // Not used directly
         const projectsSnapshot = await getDocs(projectsCollectionRef);
         
         client.projetos = projectsSnapshot.docs.map(projectDoc => {
@@ -247,7 +245,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       delete dataToUpdate.creatorUserId;
 
       if (dataToUpdate.checklist) {
-        dataToUpdate.checklist = dataToUpdate.checklist.map((item: ChecklistItem) => ({ // Added type for item
+        dataToUpdate.checklist = dataToUpdate.checklist.map((item: ChecklistItem) => ({
           ...item,
           id: item.id || uuidv4(),
         }));
@@ -314,7 +312,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       await addProject(clientId, duplicatedProjectData);
     } catch (error) {
       console.error("Erro ao duplicar projeto no Firestore:", error);
-      // addProject já tem seu próprio toast
     }
   }, [addProject, getProjectById, loggedInUserFromAuthContext, toast]);
 
@@ -331,25 +328,20 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [clients, users, toast]);
 
   const addUser = useCallback(async (userData: Omit<User, 'id' | 'createdAt'> & { password?: string }) => {
-    // console.log('AppDataContext addUser received userData.password:', userData.password);
-    
     const email = userData.email || ""; 
     const password = userData.password || ""; 
-    
-    // Ensure password is not undefined and not empty before destructuring,
-    // though Zod validation in UserForm should prevent this.
-    if (!password || password.trim() === "") {
-        console.error("addUser: Password is empty or undefined before destructuring.");
-        throw new Error("Senha é obrigatória e não pode ser vazia.");
-    }
 
+    console.log('AppDataContext addUser received userData.password:', userData.password);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password: _, ...firestoreData } = userData; // Exclude password from firestoreData
+    const { password: _, ...firestoreData } = userData; 
 
     try {
+      // 1. Create user in Firebase Authentication
+      // Firebase will throw an error if email or password are empty or invalid.
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
+      // 2. Create user document in Firestore using the UID from Firebase Auth as document ID
       const userDocRef = doc(db, 'users', firebaseUser.uid);
       await setDoc(userDocRef, {
         ...firestoreData, 
@@ -387,9 +379,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         if (firestoreUpdates.role && firestoreUpdates.role !== 'admin') {
           throw new Error("O papel (role) de 'ff.admin' não pode ser alterado.");
         }
-        if (newPassword && newPassword.length > 0) {
-          throw new Error("A senha de 'ff.admin' não pode ser alterada por este formulário.");
-        }
+        // Password for ff.admin is not changed here
       }
       
       const userDocRef = doc(db, 'users', userId);
@@ -440,12 +430,15 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
               toast({ variant: "destructive", title: "Erro ao Alterar Senha", description: authError.message });
             }
           }
-        } else { // Admin trying to change another user's password
-          console.warn(`Admin attempted to change password for user ${userId} via client SDK. This is not allowed for other users.`);
+        } else { 
+          // Admin trying to change another user's password.
+          // This scenario is now prevented by the UI not showing password fields.
+          // If it somehow gets here, it's a bug or unexpected flow.
+          console.warn(`Attempt to change password for user ${userId} by another user/admin (${auth.currentUser?.uid}). This action is not directly supported by client SDKs for other users and should have been prevented by UI.`);
           toast({
-            variant: "default", // Use 'default' or 'destructive' as preferred for a warning
-            title: "Ação não Permitida para Senha",
-            description: `A senha de '${userToUpdate.username}' não foi alterada. Administradores devem usar o console do Firebase para redefinir senhas de outros usuários.`,
+            variant: "destructive", 
+            title: "Ação de Senha Não Permitida",
+            description: `A senha de '${userToUpdate.username}' não pode ser alterada desta forma. Apenas o próprio usuário pode alterar sua senha.`,
             duration: 7000,
           });
         }
@@ -487,7 +480,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [users, toast]);
   
   const fetchUsers = useCallback(() => {
-    console.log("fetchUsers called - onSnapshot provides live updates.");
+    // onSnapshot provides live updates, so this function can be a no-op or for explicit re-fetch if needed later.
+    // console.log("fetchUsers called - onSnapshot provides live updates.");
   }, []);
 
 
@@ -518,4 +512,3 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     </AppDataContext.Provider>
   );
 };
-
