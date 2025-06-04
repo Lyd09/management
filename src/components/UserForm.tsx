@@ -24,8 +24,8 @@ export type UserFormValues = {
   username: string;
   email: string;
   role: 'admin' | 'user';
-  password: string; 
-  confirmPassword: string; 
+  password: string; // Should always be string, defaults to ""
+  confirmPassword: string; // Should always be string, defaults to ""
 };
 
 // Schema for ADDING a new user
@@ -41,11 +41,11 @@ const userFormSchemaForAdd = z.object({
   role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
   password: z.string()
     .trim()
-    .nonempty({ message: "Senha é obrigatória." })
+    .min(1, { message: "Senha é obrigatória." })
     .min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
   confirmPassword: z.string()
     .trim()
-    .nonempty({ message: "Confirmação de senha é obrigatória." })
+    .min(1, { message: "Confirmação de senha é obrigatória." })
     .min(6, { message: "A confirmação de senha deve ter pelo menos 6 caracteres." }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "As senhas não coincidem.",
@@ -115,7 +115,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
       }
     }
         
-    await onSubmit(data); // This calls handleAddUserSubmit or handleEditUserSubmit
+    await onSubmit(data); 
     
     if (!isEditing) { 
         form.reset({ 
