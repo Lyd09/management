@@ -24,8 +24,8 @@ export type UserFormValues = {
   username: string;
   email: string;
   role: 'admin' | 'user';
-  password?: string; // Optional because it's not used for editing
-  confirmPassword?: string; // Optional
+  password?: string; 
+  confirmPassword?: string; 
 };
 
 // Schema for ADDING a new user
@@ -37,7 +37,7 @@ const userFormSchemaForAdd = z.object({
   }).regex(/^[a-zA-Z0-9_.-]+$/, {
     message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
   }),
-  email: z.string({ required_error: "Email é obrigatório." }).trim().email({ message: "Email inválido." }).min(1, {message: "Email é obrigatório."}),
+  email: z.string({ required_error: "Email é obrigatório." }).trim().nonempty({ message: "Email não pode ser vazio." }).email({ message: "Email inválido." }),
   role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
   password: z.string({ required_error: "Senha é obrigatória." })
     .trim()
@@ -61,7 +61,7 @@ const userFormSchemaForEdit = z.object({
   }).regex(/^[a-zA-Z0-9_.-]+$/, {
     message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
   }),
-  email: z.string().trim().email({message: "Email inválido."}).optional().or(z.literal("")), // Allows empty or valid email
+  email: z.string().trim().email({message: "Email inválido."}).optional().or(z.literal("")), // Allows empty or valid email for edit
   role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
 });
 
@@ -81,28 +81,24 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
   const form = useForm<UserFormValues>({
     resolver: zodResolver(isEditing ? userFormSchemaForEdit : userFormSchemaForAdd),
     defaultValues: {
-      username: "", // Default to empty, useEffect will populate if 'user' prop exists
-      email: "",    // Default to empty
-      role: "user", // Default role
-      password: "", // Default to empty, will be undefined if !isEditing after initial reset
-      confirmPassword: "", // Default to empty
+      username: user?.username || "",
+      email: user?.email || "",
+      role: user?.role || "user",
+      password: "", 
+      confirmPassword: "",
     },
   });
   
   const prevUserRef = useRef<User | null | undefined>(user);
 
   useEffect(() => {
-    // Only reset form if the 'user' prop instance actually changes,
-    // or if we are switching from editing (user was not null) to adding (user is null).
     if (prevUserRef.current !== user) {
       form.reset({
           username: user?.username || "",
           email: user?.email || "",
           role: user?.role || "user",
-          // For 'add' mode (user is null), password fields should effectively be empty/undefined for validation
-          // For 'edit' mode, they are not part of the form data schema, so "" is fine.
-          password: user ? "" : "", // Zod will check required_error if undefined for add
-          confirmPassword: user ? "" : "",
+          password: "", 
+          confirmPassword: "",
       });
       prevUserRef.current = user;
     }
@@ -110,8 +106,21 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
 
 
   const handleSubmit = async (data: UserFormValues) => {
-    console.log('UserForm handleSubmit data:', JSON.stringify(data, null, 2)); 
+    console.log('UserForm handleSubmit data (raw from RHF):', JSON.stringify(data, null, 2));
 
+    if (!isEditing) { // Manual check when adding a user
+      const trimmedPassword = data.password?.trim() || "";
+      if (trimmedPassword === "" || trimmedPassword.length < 6) {
+        console.error("MANUAL CHECK FAIL (UserForm): Password is empty or too short BEFORE calling onSubmit prop.", { passwordValue: data.password });
+        form.setError("password", { type: "manual", message: "A senha é obrigatória e deve ter pelo menos 6 caracteres." });
+        // Also set error for confirmPassword if it's the one failing the refine, though the primary issue is password itself
+        if (data.password !== data.confirmPassword) {
+             form.setError("confirmPassword", { type: "manual", message: "As senhas não coincidem." });
+        }
+        return; // Stop submission
+      }
+    }
+        
     if (isEditingFfAdmin) {
       if (data.username !== 'ff.admin') {
         form.setError("username", { message: "O nome de usuário 'ff.admin' não pode ser alterado."});
@@ -125,7 +134,6 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         
     try {
       await onSubmit(data); 
-      // Reset only if ADDING was successful. For editing, the dialog closes and unmounts/resets via useEffect.
       if (!isEditing) { 
           form.reset({ 
               username: "", 
@@ -136,8 +144,6 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
           });
       }
     } catch (error) {
-      // Error is typically handled by the onSubmit prop's implementation (e.g., toast in parent)
-      // Do not reset the form here on error so user can see their input.
       console.error("Error during UserForm onSubmit prop call:", error);
     }
   };
@@ -220,7 +226,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
               <FormLabel>Papel (Role)</FormLabel>
               <Select 
                 onValueChange={field.onChange} 
-                value={field.value} // Use value for controlled component
+                value={field.value} 
                 disabled={isEditingFfAdmin || (editingSelf && !currentUserIsAdmin)} 
               >
                 <FormControl>
@@ -241,8 +247,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         <DialogFooter className="mt-8">
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => {
-                onClose(); // This will set isUserFormOpen to false in parent
-                           // The useEffect in this component will then handle the reset based on 'user' prop
+                onClose(); 
             }}>
               Cancelar
             </Button>
@@ -255,4 +260,3 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
     </Form>
   );
 }
-
