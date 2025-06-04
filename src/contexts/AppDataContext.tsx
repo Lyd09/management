@@ -19,7 +19,8 @@ import {
   getDocs,
   serverTimestamp,
   Timestamp,
-  setDoc
+  setDoc,
+  where // Importar where
 } from 'firebase/firestore';
 import { 
     createUserWithEmailAndPassword, 
@@ -92,6 +93,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   const { currentUser: loggedInUserFromAuthContext } = useAuth();
   const { toast } = useToast();
 
+  // console.log for debugging password issue (can be removed later)
+  useEffect(() => {
+    if (loggedInUserFromAuthContext) {
+      // console.log('AppDataContext - loggedInUserFromAuthContext updated:', loggedInUserFromAuthContext);
+    }
+  }, [loggedInUserFromAuthContext]);
+
+  // Fetch Users
   useEffect(() => {
     const usersCollectionRef = collection(db, 'users');
     const qUsers = query(usersCollectionRef, orderBy('createdAt', 'desc'));
@@ -110,10 +119,23 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
 
+  // Fetch Clients and their Projects, filtered by creatorUserId
   useEffect(() => {
+    if (!loggedInUserFromAuthContext) {
+      setClients([]);
+      setLoading(false); // No user, so loading is complete (with no data for this user)
+      return; // No cleanup function needed as no subscription will be made
+    }
+
     setLoading(true);
     const clientsCollectionRef = collection(db, 'clients');
-    const q = query(clientsCollectionRef, orderBy('createdAt', 'desc'));
+    
+    // Filter clients by creatorUserId
+    const q = query(
+      clientsCollectionRef, 
+      where('creatorUserId', '==', loggedInUserFromAuthContext.id), // <--- FILTRO APLICADO
+      orderBy('createdAt', 'desc')
+    );
 
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
       const clientsData: Client[] = [];
@@ -129,7 +151,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         };
 
         const projectsCollectionRef = collection(db, 'clients', clientDoc.id, 'projects');
-        // const projectsQuery = query(projectsCollectionRef, orderBy('createdAt', 'desc')); // Not used directly
         const projectsSnapshot = await getDocs(projectsCollectionRef);
         
         client.projetos = projectsSnapshot.docs.map(projectDoc => {
@@ -145,12 +166,13 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       setLoading(false);
     }, (error) => {
       console.error("Error fetching clients from Firestore:", error);
+      toast({ variant: "destructive", title: "Erro ao Carregar Clientes", description: "Não foi possível buscar os dados dos clientes." });
       setClients([]);
       setLoading(false);
     });
 
     return () => unsubscribeClients();
-  }, []);
+  }, [loggedInUserFromAuthContext, toast]); // Add loggedInUserFromAuthContext to dependencies
 
   const addClient = useCallback(async (nome: string, prioridade?: PriorityType) => {
     if (!loggedInUserFromAuthContext) {
@@ -178,6 +200,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (prioridade) {
         updateData.prioridade = prioridade;
       }
+      // Ensure creatorUserId is not accidentally changed
+      // delete (updateData as any).creatorUserId; 
       await updateDoc(clientDocRef, updateData as any);
     } catch (error) {
       console.error("Error updating client in Firestore:", error);
@@ -242,6 +266,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       const projectDocRef = doc(db, 'clients', clientId, 'projects', projectId);
       const dataToUpdate = {...projectData} as any;
+      // Ensure creatorUserId is not accidentally changed
       delete dataToUpdate.creatorUserId;
 
       if (dataToUpdate.checklist) {
@@ -294,18 +319,20 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const duplicatedProjectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number } = {
       nome: `${originalProject.nome} (Cópia)`,
       tipo: originalProject.tipo,
-      status: originalProject.status,
+      status: originalProject.status, // Consider resetting status to an initial one
       descricao: originalProject.descricao,
-      prazo: originalProject.prazo,
-      dataConclusao: originalProject.dataConclusao,
+      prazo: originalProject.prazo, // Consider clearing or adjusting the deadline
+      dataConclusao: undefined, // Duplicates should not start as completed
       notas: originalProject.notas,
       prioridade: originalProject.prioridade,
       valor: originalProject.valor,
+      // Ensure checklist items get new IDs
       checklist: originalProject.checklist.map(item => ({
         id: uuidv4(),
         item: item.item,
-        feito: item.feito,
+        feito: false, // Reset checklist item status
       })),
+      // creatorUserId will be set by addProject
     };
 
     try {
@@ -328,20 +355,17 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [clients, users, toast]);
 
   const addUser = useCallback(async (userData: Omit<User, 'id' | 'createdAt'> & { password?: string }) => {
+    // console.log('AppDataContext addUser received userData.password:', userData.password);
     const email = userData.email || ""; 
     const password = userData.password || ""; 
 
-    console.log('AppDataContext addUser received userData.password:', userData.password);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password: _, ...firestoreData } = userData; 
+    const { password: _passwordVal, ...firestoreData } = userData; 
 
     try {
-      // 1. Create user in Firebase Authentication
-      // Firebase will throw an error if email or password are empty or invalid.
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
-      // 2. Create user document in Firestore using the UID from Firebase Auth as document ID
       const userDocRef = doc(db, 'users', firebaseUser.uid);
       await setDoc(userDocRef, {
         ...firestoreData, 
@@ -358,8 +382,9 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
          throw new Error("O email fornecido é inválido ou não foi preenchido.");
       } else if (error.code === 'auth/missing-password') { 
          throw new Error("A senha não foi preenchida ou é inválida.");
+      } else {
+        throw new Error("Não foi possível adicionar o usuário: " + error.message);
       }
-      throw new Error("Não foi possível adicionar o usuário: " + error.message);
     }
   }, []);
 
@@ -379,7 +404,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         if (firestoreUpdates.role && firestoreUpdates.role !== 'admin') {
           throw new Error("O papel (role) de 'ff.admin' não pode ser alterado.");
         }
-        // Password for ff.admin is not changed here
       }
       
       const userDocRef = doc(db, 'users', userId);
@@ -397,7 +421,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         await updateDoc(userDocRef, dataToUpdateInFirestore);
       }
 
-      // Handle Firebase Auth email update if necessary
       if (firestoreUpdates.email && firestoreUpdates.email !== userToUpdate.email) {
          if (auth.currentUser && auth.currentUser.uid === userId) { 
             try {
@@ -416,9 +439,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
          }
       }
 
-      // Handle Firebase Auth password update
       if (newPassword && newPassword.length >= 6) {
-        if (auth.currentUser && auth.currentUser.uid === userId) { // Current user changing their own password
+        if (auth.currentUser && auth.currentUser.uid === userId) { 
           try {
             await firebaseUpdatePassword(auth.currentUser, newPassword);
             toast({ title: "Senha Atualizada", description: "Sua senha foi alterada com sucesso." });
@@ -431,9 +453,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
             }
           }
         } else { 
-          // Admin trying to change another user's password.
-          // This scenario is now prevented by the UI not showing password fields.
-          // If it somehow gets here, it's a bug or unexpected flow.
           console.warn(`Attempt to change password for user ${userId} by another user/admin (${auth.currentUser?.uid}). This action is not directly supported by client SDKs for other users and should have been prevented by UI.`);
           toast({
             variant: "destructive", 
@@ -480,7 +499,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [users, toast]);
   
   const fetchUsers = useCallback(() => {
-    // onSnapshot provides live updates, so this function can be a no-op or for explicit re-fetch if needed later.
     // console.log("fetchUsers called - onSnapshot provides live updates.");
   }, []);
 
@@ -512,3 +530,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     </AppDataContext.Provider>
   );
 };
+
+
+    
