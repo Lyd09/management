@@ -50,6 +50,7 @@ interface AppDataContextType {
   updateProject: (clientId: string, projectId: string, projectData: Partial<Project>) => Promise<void>;
   deleteProject: (clientId: string, projectId: string) => Promise<void>;
   getProjectById: (clientId: string, projectId: string) => Project | undefined;
+  duplicateProject: (clientId: string, projectIdToDuplicate: string) => Promise<void>;
   importData: (jsonData: AppData) => boolean; 
   exportData: () => AppData; 
 }
@@ -199,6 +200,35 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     return client?.projetos.find(p => p.id === projectId);
   }, [clients]);
 
+  const duplicateProject = useCallback(async (clientId: string, projectIdToDuplicate: string) => {
+    const originalProject = getProjectById(clientId, projectIdToDuplicate);
+    if (!originalProject) {
+      console.error("Projeto original não encontrado para duplicação.");
+      return;
+    }
+
+    const duplicatedProjectData: Omit<Project, 'id' | 'checklist'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType } = {
+      nome: `${originalProject.nome} (Cópia)`,
+      tipo: originalProject.tipo,
+      status: originalProject.status, // Mantém o status original
+      descricao: originalProject.descricao,
+      prazo: originalProject.prazo, // Mantém o prazo original
+      notas: originalProject.notas,
+      prioridade: originalProject.prioridade, // Mantém a prioridade original
+      checklist: originalProject.checklist.map(item => ({
+        id: uuidv4(), // Novo ID para o item do checklist
+        item: item.item,
+        feito: item.feito, // Mantém o estado 'feito' original
+      })),
+    };
+
+    try {
+      await addProject(clientId, duplicatedProjectData);
+    } catch (error) {
+      console.error("Erro ao duplicar projeto no Firestore:", error);
+    }
+  }, [addProject, getProjectById]);
+
   const importData = useCallback((jsonData: AppData): boolean => {
     console.warn("Data import from JSON is deprecated. Data is now managed in Firestore.");
       return false;
@@ -222,6 +252,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         updateProject,
         deleteProject,
         getProjectById,
+        duplicateProject,
         importData,
         exportData,
       }}

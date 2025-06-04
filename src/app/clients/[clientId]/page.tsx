@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -126,7 +126,7 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const clientId = typeof params.clientId === 'string' ? params.clientId : '';
 
-  const { getClientById, addProject, deleteProject, loading } = useAppData();
+  const { getClientById, addProject, deleteProject, duplicateProject, loading } = useAppData();
   const { toast } = useToast();
 
   const [client, setClient] = useState<Client | null>(null);
@@ -182,6 +182,15 @@ export default function ClientDetailPage() {
       setProjectToDelete(null);
     }
     setShowDeleteConfirm(false);
+  };
+
+  const handleDuplicateProject = async (projectId: string) => {
+    if (!client) return;
+    const projectToDuplicate = client.projetos.find(p => p.id === projectId);
+    if (projectToDuplicate) {
+      await duplicateProject(client.id, projectId);
+      toast({ title: "Projeto Duplicado", description: `O projeto "${projectToDuplicate.nome}" foi duplicado com sucesso.` });
+    }
   };
 
   const uniqueProjectTypes = useMemo(() => {
@@ -386,6 +395,9 @@ export default function ClientDetailPage() {
                 {project.prazo && <p className="text-xs text-muted-foreground">Prazo: {new Date(project.prazo + "T00:00:00").toLocaleDateString('pt-BR')}</p>}
               </CardContent>
               <CardFooter className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleDuplicateProject(project.id)}>
+                  <Copy className="mr-1 h-3 w-3" /> Duplicar
+                </Button>
                 <Link href={`/clients/${client.id}/projects/${project.id}`} passHref legacyBehavior>
                   <Button variant="outline" size="sm">
                     <Edit2 className="mr-1 h-3 w-3" /> Editar
