@@ -313,16 +313,13 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [clients, users]);
 
   const addUser = useCallback(async (userData: Omit<User, 'id' | 'createdAt'> & { password?: string }) => {
-    // The pre-check for email and password has been removed.
-    // We now rely on Zod validation in UserForm and Firebase's own error handling.
-    // userData.email and userData.password SHOULD be non-empty strings if UserForm validation passed.
+    console.log('AppDataContext addUser received userData.password:', userData.password);
+    // The pre-check for email and password has been removed from here in a previous step.
+    // We rely on UserForm Zod validation and Firebase's own error handling.
     
-    // Ensure email and password are not undefined before destructuring.
-    // If they are still undefined/empty here, Firebase Auth will throw an appropriate error.
-    const email = userData.email || ""; // Default to empty string if undefined, Firebase will catch this
-    const password = userData.password || ""; // Default to empty string, Firebase will catch this
+    const email = userData.email || ""; 
+    const password = userData.password || ""; 
     
-    // Destructure to get other data, excluding the local email/password which might have been defaulted
     const { email: _emailField, password: _passwordField, ...firestoreData } = userData;
 
     try {
@@ -346,8 +343,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         throw new Error("A senha fornecida é muito fraca. Deve ter pelo menos 6 caracteres.");
       } else if (error.code === 'auth/invalid-email') {
          throw new Error("O email fornecido é inválido ou não foi preenchido.");
-      } else if (error.code === 'auth/missing-password') {
-         throw new Error("A senha não foi preenchida.");
+      } else if (error.code === 'auth/missing-password') { // This specific error indicates password was empty
+         throw new Error("A senha não foi preenchida ou é inválida.");
       }
       throw new Error("Não foi possível adicionar o usuário: " + error.message);
     }
@@ -373,26 +370,34 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       
       const userDocRef = doc(db, 'users', userId);
       const dataToUpdateInFirestore: Partial<FirebaseUserDoc> = {
+        // username is editable for other users, but not for ff.admin (handled above)
+        username: userData.username !== undefined ? userData.username : userToUpdate.username, 
         email: userData.email,
         role: userData.role,
-        username: userData.username, 
       };
 
+      // Remove undefined fields so Firestore doesn't try to write them
       Object.keys(dataToUpdateInFirestore).forEach(key => 
-        dataToUpdateInFirestore[key as keyof typeof dataToUpdateInFirestore] === undefined && delete dataToUpdateInFirestore[key as keyof typeof dataToUpdateInFirestore]
+        (dataToUpdateInFirestore as any)[key] === undefined && delete (dataToUpdateInFirestore as any)[key]
       );
 
+      // Handle Firebase Auth email update if necessary
       if (userData.email && userData.email !== userToUpdate.email) {
-        console.warn(`Firestore email for user ${userId} updated to ${userData.email}. Firebase Auth email update for other users from client-side is complex and may require re-authentication or admin privileges. Ensure to update manually in Firebase Auth console if needed, or if the current user is editing their own email, they might need to re-authenticate.`);
-         if (auth.currentUser && auth.currentUser.uid === userId) {
+         if (auth.currentUser && auth.currentUser.uid === userId) { // Current user editing their own email
             try {
                 await firebaseUpdateEmail(auth.currentUser, userData.email);
                 console.log("Firebase Auth email updated successfully for current user.");
             } catch (authError: any) {
                  console.error("Error updating email in Firebase Auth for current user:", authError);
-                 // Potentially re-throw or show a specific toast, e.g., if re-authentication is required.
-                 // For now, we allow Firestore update to proceed.
+                 // Allow Firestore update to proceed, but warn about potential re-auth needed
+                 // A specific error for re-authentication is 'auth/requires-recent-login'
+                 if (authError.code === 'auth/requires-recent-login') {
+                     throw new Error("Para atualizar o email, é necessário fazer login novamente por segurança.");
+                 }
+                 throw new Error("Erro ao atualizar email na autenticação: " + authError.message);
             }
+         } else { // Admin editing another user's email
+             console.warn(`Admin is changing email for user ${userId} from ${userToUpdate.email} to ${userData.email}. This only updates Firestore. The user's login email in Firebase Auth is NOT changed by this client-side action. Firebase Auth email must be updated separately if needed (e.g., via Admin SDK or Firebase console).`);
          }
       }
       
@@ -401,8 +406,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
     } catch (error: any) {
-      console.error("Error updating user in Firestore:", error);
-      throw error;
+      console.error("Error updating user in Firestore/Auth:", error);
+      throw error; // Re-throw to be caught by the calling component (e.g., to show a toast)
     }
   }, [users]);
 
@@ -417,7 +422,22 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       const userDocRef = doc(db, 'users', userId);
       await deleteDoc(userDocRef);
       
-      console.warn(`User ${userId} deleted from Firestore. Manual deletion from Firebase Authentication console may be required for full removal, as client-side deletion of other Firebase Auth users is restricted for security reasons.`);
+      // IMPORTANT: Deleting a user from Firebase Authentication from the client-side
+      // is only possible for the CURRENTLY LOGGED-IN user. Admins cannot delete other
+      // users' Auth accounts directly from the client for security reasons.
+      // This requires Admin SDK privileges (backend) or manual deletion in Firebase console.
+      if (auth.currentUser && auth.currentUser.uid === userId) {
+        try {
+          await firebaseDeleteUser(auth.currentUser);
+          console.log(`User ${userId} also deleted from Firebase Authentication.`);
+        } catch (authError: any) {
+          console.error(`Error deleting user ${userId} from Firebase Authentication:`, authError);
+          // This might happen if re-authentication is required.
+          throw new Error(`Usuário removido do banco de dados, mas falha ao remover da autenticação: ${authError.message}. Pode ser necessário remover manualmente no console do Firebase.`);
+        }
+      } else {
+        console.warn(`User ${userId} deleted from Firestore. Manual deletion from Firebase Authentication console is required for full removal if this user was not the currently logged-in user.`);
+      }
 
     } catch (error:any) {
       console.error("Error deleting user from Firestore:", error);
@@ -426,7 +446,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [users]);
   
   const fetchUsers = useCallback(() => {
-    console.log("fetchUsers called - onSnapshot handles live updates.");
+    // onSnapshot handles live updates, so this function can be a no-op or for specific re-fetch logic if needed.
+    console.log("fetchUsers called - onSnapshot provides live updates.");
   }, []);
 
 
@@ -457,6 +478,3 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     </AppDataContext.Provider>
   );
 };
-
-
-    

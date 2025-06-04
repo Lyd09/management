@@ -24,8 +24,8 @@ export type UserFormValues = {
   username: string;
   email: string;
   role: 'admin' | 'user';
-  password: string; // Will default to ""
-  confirmPassword: string; // Will default to ""
+  password: string; 
+  confirmPassword: string; 
 };
 
 // Schema for ADDING a new user
@@ -37,16 +37,16 @@ const userFormSchemaForAdd = z.object({
   }).regex(/^[a-zA-Z0-9_.-]+$/, {
     message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
   }),
-  email: z.string().trim().min(1, { message: "Email é obrigatório." }).email({ message: "Email inválido." }),
+  email: z.string().trim().nonempty({ message: "Email é obrigatório." }).email({ message: "Email inválido." }),
   role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
   password: z.string()
     .trim()
-    .min(1, { message: "Senha é obrigatória e não pode ser vazia." })
+    .nonempty({ message: "Senha é obrigatória." })
     .min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
   confirmPassword: z.string()
     .trim()
-    .min(1, { message: "Confirmação de senha é obrigatória e não pode ser vazia." })
-    .min(6, { message: "Confirmação de senha deve ter pelo menos 6 caracteres." }),
+    .nonempty({ message: "Confirmação de senha é obrigatória." })
+    .min(6, { message: "A confirmação de senha deve ter pelo menos 6 caracteres." }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "As senhas não coincidem.",
   path: ["confirmPassword"],
@@ -84,7 +84,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
       username: user?.username || "",
       email: user?.email || "",
       role: user?.role || "user",
-      password: "",
+      password: "", 
       confirmPassword: "",
     },
   });
@@ -102,7 +102,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
 
 
   const handleSubmit = async (data: UserFormValues) => {
-    console.log('UserForm handleSubmit data:', JSON.stringify(data, null, 2)); // DIAGNOSTIC LOG
+    console.log('UserForm handleSubmit data:', JSON.stringify(data, null, 2)); 
 
     if (isEditingFfAdmin) {
       if (data.username !== 'ff.admin') {
@@ -115,7 +115,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
       }
     }
         
-    await onSubmit(data);
+    await onSubmit(data); // This calls handleAddUserSubmit or handleEditUserSubmit
     
     if (!isEditing) { 
         form.reset({ 
