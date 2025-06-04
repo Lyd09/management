@@ -112,30 +112,37 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
 
   useEffect(() => {
-    console.log('[AppDataContext] useEffect for clientes. LoggedInUser ID:', loggedInUserFromAuthContext?.id);
+    console.log('[AppDataContext] loggedInUserFromAuthContext updated in AppDataContext:', loggedInUserFromAuthContext);
     
     if (!loggedInUserFromAuthContext || !loggedInUserFromAuthContext.id) {
+      console.log('[AppDataContext] No logged in user or no user ID, clearing clients and setting loading to false.');
       setClients([]);
       setLoading(false); 
-      console.log('[AppDataContext] No logged in user or no user ID, clearing clients.');
       return; 
     }
 
     setLoading(true);
     const clientesCollectionRef = collection(db, 'clientes'); 
+    const hardcodedUserId = "ETLUlSZMypM99rLXP8fJk8f7p6s1"; // UID para teste
     
-    console.log(`[AppDataContext] Querying 'clientes' where 'creatorUserId' == '${loggedInUserFromAuthContext.id}' and ordered by 'createdAt' desc.`);
+    console.log(`[AppDataContext] Preparing to query. User ID from context: ${loggedInUserFromAuthContext?.id}. HARDCODED ID being used for query: ${hardcodedUserId}`);
+    
+    // Consulta simplificada: apenas com 'where' e UID hardcodado
     const q = query(
-      clientesCollectionRef, 
-      where('creatorUserId', '==', loggedInUserFromAuthContext.id),
-      orderBy('createdAt', 'desc')
+      clientesCollectionRef,
+      where('creatorUserId', '==', hardcodedUserId) 
     );
+    console.log(`[AppDataContext] Current diagnostic query: where('creatorUserId', '==', '${hardcodedUserId}')`);
+
 
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
-      console.log('[AppDataContext] Raw querySnapshot docs for clientes:', querySnapshot.docs.length, 'docs found.');
-      querySnapshot.docs.forEach(doc => console.log('[AppDataContext] Client doc data from Firestore:', doc.id, doc.data()));
+      console.log(`[AppDataContext] Raw querySnapshot docs for clientes (where creatorUserId == ${hardcodedUserId}): ${querySnapshot.docs.length} docs found.`);
       
       const clientsData: Client[] = [];
+      if (querySnapshot.docs.length > 0) {
+        querySnapshot.docs.forEach(doc => console.log('[AppDataContext] Client doc data from Firestore:', doc.id, doc.data()));
+      }
+
       for (const clientDoc of querySnapshot.docs) {
         const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
         
