@@ -3,8 +3,9 @@
 
 import React, { useMemo } from 'react';
 import { useAppData } from '@/hooks/useAppData';
+import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon, DollarSign } from "lucide-react"; // Adicionado DollarSign
+import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon, DollarSign } from "lucide-react";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
 import { differenceInDays, parseISO, startOfDay, isBefore, getYear, getMonth } from 'date-fns';
@@ -27,6 +28,7 @@ const EXCLUDE_PROJECT_NAMES_FOR_OVERDUE = ["SITE LOGS"];
 
 export default function DashboardMetricsPage() {
   const { clients, loading } = useAppData();
+  const { currentUser } = useAuth(); // Get current user for role check
 
   const rawAllProjectsWithClientName = useMemo(() => {
     return clients.reduce((acc, client) => {
@@ -185,7 +187,7 @@ export default function DashboardMetricsPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-primary">Dashboard de Métricas</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"> {/* Alterado para 4 colunas para o novo card */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Projetos Ativos</CardTitle>
@@ -193,7 +195,9 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeProjectsCount}</div>
-            <p className="text-xs text-muted-foreground">SITE LOGS e MY BROKER não inclusos</p>
+            {currentUser?.role === 'admin' && (
+              <p className="text-xs text-muted-foreground">SITE LOGS e MY BROKER não inclusos</p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -203,7 +207,9 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completedProjectsCount}</div>
+            {currentUser?.role === 'admin' && (
              <p className="text-xs text-muted-foreground">SITE LOGS e MY BROKER não inclusos</p>
+            )}
           </CardContent>
         </Card>
          <Card>
@@ -213,7 +219,9 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalClientsCount}</div>
+            {currentUser?.role === 'admin' && (
              <p className="text-xs text-muted-foreground">SITE LOGS não incluso</p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -225,7 +233,9 @@ export default function DashboardMetricsPage() {
             <div className="text-2xl font-bold">
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyCompletedValue)}
             </div>
-            <CardDescription className="text-xs text-muted-foreground">SITE LOGS e MY BROKER não inclusos</CardDescription>
+            {currentUser?.role === 'admin' && (
+              <CardDescription className="text-xs text-muted-foreground">SITE LOGS e MY BROKER não inclusos</CardDescription>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -234,7 +244,9 @@ export default function DashboardMetricsPage() {
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5 text-primary" />Top 5 Clientes por Nº de Projetos</CardTitle>
+            {currentUser?.role === 'admin' && (
              <CardDescription>SITE LOGS e MY BROKER não inclusos</CardDescription>
+            )}
           </CardHeader>
           <CardContent>
             {clientsByProjectCount.length > 0 ? (
@@ -247,7 +259,7 @@ export default function DashboardMetricsPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhum cliente (após exclusões) para exibir.</p>
+              <p className="text-sm text-muted-foreground">Nenhum cliente{currentUser?.role === 'admin' ? ' (após exclusões)' : ''} para exibir.</p>
             )}
           </CardContent>
         </Card>
@@ -255,7 +267,7 @@ export default function DashboardMetricsPage() {
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-destructive" />Top 5 Projetos Mais Atrasados</CardTitle>
-            <CardDescription>Apenas projetos não concluídos com prazo vencido (excluindo projetos "{EXCLUDE_PROJECT_NAMES_FOR_OVERDUE.join('", "')}").</CardDescription>
+            <CardDescription>Apenas projetos não concluídos com prazo vencido{currentUser?.role === 'admin' ? ` (excluindo projetos "${EXCLUDE_PROJECT_NAMES_FOR_OVERDUE.join('", "')}")` : ''}.</CardDescription>
           </CardHeader>
           <CardContent>
             {overdueProjects.length > 0 ? (
@@ -271,7 +283,7 @@ export default function DashboardMetricsPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhum projeto atrasado (após exclusões) para exibir.</p>
+              <p className="text-sm text-muted-foreground">Nenhum projeto atrasado{currentUser?.role === 'admin' ? ' (após exclusões)' : ''} para exibir.</p>
             )}
           </CardContent>
         </Card>
@@ -279,7 +291,9 @@ export default function DashboardMetricsPage() {
        <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><PieChartIcon className="mr-2 h-5 w-5 text-primary" />Distribuição de Projetos por Tipo</CardTitle>
-          <CardDescription>SITE LOGS e MY BROKER não inclusos</CardDescription>
+          {currentUser?.role === 'admin' && (
+            <CardDescription>SITE LOGS e MY BROKER não inclusos</CardDescription>
+          )}
         </CardHeader>
         <CardContent className="h-[350px] w-full">
           {projectsByTypeChartData.length > 0 ? (
@@ -315,7 +329,7 @@ export default function DashboardMetricsPage() {
             </ChartContainer>
           ) : (
              <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-muted-foreground">Nenhum projeto (após exclusões) para exibir no gráfico.</p>
+                <p className="text-sm text-muted-foreground">Nenhum projeto{currentUser?.role === 'admin' ? ' (após exclusões)' : ''} para exibir no gráfico.</p>
             </div>
           )}
         </CardContent>
@@ -323,4 +337,3 @@ export default function DashboardMetricsPage() {
     </div>
   );
 }
-
