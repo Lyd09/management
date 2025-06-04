@@ -19,6 +19,39 @@ import { DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose
 import type { User } from "@/types";
 import { useEffect } from "react";
 
+// Define a single comprehensive type for form values
+export type UserFormValues = {
+  username: string;
+  email: string;
+  role: 'admin' | 'user';
+  password: string; // Will default to ""
+  confirmPassword: string; // Will default to ""
+};
+
+// Schema for ADDING a new user
+const userFormSchemaForAdd = z.object({
+  username: z.string().trim().min(3, {
+    message: "O nome de usuário deve ter pelo menos 3 caracteres.",
+  }).max(20, {
+    message: "O nome de usuário não pode exceder 20 caracteres.",
+  }).regex(/^[a-zA-Z0-9_.-]+$/, {
+    message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
+  }),
+  email: z.string().trim().min(1, { message: "Email é obrigatório." }).email({ message: "Email inválido." }),
+  role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
+  password: z.string()
+    .trim()
+    .min(1, { message: "Senha é obrigatória e não pode ser vazia." })
+    .min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
+  confirmPassword: z.string()
+    .trim()
+    .min(1, { message: "Confirmação de senha é obrigatória e não pode ser vazia." })
+    .min(6, { message: "Confirmação de senha deve ter pelo menos 6 caracteres." }),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "As senhas não coincidem.",
+  path: ["confirmPassword"],
+});
+
 // Schema for EDITING an existing user (no password fields)
 const userFormSchemaForEdit = z.object({
   username: z.string().trim().min(3, {
@@ -28,41 +61,10 @@ const userFormSchemaForEdit = z.object({
   }).regex(/^[a-zA-Z0-9_.-]+$/, {
     message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
   }),
-  email: z.string().trim().email({ message: "Email inválido." }).optional().or(z.literal("")).or(z.string().trim().nonempty({message: "Email é obrigatório se fornecido."}).email({message: "Email inválido."})), // Allows empty for "no change" or valid email
+  email: z.string().trim().optional().or(z.literal("")).or(z.string().trim().min(1, {message: "Email é obrigatório se fornecido."}).email({message: "Email inválido."})),
   role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
 });
 
-// Schema for ADDING a new user (includes password fields)
-const userFormSchemaForAdd = z.object({
-  username: z.string().trim().min(3, {
-    message: "O nome de usuário deve ter pelo menos 3 caracteres.",
-  }).max(20, {
-    message: "O nome de usuário não pode exceder 20 caracteres.",
-  }).regex(/^[a-zA-Z0-9_.-]+$/, {
-    message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
-  }),
-  email: z.string().trim().nonempty({ message: "Email é obrigatório." }).email({ message: "Email inválido." }),
-  role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
-  password: z.string()
-    .trim()
-    .refine(val => val !== "", { message: "Senha é obrigatória e não pode ser vazia." })
-    .pipe(z.string().min(6, { message: "A senha deve ter pelo menos 6 caracteres." })),
-  confirmPassword: z.string()
-    .trim()
-    .refine(val => val !== "", { message: "Confirmação de senha é obrigatória e não pode ser vazia." })
-    .pipe(z.string().min(6, { message: "Confirmação de senha deve ter pelo menos 6 caracteres." })),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "As senhas não coincidem.",
-  path: ["confirmPassword"],
-});
-
-export type UserFormValues = {
-  username: string;
-  email: string; // Email is always string, Zod handles if it's empty for edit
-  role: 'admin' | 'user';
-  password: string; // Always string, Zod handles if it's required for add
-  confirmPassword: string; // Always string, Zod handles if it's required for add
-};
 
 interface UserFormProps {
   user?: User | null;
@@ -100,6 +102,8 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
 
 
   const handleSubmit = async (data: UserFormValues) => {
+    console.log('UserForm handleSubmit data:', JSON.stringify(data, null, 2)); // DIAGNOSTIC LOG
+
     if (isEditingFfAdmin) {
       if (data.username !== 'ff.admin') {
         form.setError("username", { message: "O nome de usuário 'ff.admin' não pode ser alterado."});
@@ -110,19 +114,8 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         return;
       }
     }
-    
-    // For editing, if email is an empty string, treat it as "no change" for the onSubmit prop
-    // by converting it to undefined, assuming the onSubmit handler and backend can interpret undefined as "no change".
-    // However, AppDataContext.updateUser already handles this by filtering out undefined fields.
-    // The main thing is that Zod allows an empty string for email during edit.
-    const submissionData = { ...data };
-    if (isEditing && submissionData.email === "") {
-      // userData.email in AppDataContext will become "", which is fine for Firestore, 
-      // but Firebase Auth updateEmail might need special handling or might reject empty string.
-      // For now, we pass it as is. AppDataContext is already prepared for an optional email in `updateUser`.
-    }
-    
-    await onSubmit(submissionData);
+        
+    await onSubmit(data);
     
     if (!isEditing) { 
         form.reset({ 
@@ -236,7 +229,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => {
                 onClose();
-                form.reset({ // Ensure form reset uses the same default structure
+                form.reset({
                     username: user?.username || "",
                     email: user?.email || "",
                     role: user?.role || "user",
