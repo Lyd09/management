@@ -22,12 +22,12 @@ import {
   setDoc,
   where
 } from 'firebase/firestore';
-import { 
-    createUserWithEmailAndPassword, 
-    updateEmail as firebaseUpdateEmail, 
+import {
+    createUserWithEmailAndPassword,
+    updateEmail as firebaseUpdateEmail,
     updatePassword as firebaseUpdatePassword,
-    deleteUser as firebaseDeleteUser, 
-    type User as FirebaseUser 
+    deleteUser as firebaseDeleteUser,
+    type User as FirebaseUser
 } from 'firebase/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -86,6 +86,8 @@ interface AppDataContextType {
 
 export const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
+const COLLECTION_NAME = 'clients'; // Using 'clients' as per user's last request
+
 export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -99,7 +101,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const unsubscribeUsers = onSnapshot(qUsers, (querySnapshot) => {
       const usersData: User[] = querySnapshot.docs.map(docSnap => ({
-        id: docSnap.id, 
+        id: docSnap.id,
         ...(docSnap.data() as FirebaseUserDoc),
       }));
       setUsers(usersData);
@@ -112,40 +114,41 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
 
   useEffect(() => {
-    console.log('[AppDataContext] loggedInUserFromAuthContext updated in AppDataContext:', loggedInUserFromAuthContext);
-    
+    console.log(`[AppDataContext] loggedInUserFromAuthContext updated in AppDataContext:`, loggedInUserFromAuthContext);
+
     if (!loggedInUserFromAuthContext || !loggedInUserFromAuthContext.id) {
       console.log('[AppDataContext] No logged in user or no user ID, clearing clients and setting loading to false.');
       setClients([]);
-      setLoading(false); 
-      return; 
+      setLoading(false);
+      return;
     }
 
     setLoading(true);
-    const clientesCollectionRef = collection(db, 'clientes'); 
     const userIdToQuery = loggedInUserFromAuthContext.id;
-    
     console.log(`[AppDataContext] Preparing to query. User ID from context: ${userIdToQuery}.`);
-    
+
+    const clientesCollectionRef = collection(db, COLLECTION_NAME);
+    console.log(`[AppDataContext] Querying collection path: ${clientesCollectionRef.path}`); // CRITICAL LOG
+
     const q = query(
       clientesCollectionRef,
       where('creatorUserId', '==', userIdToQuery),
       orderBy('createdAt', 'desc')
     );
-    console.log(`[AppDataContext] Current query: where('creatorUserId', '==', '${userIdToQuery}') and ordered by 'createdAt' desc.`);
+    console.log(`[AppDataContext] Current query: where('creatorUserId', '==', '${userIdToQuery}') and ordered by 'createdAt' desc for collection '${COLLECTION_NAME}'.`);
 
 
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
-      console.log(`[AppDataContext] Raw querySnapshot docs for clientes (where creatorUserId == ${userIdToQuery}): ${querySnapshot.docs.length} docs found.`);
-      
+      console.log(`[AppDataContext] Raw querySnapshot docs for ${COLLECTION_NAME} (where creatorUserId == ${userIdToQuery}): ${querySnapshot.docs.length} docs found.`);
+
       const clientsData: Client[] = [];
       if (querySnapshot.docs.length > 0) {
-        querySnapshot.docs.forEach(doc => console.log('[AppDataContext] Client doc data from Firestore:', doc.id, doc.data()));
+        querySnapshot.docs.forEach(doc => console.log(`[AppDataContext] Client doc data from ${COLLECTION_NAME}:`, doc.id, doc.data()));
       }
 
       for (const clientDoc of querySnapshot.docs) {
         const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
-        
+
         const client: Client = {
           id: clientDoc.id,
           nome: clientFirebaseData.nome,
@@ -155,9 +158,9 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
           projetos: [],
         };
 
-        const projectsCollectionRef = collection(db, 'clientes', clientDoc.id, 'projects'); 
+        const projectsCollectionRef = collection(db, COLLECTION_NAME, clientDoc.id, 'projects');
         const projectsSnapshot = await getDocs(projectsCollectionRef);
-        
+
         client.projetos = projectsSnapshot.docs.map(projectDoc => {
           const projectFirebaseData = projectDoc.data() as FirebaseProjectDoc;
           return {
@@ -167,18 +170,18 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         });
         clientsData.push(client);
       }
-      console.log('[AppDataContext] Processed clientsData to be set:', clientsData);
+      console.log(`[AppDataContext] Processed clientsData to be set for ${COLLECTION_NAME}:`, clientsData);
       setClients(clientsData);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching clientes from Firestore:", error);
-      toast({ variant: "destructive", title: "Erro ao Carregar Clientes", description: `Não foi possível buscar os dados dos clientes. Detalhe: ${error.message}` });
+      console.error(`Error fetching ${COLLECTION_NAME} from Firestore:`, error);
+      toast({ variant: "destructive", title: `Erro ao Carregar ${COLLECTION_NAME}`, description: `Não foi possível buscar os dados. Detalhe: ${error.message}` });
       setClients([]);
       setLoading(false);
     });
 
     return () => unsubscribeClients();
-  }, [loggedInUserFromAuthContext, toast]); 
+  }, [loggedInUserFromAuthContext, toast]);
 
   const addClient = useCallback(async (nome: string, prioridade?: PriorityType) => {
     if (!loggedInUserFromAuthContext) {
@@ -187,50 +190,50 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         return;
     }
     try {
-      await addDoc(collection(db, 'clientes'), { 
+      await addDoc(collection(db, COLLECTION_NAME), {
         nome,
         prioridade: prioridade || "Média",
         creatorUserId: loggedInUserFromAuthContext.id,
         createdAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error("Error adding client to Firestore:", error);
+      console.error(`Error adding client to ${COLLECTION_NAME} in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Adicionar Cliente", description: "Não foi possível adicionar o cliente." });
     }
   }, [loggedInUserFromAuthContext, toast]);
 
   const updateClient = useCallback(async (clientId: string, nome: string, prioridade?: PriorityType) => {
     try {
-      const clientDocRef = doc(db, 'clientes', clientId); 
+      const clientDocRef = doc(db, COLLECTION_NAME, clientId);
       const updateData: Partial<FirebaseClientDoc> = { nome };
       if (prioridade) {
         updateData.prioridade = prioridade;
       }
       await updateDoc(clientDocRef, updateData as any);
     } catch (error) {
-      console.error("Error updating client in Firestore:", error);
+      console.error(`Error updating client in ${COLLECTION_NAME} in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Atualizar Cliente", description: "Não foi possível atualizar o cliente." });
     }
   }, [toast]);
 
   const deleteClient = useCallback(async (clientId: string) => {
     try {
-      const clientDocRef = doc(db, 'clientes', clientId); 
-      const projectsCollectionRef = collection(db, 'clientes', clientId, 'projects'); 
+      const clientDocRef = doc(db, COLLECTION_NAME, clientId);
+      const projectsCollectionRef = collection(db, COLLECTION_NAME, clientId, 'projects');
       const projectsSnapshot = await getDocs(projectsCollectionRef);
 
       const batch = writeBatch(db);
       projectsSnapshot.docs.forEach(projectDoc => {
-        batch.delete(doc(db, 'clientes', clientId, 'projects', projectDoc.id)); 
+        batch.delete(doc(db, COLLECTION_NAME, clientId, 'projects', projectDoc.id));
       });
       batch.delete(clientDocRef);
       await batch.commit();
     } catch (error) {
-      console.error("Error deleting client and their projects from Firestore:", error);
+      console.error(`Error deleting client and their projects from ${COLLECTION_NAME} in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Excluir Cliente", description: "Não foi possível excluir o cliente e seus projetos." });
     }
   }, [toast]);
-  
+
   const getClientById = useCallback((clientId: string) => {
     return clients.find(c => c.id === clientId);
   }, [clients]);
@@ -242,7 +245,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         return;
     }
     try {
-      const projectsCollectionRef = collection(db, 'clientes', clientId, 'projects'); 
+      const projectsCollectionRef = collection(db, COLLECTION_NAME, clientId, 'projects');
       const newProjectData: Omit<FirebaseProjectDoc, 'createdAt' | 'assignedUserId'> = {
         nome: projectData.nome,
         tipo: projectData.tipo,
@@ -261,14 +264,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         createdAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error("Error adding project to Firestore:", error);
+      console.error(`Error adding project to ${COLLECTION_NAME}/${clientId}/projects in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Adicionar Projeto", description: "Não foi possível adicionar o projeto." });
     }
   }, [loggedInUserFromAuthContext, toast]);
 
   const updateProject = useCallback(async (clientId: string, projectId: string, projectData: Partial<Omit<Project, 'creatorUserId'>>) => {
     try {
-      const projectDocRef = doc(db, 'clientes', clientId, 'projects', projectId); 
+      const projectDocRef = doc(db, COLLECTION_NAME, clientId, 'projects', projectId);
       const dataToUpdate = {...projectData} as any;
       delete dataToUpdate.creatorUserId;
 
@@ -286,17 +289,17 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       await updateDoc(projectDocRef, dataToUpdate);
     } catch (error) {
-      console.error("Error updating project in Firestore:", error);
+      console.error(`Error updating project in ${COLLECTION_NAME}/${clientId}/projects in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Atualizar Projeto", description: "Não foi possível atualizar o projeto." });
     }
   }, [toast]);
 
   const deleteProject = useCallback(async (clientId: string, projectId: string) => {
     try {
-      const projectDocRef = doc(db, 'clientes', clientId, 'projects', projectId); 
+      const projectDocRef = doc(db, COLLECTION_NAME, clientId, 'projects', projectId);
       await deleteDoc(projectDocRef);
     } catch (error) {
-      console.error("Error deleting project from Firestore:", error);
+      console.error(`Error deleting project from ${COLLECTION_NAME}/${clientId}/projects in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Excluir Projeto", description: "Não foi possível excluir o projeto." });
     }
   }, [toast]);
@@ -322,17 +325,17 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const duplicatedProjectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number } = {
       nome: `${originalProject.nome} (Cópia)`,
       tipo: originalProject.tipo,
-      status: originalProject.status, 
+      status: originalProject.status,
       descricao: originalProject.descricao,
-      prazo: originalProject.prazo, 
-      dataConclusao: undefined, 
+      prazo: originalProject.prazo,
+      dataConclusao: undefined,
       notas: originalProject.notas,
       prioridade: originalProject.prioridade,
       valor: originalProject.valor,
       checklist: originalProject.checklist.map(item => ({
         id: uuidv4(),
         item: item.item,
-        feito: false, 
+        feito: false,
       })),
     };
 
@@ -352,14 +355,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   const exportData = useCallback((): AppData => {
     console.warn("Data export to JSON is deprecated. Data is now managed in Firestore.");
     toast({ title: "Funcionalidade Descontinuada", description: "A exportação de dados via JSON foi descontinuada."});
-    return { clientes: clients, users: users };
+    return { clientes: clients, users: users }; // 'clientes' aqui é a propriedade da interface AppData, não a coleção
   }, [clients, users, toast]);
 
   const addUser = useCallback(async (userData: Omit<User, 'id' | 'createdAt'> & { password?: string }) => {
-    const email = userData.email || ""; 
-    const password = userData.password || ""; 
+    const email = userData.email || "";
+    const password = userData.password || "";
 
-    const { password: _passwordVal, ...firestoreData } = userData; 
+    const { password: _passwordVal, ...firestoreData } = userData;
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -367,8 +370,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const userDocRef = doc(db, 'users', firebaseUser.uid);
       await setDoc(userDocRef, {
-        ...firestoreData, 
-        email: email, 
+        ...firestoreData,
+        email: email,
         createdAt: serverTimestamp(),
       });
     } catch (error: any) {
@@ -379,7 +382,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         throw new Error("A senha fornecida é muito fraca. Deve ter pelo menos 6 caracteres.");
       } else if (error.code === 'auth/invalid-email') {
          throw new Error("O email fornecido é inválido ou não foi preenchido.");
-      } else if (error.code === 'auth/missing-password') { 
+      } else if (error.code === 'auth/missing-password') {
          throw new Error("A senha não foi preenchida ou é inválida.");
       } else {
         throw new Error("Não foi possível adicionar o usuário: " + error.message);
@@ -404,24 +407,24 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
           throw new Error("O papel (role) de 'ff.admin' não pode ser alterado.");
         }
       }
-      
+
       const userDocRef = doc(db, 'users', userId);
       const dataToUpdateInFirestore: Partial<FirebaseUserDoc> = {};
 
       if (firestoreUpdates.username !== undefined) dataToUpdateInFirestore.username = firestoreUpdates.username;
       if (firestoreUpdates.email !== undefined) dataToUpdateInFirestore.email = firestoreUpdates.email;
       if (firestoreUpdates.role !== undefined) dataToUpdateInFirestore.role = firestoreUpdates.role;
-      
-      Object.keys(dataToUpdateInFirestore).forEach(key => 
+
+      Object.keys(dataToUpdateInFirestore).forEach(key =>
         (dataToUpdateInFirestore as any)[key] === undefined && delete (dataToUpdateInFirestore as any)[key]
       );
-      
+
       if (Object.keys(dataToUpdateInFirestore).length > 0) {
         await updateDoc(userDocRef, dataToUpdateInFirestore);
       }
 
       if (firestoreUpdates.email && firestoreUpdates.email !== userToUpdate.email) {
-         if (auth.currentUser && auth.currentUser.uid === userId) { 
+         if (auth.currentUser && auth.currentUser.uid === userId) {
             try {
                 await firebaseUpdateEmail(auth.currentUser, firestoreUpdates.email);
                 toast({ title: "Email de Autenticação Atualizado", description: "Seu email de login foi atualizado." });
@@ -432,14 +435,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
                      toast({ variant: "destructive", title: "Erro ao Atualizar Email de Login", description: authError.message });
                  }
             }
-         } else { 
+         } else {
              console.warn(`Admin is changing email for user ${userId}. This only updates Firestore. Firebase Auth email must be updated separately (e.g., via Admin SDK or Firebase console).`);
              toast({ title: "Email no Firestore Atualizado", description: `O email de ${userToUpdate.username} foi atualizado nos registros. A alteração do email de login deve ser feita no console do Firebase.`});
          }
       }
 
       if (newPassword && newPassword.length >= 6) {
-        if (auth.currentUser && auth.currentUser.uid === userId) { 
+        if (auth.currentUser && auth.currentUser.uid === userId) {
           try {
             await firebaseUpdatePassword(auth.currentUser, newPassword);
             toast({ title: "Senha Atualizada", description: "Sua senha foi alterada com sucesso." });
@@ -451,10 +454,10 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
               toast({ variant: "destructive", title: "Erro ao Alterar Senha", description: authError.message });
             }
           }
-        } else { 
+        } else {
           console.warn(`Attempt to change password for user ${userId} by another user/admin (${auth.currentUser?.uid}). This action is not directly supported by client SDKs for other users and should have been prevented by UI.`);
           toast({
-            variant: "destructive", 
+            variant: "destructive",
             title: "Ação de Senha Não Permitida",
             description: `A senha de '${userToUpdate.username}' não pode ser alterada desta forma. Apenas o próprio usuário pode alterar sua senha.`,
             duration: 7000,
@@ -464,7 +467,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     } catch (error: any) {
       console.error("Error updating user in Firestore/Auth:", error);
-      throw error; 
+      throw error;
     }
   }, [users, toast]);
 
@@ -477,7 +480,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const userDocRef = doc(db, 'users', userId);
       await deleteDoc(userDocRef);
-      
+
       if (auth.currentUser && auth.currentUser.uid === userId) {
         try {
           await firebaseDeleteUser(auth.currentUser);
@@ -496,7 +499,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       throw error;
     }
   }, [users, toast]);
-  
+
   const fetchUsers = useCallback(() => {
     // console.log("fetchUsers called - onSnapshot provides live updates.");
   }, []);
