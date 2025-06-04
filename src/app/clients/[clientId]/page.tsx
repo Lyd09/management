@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2 } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
-import type { Client, Project, ProjectType, PriorityType } from '@/types';
+import type { Client, Project, ProjectType, PriorityType, User } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { differenceInDays, parseISO, startOfDay, isBefore, format, getYear, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -31,6 +31,9 @@ import { PRIORITIES } from '@/lib/constants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { DelegateClientDialog } from '@/components/DelegateClientDialog';
+
 
 type DeadlineFilterCategory = "Todos" | "Muito Próximos/Atrasados" | "Próximos" | "Distantes" | "Sem Prazo";
 
@@ -212,13 +215,15 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const clientId = typeof params.clientId === 'string' ? params.clientId : '';
 
-  const { getClientById, addProject, deleteProject, duplicateProject, loading, updateProject } = useAppData();
+  const { getClientById, addProject, deleteProject, duplicateProject, loading, users, assignClientCopyToUser } = useAppData();
+  const { currentUser } = useAuth();
   const { toast } = useToast();
 
   const [client, setClient] = useState<Client | null>(null);
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+  const [isDelegateDialogOpen, setIsDelegateDialogOpen] = useState(false);
 
   const [typeFilter, setTypeFilter] = useState<ProjectType | "Todos">("Todos");
   const [statusFilter, setStatusFilter] = useState<string | "Todos">("Todos");
@@ -264,7 +269,7 @@ export default function ClientDetailPage() {
         submissionData.dataConclusao = undefined;
     }
 
-    addProject(client.id, submissionData as Omit<Project, 'id' | 'clientId' | 'checklist'> & { checklist?: Partial<Project['checklist']>, dataConclusao?: string });
+    addProject(client.id, submissionData as Omit<Project, 'id' | 'clientId' | 'creatorUserId' | 'checklist'> & { checklist?: Partial<Project['checklist']>, dataConclusao?: string });
     setIsAddProjectDialogOpen(false);
     toast({ title: "Projeto Adicionado", description: `O projeto ${data.nome} foi adicionado.` });
   };
@@ -293,6 +298,19 @@ export default function ClientDetailPage() {
     }
   };
 
+  const handleDelegateClient = async (targetUserId: string, newClientName?: string) => {
+    if (!client || !currentUser || currentUser.role !== 'admin') {
+      toast({ variant: "destructive", title: "Ação não permitida" });
+      return;
+    }
+    const success = await assignClientCopyToUser(client.id, targetUserId, newClientName);
+    if (success) {
+      setIsDelegateDialogOpen(false);
+      // Não redireciona, o admin pode querer continuar na página ou delegar para outro.
+    }
+  };
+
+
   const uniqueProjectTypes = useMemo(() => {
     if (!client) return [];
     const types = new Set(client.projetos.map(p => p.tipo));
@@ -313,6 +331,18 @@ export default function ClientDetailPage() {
       const priorityMatch = priorityFilter === "Todos" || project.prioridade === priorityFilter;
       const deadlineMatch = deadlineFilter === "Todos" || categorizeDeadline(project.prazo) === deadlineFilter;
       return typeMatch && statusMatch && priorityMatch && deadlineMatch;
+    }).sort((a, b) => { // Ordenar projetos aqui
+        const priorityOrder: Record<PriorityType, number> = { "Alta": 1, "Média": 2, "Baixa": 3 };
+        const aPriority = priorityOrder[a.prioridade || "Baixa"] || 3;
+        const bPriority = priorityOrder[b.prioridade || "Baixa"] || 3;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+
+        const aDeadline = a.prazo ? parseISO(a.prazo) : null;
+        const bDeadline = b.prazo ? parseISO(b.prazo) : null;
+        if (aDeadline && bDeadline) return differenceInDays(aDeadline, bDeadline);
+        if (aDeadline) return -1; // Projetos com prazo primeiro
+        if (bDeadline) return 1;  // Projetos com prazo primeiro
+        return 0;
     });
   }, [client, typeFilter, statusFilter, priorityFilter, deadlineFilter]);
 
@@ -328,9 +358,17 @@ export default function ClientDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Button variant="outline" onClick={() => router.push('/')} className="mb-4">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao Painel
-      </Button>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <Button variant="outline" onClick={() => router.push('/')} className="mb-0 sm:mb-4">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao Painel
+            </Button>
+            {currentUser?.role === 'admin' && (
+              <Button variant="outline" onClick={() => setIsDelegateDialogOpen(true)}>
+                  <Share2 className="mr-2 h-4 w-4" /> Delegar Cópia para Usuário
+              </Button>
+            )}
+        </div>
+
 
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <h1 className="text-3xl font-bold text-primary">{client.nome}</h1>
@@ -555,11 +593,16 @@ export default function ClientDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {currentUser?.role === 'admin' && client && (
+        <DelegateClientDialog
+          isOpen={isDelegateDialogOpen}
+          onOpenChange={setIsDelegateDialogOpen}
+          client={client}
+          users={users.filter(u => u.id !== currentUser.id)} // Pass only other users
+          onConfirm={handleDelegateClient}
+        />
+      )}
     </div>
   );
 }
-    
-
-    
-
-    

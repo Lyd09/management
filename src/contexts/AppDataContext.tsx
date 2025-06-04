@@ -20,7 +20,8 @@ import {
   serverTimestamp,
   Timestamp,
   setDoc,
-  where
+  where,
+  getDoc
 } from 'firebase/firestore';
 import {
     createUserWithEmailAndPassword,
@@ -31,6 +32,7 @@ import {
 } from 'firebase/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { INITIAL_PROJECT_STATUS } from '@/lib/constants';
 
 interface FirebaseClientDoc {
   nome: string;
@@ -82,11 +84,12 @@ interface AppDataContextType {
   updateUser: (userId: string, userData: Partial<Omit<User, 'id' | 'createdAt'>> & { newPassword?: string }) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   fetchUsers: () => void;
+  assignClientCopyToUser: (originalClientId: string, targetUserId: string, newClientName?: string) => Promise<boolean>;
 }
 
 export const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
-const COLLECTION_NAME = 'clients'; // Using 'clients' as per user's last request
+const COLLECTION_NAME = 'clients';
 
 export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -114,10 +117,10 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
 
   useEffect(() => {
-    console.log(`[AppDataContext] loggedInUserFromAuthContext updated in AppDataContext:`, loggedInUserFromAuthContext);
+    // console.log(`[AppDataContext] loggedInUserFromAuthContext updated in AppDataContext:`, loggedInUserFromAuthContext);
 
     if (!loggedInUserFromAuthContext || !loggedInUserFromAuthContext.id) {
-      console.log('[AppDataContext] No logged in user or no user ID, clearing clients and setting loading to false.');
+      // console.log('[AppDataContext] No logged in user or no user ID, clearing clients and setting loading to false.');
       setClients([]);
       setLoading(false);
       return;
@@ -125,26 +128,26 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     setLoading(true);
     const userIdToQuery = loggedInUserFromAuthContext.id;
-    console.log(`[AppDataContext] Preparing to query. User ID from context: ${userIdToQuery}.`);
+    // console.log(`[AppDataContext] Preparing to query. User ID from context: ${userIdToQuery}.`);
 
     const clientesCollectionRef = collection(db, COLLECTION_NAME);
-    console.log(`[AppDataContext] Querying collection path: ${clientesCollectionRef.path}`); // CRITICAL LOG
+    // console.log(`[AppDataContext] Querying collection path: ${clientesCollectionRef.path}`);
 
     const q = query(
       clientesCollectionRef,
       where('creatorUserId', '==', userIdToQuery),
       orderBy('createdAt', 'desc')
     );
-    console.log(`[AppDataContext] Current query: where('creatorUserId', '==', '${userIdToQuery}') and ordered by 'createdAt' desc for collection '${COLLECTION_NAME}'.`);
+    // console.log(`[AppDataContext] Current query: where('creatorUserId', '==', '${userIdToQuery}') and ordered by 'createdAt' desc for collection '${COLLECTION_NAME}'.`);
 
 
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
-      console.log(`[AppDataContext] Raw querySnapshot docs for ${COLLECTION_NAME} (where creatorUserId == ${userIdToQuery}): ${querySnapshot.docs.length} docs found.`);
+      // console.log(`[AppDataContext] Raw querySnapshot docs for ${COLLECTION_NAME} (where creatorUserId == ${userIdToQuery}): ${querySnapshot.docs.length} docs found.`);
 
       const clientsData: Client[] = [];
-      if (querySnapshot.docs.length > 0) {
-        querySnapshot.docs.forEach(doc => console.log(`[AppDataContext] Client doc data from ${COLLECTION_NAME}:`, doc.id, doc.data()));
-      }
+      // if (querySnapshot.docs.length > 0) {
+      //   querySnapshot.docs.forEach(doc => console.log(`[AppDataContext] Client doc data from ${COLLECTION_NAME}:`, doc.id, doc.data()));
+      // }
 
       for (const clientDoc of querySnapshot.docs) {
         const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
@@ -159,7 +162,9 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         };
 
         const projectsCollectionRef = collection(db, COLLECTION_NAME, clientDoc.id, 'projects');
-        const projectsSnapshot = await getDocs(projectsCollectionRef);
+        const projectsQuery = query(projectsCollectionRef, orderBy('createdAt', 'desc')); // Order projects as well
+        const projectsSnapshot = await getDocs(projectsQuery);
+
 
         client.projetos = projectsSnapshot.docs.map(projectDoc => {
           const projectFirebaseData = projectDoc.data() as FirebaseProjectDoc;
@@ -170,7 +175,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         });
         clientsData.push(client);
       }
-      console.log(`[AppDataContext] Processed clientsData to be set for ${COLLECTION_NAME}:`, clientsData);
+      // console.log(`[AppDataContext] Processed ${COLLECTION_NAME}Data to be set for ${COLLECTION_NAME}:`, clientsData);
       setClients(clientsData);
       setLoading(false);
     }, (error) => {
@@ -325,17 +330,17 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const duplicatedProjectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number } = {
       nome: `${originalProject.nome} (Cópia)`,
       tipo: originalProject.tipo,
-      status: originalProject.status,
+      status: originalProject.status, // Manter o status, mas sem data de conclusão
       descricao: originalProject.descricao,
       prazo: originalProject.prazo,
-      dataConclusao: undefined,
+      dataConclusao: undefined, // Certificar que a data de conclusão não seja copiada
       notas: originalProject.notas,
       prioridade: originalProject.prioridade,
       valor: originalProject.valor,
       checklist: originalProject.checklist.map(item => ({
         id: uuidv4(),
         item: item.item,
-        feito: false,
+        feito: false, // Resetar o checklist
       })),
     };
 
@@ -346,6 +351,69 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [addProject, getProjectById, loggedInUserFromAuthContext, toast]);
 
+
+  const assignClientCopyToUser = useCallback(async (originalClientId: string, targetUserId: string, newClientName?: string): Promise<boolean> => {
+    if (!loggedInUserFromAuthContext || loggedInUserFromAuthContext.role !== 'admin') {
+      toast({ variant: "destructive", title: "Não Autorizado", description: "Apenas administradores podem delegar clientes." });
+      return false;
+    }
+
+    const originalClientDocRef = doc(db, COLLECTION_NAME, originalClientId);
+    try {
+      const originalClientSnapshot = await getDoc(originalClientDocRef);
+      if (!originalClientSnapshot.exists()) {
+        toast({ variant: "destructive", title: "Erro", description: "Cliente original não encontrado." });
+        return false;
+      }
+      const originalClientData = originalClientSnapshot.data() as FirebaseClientDoc;
+
+      const batch = writeBatch(db);
+
+      // 1. Create new client for target user
+      const newClientDocRef = doc(collection(db, COLLECTION_NAME)); // Auto-generate ID
+      const clientDataForNewUser: FirebaseClientDoc = {
+        nome: newClientName || originalClientData.nome, // Use new name if provided, else original
+        creatorUserId: targetUserId,
+        prioridade: originalClientData.prioridade,
+        createdAt: serverTimestamp() as Timestamp, // Cast for type safety
+      };
+      batch.set(newClientDocRef, clientDataForNewUser);
+
+      // 2. Get original projects
+      const originalProjectsColRef = collection(db, COLLECTION_NAME, originalClientId, 'projects');
+      const originalProjectsSnapshot = await getDocs(originalProjectsColRef);
+
+      // 3. Create cleaned copies of projects under the new client
+      originalProjectsSnapshot.forEach(projectDoc => {
+        const originalProjectData = projectDoc.data() as FirebaseProjectDoc;
+        const newProjectDocRef = doc(collection(db, COLLECTION_NAME, newClientDocRef.id, 'projects')); // Auto-generate ID
+
+        const cleanedProjectData: Omit<FirebaseProjectDoc, 'descricao' | 'valor' | 'notas' | 'dataConclusao' | 'createdAt'> & {createdAt: any} = {
+          nome: originalProjectData.nome,
+          tipo: originalProjectData.tipo,
+          status: INITIAL_PROJECT_STATUS(originalProjectData.tipo), // Reset status
+          prazo: originalProjectData.prazo,
+          prioridade: originalProjectData.prioridade,
+          checklist: originalProjectData.checklist.map(item => ({ ...item, id: uuidv4(), feito: false })), // Reset checklist items
+          creatorUserId: targetUserId, // Assign to target user
+          assignedUserId: undefined, // Clear assigned user
+          // Omitted: descricao, valor, notas, dataConclusao
+          createdAt: serverTimestamp(),
+        };
+        batch.set(newProjectDocRef, cleanedProjectData);
+      });
+
+      await batch.commit();
+      toast({ title: "Cliente Delegado", description: `Cópia de "${clientDataForNewUser.nome}" enviada para o usuário selecionado.` });
+      return true;
+    } catch (error: any) {
+      console.error("Error delegating client copy:", error);
+      toast({ variant: "destructive", title: "Erro ao Delegar", description: error.message || "Não foi possível delegar a cópia do cliente." });
+      return false;
+    }
+  }, [loggedInUserFromAuthContext, toast]);
+
+
   const importData = useCallback((jsonData: AppData): boolean => {
     console.warn("Data import from JSON is deprecated. Data is now managed in Firestore.");
     toast({ title: "Funcionalidade Descontinuada", description: "A importação de dados via JSON foi descontinuada."});
@@ -355,7 +423,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   const exportData = useCallback((): AppData => {
     console.warn("Data export to JSON is deprecated. Data is now managed in Firestore.");
     toast({ title: "Funcionalidade Descontinuada", description: "A exportação de dados via JSON foi descontinuada."});
-    return { clientes: clients, users: users }; // 'clientes' aqui é a propriedade da interface AppData, não a coleção
+    return { clientes: clients, users: users };
   }, [clients, users, toast]);
 
   const addUser = useCallback(async (userData: Omit<User, 'id' | 'createdAt'> & { password?: string }) => {
@@ -526,11 +594,10 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         updateUser,
         deleteUser,
         fetchUsers,
+        assignClientCopyToUser,
       }}
     >
       {children}
     </AppDataContext.Provider>
   );
 };
-
-    
