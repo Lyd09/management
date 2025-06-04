@@ -282,8 +282,8 @@ export default function DashboardPage() {
                         </Badge>
                     )}
                     <Link href={`/clients/${client.id}`} passHref legacyBehavior>
-                        <Button variant="ghost" size="icon" aria-label={`Ver detalhes de ${client.nome}`}>
-                            <ExternalLink className="h-5 w-5 text-primary" />
+                        <Button variant="ghost" size="icon" aria-label={`Ver detalhes de ${client.nome}`} className="group">
+                            <ExternalLink className="h-5 w-5 text-primary group-hover:text-accent-foreground" />
                         </Button>
                     </Link>
                 </div>
@@ -308,7 +308,7 @@ export default function DashboardPage() {
                         <div className="flex items-center">
                           <FolderKanban className="h-4 w-4 mr-2 text-primary/70 shrink-0"/>
                           <span>{p.nome}</span>
-                          {p.status !== "Projeto Concluído" && deadlineText && <span className="ml-1 text-xs text-muted-foreground/80">{deadlineText}</span>}
+                           {p.status !== "Projeto Concluído" && deadlineText && <span className="ml-1 text-xs text-muted-foreground/80">{deadlineText}</span>}
                         </div>
                         {p.status !== "Aguardando Início" && completionPercentage !== null && p.checklist && p.checklist.length > 0 && (
                            <Badge

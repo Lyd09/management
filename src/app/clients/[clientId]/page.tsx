@@ -352,8 +352,8 @@ export default function ClientDetailPage() {
                 <div className="flex justify-between items-start">
                     <CardTitle className="text-xl">{project.nome}</CardTitle>
                     <Link href={`/clients/${client.id}/projects/${project.id}/view`} passHref legacyBehavior>
-                        <Button variant="ghost" size="icon" aria-label={`Visualizar projeto ${project.nome}`}>
-                            <ExternalLink className="h-5 w-5 text-primary" />
+                        <Button variant="ghost" size="icon" aria-label={`Visualizar projeto ${project.nome}`} className="group">
+                            <ExternalLink className="h-5 w-5 text-primary group-hover:text-accent-foreground" />
                         </Button>
                     </Link>
                 </div>

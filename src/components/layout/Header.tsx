@@ -39,24 +39,24 @@ export function Header() {
             <nav className="flex flex-col gap-3 flex-grow">
               <SheetClose asChild>
                 <Link href="/" passHref>
-                  <Button variant="ghost" className="w-full justify-start text-base py-3">
-                    <Home className="mr-2 h-5 w-5 text-primary" />
+                  <Button variant="ghost" className="group w-full justify-start text-base py-3">
+                    <Home className="mr-2 h-5 w-5 text-primary group-hover:text-accent-foreground" />
                     Início
                   </Button>
                 </Link>
               </SheetClose>
               <SheetClose asChild>
                 <Link href="/dashboard" passHref>
-                  <Button variant="ghost" className="w-full justify-start text-base py-3">
-                    <LayoutDashboard className="mr-2 h-5 w-5 text-primary" />
+                  <Button variant="ghost" className="group w-full justify-start text-base py-3">
+                    <LayoutDashboard className="mr-2 h-5 w-5 text-primary group-hover:text-accent-foreground" />
                     Métricas
                   </Button>
                 </Link>
               </SheetClose>
               <SheetClose asChild>
                 <Link href="/updates" passHref>
-                  <Button variant="ghost" className="w-full justify-start text-base py-3">
-                    <History className="mr-2 h-5 w-5 text-primary" />
+                  <Button variant="ghost" className="group w-full justify-start text-base py-3">
+                    <History className="mr-2 h-5 w-5 text-primary group-hover:text-accent-foreground" />
                     Atualizações
                   </Button>
                 </Link>

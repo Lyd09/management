@@ -33,7 +33,7 @@ export default function DashboardMetricsPage() {
   //    Exclui "SITE LOGS" e "MY BROKER".
   const generalFilteredProjects = useMemo(() => {
     return rawAllProjectsWithClientName.filter(p => 
-      !EXCLUDE_BOTH_FOR_COUNTS_AND_TYPES.some(excluded => p.nome.toUpperCase() === excluded.toUpperCase())
+      !EXCLUDE_BOTH_FOR_COUNTS_AND_TYPES.some(excluded => p.nome.trim().toUpperCase() === excluded.toUpperCase())
     );
   }, [rawAllProjectsWithClientName]);
 
@@ -49,10 +49,16 @@ export default function DashboardMetricsPage() {
   const totalClientsCount = useMemo(() => {
     return clients.filter(client => {
       if (client.projetos.length === 0) return true; // Cliente sem projetos é contado
-      // Cliente é contado se tiver pelo menos um projeto que NÃO seja "SITE LOGS"
-      return client.projetos.some(p => 
-        !EXCLUDE_SITE_LOGS_FOR_TOTAL_CLIENTS.some(excluded => p.nome.toUpperCase() === excluded.toUpperCase())
+      
+      // Verifica se TODOS os projetos do cliente são "SITE LOGS"
+      const allProjectsAreSiteLogs = client.projetos.every(p => 
+        EXCLUDE_SITE_LOGS_FOR_TOTAL_CLIENTS.some(excludedName => 
+            p.nome.trim().toUpperCase() === excludedName.toUpperCase()
+        )
       );
+      // Se todos os projetos são "SITE LOGS", o cliente NÃO é contado.
+      // Caso contrário (ou seja, se pelo menos um projeto NÃO é "SITE LOGS"), o cliente é contado.
+      return !allProjectsAreSiteLogs;
     }).length;
   }, [clients]);
 
@@ -63,7 +69,7 @@ export default function DashboardMetricsPage() {
         id: client.id,
         name: client.nome,
         projectCount: client.projetos.filter(p => 
-            !EXCLUDE_BOTH_FOR_COUNTS_AND_TYPES.some(excluded => p.nome.toUpperCase() === excluded.toUpperCase())
+            !EXCLUDE_BOTH_FOR_COUNTS_AND_TYPES.some(excluded => p.nome.trim().toUpperCase() === excluded.toUpperCase())
         ).length,
       }))
       .filter(client => client.projectCount > 0)
@@ -76,7 +82,7 @@ export default function DashboardMetricsPage() {
     const today = startOfDay(new Date());
     return rawAllProjectsWithClientName // Começa com todos os projetos brutos
       .filter(p => // Filtra APENAS "SITE LOGS"
-        !EXCLUDE_SITE_LOGS_FOR_OVERDUE.some(excluded => p.nome.toUpperCase() === excluded.toUpperCase())
+        !EXCLUDE_SITE_LOGS_FOR_OVERDUE.some(excluded => p.nome.trim().toUpperCase() === excluded.toUpperCase())
       )
       .filter(p => p.status !== "Projeto Concluído" && p.prazo) // Filtra não concluídos e com prazo
       .map(p => {
@@ -263,4 +269,3 @@ export default function DashboardMetricsPage() {
     </div>
   );
 }
-
