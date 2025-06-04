@@ -43,7 +43,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         // User is signed in with Firebase Auth
-        // Fetch user profile from Firestore
+        // Fetch user profile from Firestore.
+        // IMPORTANT: The document ID in the 'users' collection in Firestore
+        // MUST match the Firebase Auth UID for this user.
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const userDocSnap = await getDoc(userDocRef);
 
@@ -57,11 +59,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else {
           // User exists in Firebase Auth but not in Firestore 'users' collection
           // This is an inconsistent state, log them out from the app's perspective
-          console.error("User profile not found in Firestore. Logging out.");
+          console.error(`User profile not found in Firestore for UID: ${firebaseUser.uid}. Logging out.`);
           await firebaseSignOut(auth); // Sign out from Firebase Auth
           setCurrentUser(null);
           setIsLoggedIn(false);
-          // router.push('/login'); // onAuthStateChanged will trigger again with null
+          // onAuthStateChanged will trigger again with null user, handling redirect if needed
         }
       } else {
         // User is signed out

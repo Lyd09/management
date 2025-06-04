@@ -19,6 +19,9 @@ import { DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose
 import type { User } from "@/types";
 import { useEffect } from "react";
 
+// Schema para validação do formulário de usuário
+// NOTA: Este formulário NÃO gerencia senhas. A criação de usuários com senha
+// deve ser integrada com o Firebase Authentication.
 const userFormSchema = z.object({
   username: z.string().min(3, {
     message: "O nome de usuário deve ter pelo menos 3 caracteres.",
@@ -34,11 +37,11 @@ const userFormSchema = z.object({
 export type UserFormValues = z.infer<typeof userFormSchema>;
 
 interface UserFormProps {
-  user?: User | null;
-  onSubmit: (data: UserFormValues) => Promise<void>; // onSubmit is async now
-  onClose: () => void;
-  currentUserIsAdmin?: boolean; // Is the logged-in user an admin?
-  editingSelf?: boolean; // Is the logged-in user editing their own profile?
+  user?: User | null; // Usuário existente para edição, ou null/undefined para adição
+  onSubmit: (data: UserFormValues) => Promise<void>; // onSubmit é assíncrono
+  onClose: () => void; // Função para fechar o diálogo/modal
+  currentUserIsAdmin?: boolean; // O usuário logado é admin?
+  editingSelf?: boolean; // O usuário logado está editando o próprio perfil?
 }
 
 export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingSelf }: UserFormProps) {
@@ -54,6 +57,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
   });
   
   useEffect(() => {
+    // Reseta o formulário quando o 'user' prop muda (ex: ao abrir para editar outro usuário)
     form.reset({
         username: user?.username || "",
         email: user?.email || "",
@@ -64,7 +68,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
 
 
   const handleSubmit = async (data: UserFormValues) => {
-    // Client-side check, though server-side (Firestore rules/context) is primary
+    // Verificação do lado do cliente, embora o lado do servidor (regras do Firestore/contexto) seja primário
     if (isEditingFfAdmin) {
       if (data.username !== 'ff.admin') {
         form.setError("username", { message: "O nome de usuário 'ff.admin' não pode ser alterado."});
@@ -76,7 +80,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
       }
     }
     await onSubmit(data);
-    // form.reset() handled by Dialog onOpenChange typically, or call onClose which might reset
+    // form.reset() é geralmente tratado pelo onOpenChange do Dialog, ou chame onClose que pode resetar
   };
 
   return (
@@ -96,7 +100,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
             <FormItem>
               <FormLabel>Nome de Usuário</FormLabel>
               <FormControl>
-                <Input placeholder="Ex: joao.silva" {...field} disabled={isEditingFfAdmin} />
+                <Input placeholder="Ex: joao.silva" {...field} disabled={isEditingFfAdmin || (!!user && user.username !== 'ff.admin')} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -108,7 +112,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email (Opcional)</FormLabel>
+              <FormLabel>Email</FormLabel>
               <FormControl>
                 <Input type="email" placeholder="Ex: usuario@dominio.com" {...field} />
               </FormControl>
@@ -127,7 +131,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
                 onValueChange={field.onChange} 
                 defaultValue={field.value}
                 value={field.value}
-                disabled={isEditingFfAdmin || (editingSelf && !currentUserIsAdmin)} // ff.admin cannot change its role. User cannot change their own role unless they are admin.
+                disabled={isEditingFfAdmin || (editingSelf && !currentUserIsAdmin)} 
               >
                 <FormControl>
                   <SelectTrigger>
