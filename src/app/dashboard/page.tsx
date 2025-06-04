@@ -4,16 +4,15 @@
 import React, { useMemo } from 'react';
 import { useAppData } from '@/hooks/useAppData';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon } from "lucide-react";
+import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon, DollarSign } from "lucide-react"; // Adicionado DollarSign
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
-import { differenceInDays, parseISO, startOfDay, isBefore } from 'date-fns';
+import { differenceInDays, parseISO, startOfDay, isBefore, getYear, getMonth } from 'date-fns';
 import type { Project, ProjectType } from '@/types';
 import { PROJECT_TYPES } from '@/lib/constants';
 
 const COLORS_PIE = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
-// Renamed for clarity: Constants for general metrics (Active, Completed, By Type)
 const GENERAL_EXCLUDED_PROJECT_NAMES = ["SITE LOGS", "MY BROKER"];
 const GENERAL_EXCLUDED_CLIENT_NAMES = ["SITE LOGS", "MY BROKER"];
 
@@ -41,11 +40,9 @@ export default function DashboardMetricsPage() {
       const projectNameUpper = p.nome.trim().toUpperCase();
       const clientNameUpper = p.clientName.trim().toUpperCase();
 
-      // Exclude if project name is in GENERAL_EXCLUDED_PROJECT_NAMES
       if (GENERAL_EXCLUDED_PROJECT_NAMES.some(excluded => projectNameUpper === excluded.toUpperCase())) {
         return false;
       }
-      // Exclude if client name is in GENERAL_EXCLUDED_CLIENT_NAMES
       if (GENERAL_EXCLUDED_CLIENT_NAMES.some(excludedClient => clientNameUpper === excludedClient.toUpperCase())) {
         return false;
       }
@@ -65,13 +62,11 @@ export default function DashboardMetricsPage() {
     return clients
       .filter(client => {
         const clientNameUpper = client.nome.trim().toUpperCase();
-        // Exclude clients explicitly named in EXCLUDE_CLIENT_NAMES_FOR_TOTAL_CLIENTS
         if (EXCLUDE_CLIENT_NAMES_FOR_TOTAL_CLIENTS.some(excludedClientName =>
           clientNameUpper === excludedClientName.toUpperCase()
         )) {
           return false;
         }
-        // Further, exclude clients if all their projects are of a type to be filtered out for this count
         if (client.projetos.length > 0) {
             const allProjectsAreExcludedType = client.projetos.every(p =>
               EXCLUDE_PROJECT_NAMES_FOR_TOTAL_CLIENTS_FILTER.some(excludedProjectName =>
@@ -88,7 +83,6 @@ export default function DashboardMetricsPage() {
     return clients
       .filter(client => {
         const clientNameUpper = client.nome.trim().toUpperCase();
-        // Exclude clients explicitly named in EXCLUDE_CLIENT_NAMES_FOR_TOP_CLIENTS
         return !EXCLUDE_CLIENT_NAMES_FOR_TOP_CLIENTS.some(excludedClientName =>
           clientNameUpper === excludedClientName.toUpperCase()
         );
@@ -98,13 +92,12 @@ export default function DashboardMetricsPage() {
         name: client.nome,
         projectCount: client.projetos.filter(p => {
             const projectNameUpper = p.nome.trim().toUpperCase();
-            // Exclude projects explicitly named in EXCLUDE_PROJECT_NAMES_FOR_TOP_CLIENTS
             return !EXCLUDE_PROJECT_NAMES_FOR_TOP_CLIENTS.some(excludedProjectName =>
               projectNameUpper === excludedProjectName.toUpperCase()
             );
         }).length,
       }))
-      .filter(client => client.projectCount > 0) // Only include clients with a non-zero count of relevant projects
+      .filter(client => client.projectCount > 0)
       .sort((a, b) => b.projectCount - a.projectCount)
       .slice(0, 5);
   }, [clients]);
@@ -159,6 +152,25 @@ export default function DashboardMetricsPage() {
     return config;
   }, []);
 
+  const monthlyCompletedValue = useMemo(() => {
+    const currentMonth = getMonth(new Date());
+    const currentYear = getYear(new Date());
+
+    return generalFilteredProjects.reduce((sum, project) => {
+      if (project.status === "Projeto Concluído" && project.dataConclusao && project.valor) {
+        try {
+          const conclusionDate = parseISO(project.dataConclusao);
+          if (isValid(conclusionDate) && getMonth(conclusionDate) === currentMonth && getYear(conclusionDate) === currentYear) {
+            return sum + project.valor;
+          }
+        } catch (e) {
+          // Ignore projects with invalid date format for dataConclusao
+        }
+      }
+      return sum;
+    }, 0);
+  }, [generalFilteredProjects]);
+
 
   if (loading) {
     return (
@@ -173,7 +185,7 @@ export default function DashboardMetricsPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-primary">Dashboard de Métricas</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"> {/* Alterado para 4 colunas para o novo card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Projetos Ativos</CardTitle>
@@ -181,7 +193,7 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeProjectsCount}</div>
-            <p className="text-xs text-muted-foreground">Exclui projetos dos clientes "{GENERAL_EXCLUDED_CLIENT_NAMES.join('" ou "')}" e projetos nomeados "{GENERAL_EXCLUDED_PROJECT_NAMES.join('" ou "')}".</p>
+            <p className="text-xs text-muted-foreground">SITE LOGS e MY BROKER não inclusos</p>
           </CardContent>
         </Card>
         <Card>
@@ -191,7 +203,7 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completedProjectsCount}</div>
-             <p className="text-xs text-muted-foreground">Exclui projetos dos clientes "{GENERAL_EXCLUDED_CLIENT_NAMES.join('" ou "')}" e projetos nomeados "{GENERAL_EXCLUDED_PROJECT_NAMES.join('" ou "')}".</p>
+             <p className="text-xs text-muted-foreground">SITE LOGS e MY BROKER não inclusos</p>
           </CardContent>
         </Card>
          <Card>
@@ -201,7 +213,19 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalClientsCount}</div>
-             <p className="text-xs text-muted-foreground">Excluindo clientes nomeados "{EXCLUDE_CLIENT_NAMES_FOR_TOTAL_CLIENTS.join('", "')}".</p>
+             <p className="text-xs text-muted-foreground">SITE LOGS não incluso</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valor Total do Mês</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyCompletedValue)}
+            </div>
+            <CardDescription className="text-xs text-muted-foreground">SITE LOGS e MY BROKER não inclusos</CardDescription>
           </CardContent>
         </Card>
       </div>
@@ -210,7 +234,7 @@ export default function DashboardMetricsPage() {
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5 text-primary" />Top 5 Clientes por Nº de Projetos</CardTitle>
-             <CardDescription>Exclui clientes e projetos chamados "{EXCLUDE_CLIENT_NAMES_FOR_TOP_CLIENTS.join('" ou "')}".</CardDescription>
+             <CardDescription>SITE LOGS e MY BROKER não inclusos</CardDescription>
           </CardHeader>
           <CardContent>
             {clientsByProjectCount.length > 0 ? (
@@ -255,7 +279,7 @@ export default function DashboardMetricsPage() {
        <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><PieChartIcon className="mr-2 h-5 w-5 text-primary" />Distribuição de Projetos por Tipo</CardTitle>
-          <CardDescription>Exclui projetos dos clientes "{GENERAL_EXCLUDED_CLIENT_NAMES.join('" ou "')}" e projetos nomeados "{GENERAL_EXCLUDED_PROJECT_NAMES.join('" ou "')}".</CardDescription>
+          <CardDescription>SITE LOGS e MY BROKER não inclusos</CardDescription>
         </CardHeader>
         <CardContent className="h-[350px] w-full">
           {projectsByTypeChartData.length > 0 ? (
