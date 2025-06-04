@@ -115,12 +115,11 @@ const formatProjectDateForCard = (
           };
         }
       }
-      return null; // Concluído mas sem dataConclusao válida (legado), não exibe nada de data.
+      return null;
     }
 
-    // Se não está concluído, trata o prazo
     if (!prazo || typeof prazo !== 'string' || !prazo.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return null; // Se não tem prazo válido e não está concluído, não mostra nada de data
+      return null;
     }
 
     const deadlineDate = parseISO(prazo);
@@ -157,7 +156,7 @@ const formatProjectDateForCard = (
       isConclusion: false,
       variant,
       icon: CalendarClock,
-      iconColorClass: 'text-destructive', // Ícone de calendário sempre vermelho para prazos
+      iconColorClass: 'text-destructive', 
     };
   } catch (error) {
     console.error("Error formatting project date for card:", error);
@@ -215,7 +214,7 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const clientId = typeof params.clientId === 'string' ? params.clientId : '';
 
-  const { getClientById, addProject, deleteProject, duplicateProject, loading } = useAppData();
+  const { getClientById, addProject, deleteProject, duplicateProject, loading, updateProject } = useAppData();
   const { toast } = useToast();
 
   const [client, setClient] = useState<Client | null>(null);
@@ -243,13 +242,13 @@ export default function ClientDetailPage() {
 
   const handleAddProject = (data: ProjectFormValues) => {
     if (!client) return;
-    const projectPayload: Omit<Project, 'id' | 'checklist' | 'clientId' | 'dataConclusao'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number, dataConclusao?: string } = {
+    const projectPayload: Omit<Project, 'id' | 'checklist' | 'clientId' > & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number, dataConclusao?: string } = {
       nome: data.nome,
       tipo: data.tipo as ProjectType,
       status: data.status,
       prioridade: data.prioridade,
       descricao: data.descricao,
-      prazo: data.prazo as (string | undefined),
+      prazo: data.prazo,
       valor: data.valor,
       notas: data.notas,
       checklist: data.checklist,
@@ -495,14 +494,11 @@ export default function ClientDetailPage() {
                       </span>
                     ) : (
                       <>
-                        <span className='text-muted-foreground'>
+                        <span className='text-foreground'>
                           {projectDateDisplayInfo.prefix} {projectDateDisplayInfo.formattedDate}
                         </span>
                         {projectDateDisplayInfo.remainingText && (
-                          <span className={cn(
-                            "ml-1",
-                            projectDateDisplayInfo.variant === 'destructive' ? 'text-destructive font-medium' : 'text-muted-foreground/80'
-                          )}>
+                          <span className="ml-1 text-foreground">
                             | {projectDateDisplayInfo.remainingText}
                           </span>
                         )}
