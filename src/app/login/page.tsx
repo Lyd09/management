@@ -14,7 +14,7 @@ import { AlertCircle, LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const loginSchema = z.object({
-  username: z.string().min(1, { message: 'Nome de usuário é obrigatório.' }),
+  email: z.string().email({ message: 'Por favor, insira um email válido.' }),
   password: z.string().min(1, { message: 'Senha é obrigatória.' }),
 });
 
@@ -29,7 +29,7 @@ export default function LoginPage() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
+      email: '',
       password: '',
     },
   });
@@ -37,15 +37,21 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmitting(true);
     setLoginError(null);
-    const success = await login(data.username, data.password);
-    if (!success) {
-      setLoginError('Nome de usuário ou senha inválidos.');
+    try {
+      const success = await login(data.email, data.password);
+      if (!success) {
+        // Error message is now set within the login function of AuthContext
+        // setLoginError('Email ou senha inválidos.'); 
+      }
+      // O redirecionamento é tratado pelo AuthContext via onAuthStateChanged
+    } catch (error: any) {
+      // Specific error messages are now set by the login function in AuthContext
+      // setLoginError(error.message || 'Ocorreu um erro ao tentar fazer login.');
     }
-    // O redirecionamento é tratado pelo AuthContext
     setIsSubmitting(false);
   };
 
-  if (loadingAuth) {
+  if (loadingAuth && !form.formState.isDirty) { // Show loader only if auth is loading and form hasn't been touched
      return (
       <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -65,7 +71,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent className="p-6 sm:p-8">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {loginError && (
+            {loginError && ( // loginError will be set by AuthContext now
               <Alert variant="destructive" className="bg-destructive/10 border-destructive/30 text-destructive">
                 <AlertCircle className="h-5 w-5" />
                 <AlertTitle className="font-semibold">Erro de Login</AlertTitle>
@@ -73,16 +79,16 @@ export default function LoginPage() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="username" className="font-medium">Usuário</Label>
+              <Label htmlFor="email" className="font-medium">Email</Label>
               <Input
-                id="username"
-                type="text"
-                {...form.register('username')}
-                autoComplete="username"
+                id="email"
+                type="email"
+                {...form.register('email')}
+                autoComplete="email"
                 className="text-base"
               />
-              {form.formState.errors.username && (
-                <p className="text-sm text-destructive">{form.formState.errors.username.message}</p>
+              {form.formState.errors.email && (
+                <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -93,7 +99,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   {...form.register('password')}
                   autoComplete="current-password"
-                  className="text-base pr-10" // Adicionado padding para o ícone
+                  className="text-base pr-10"
                 />
                 <Button
                   type="button"
@@ -110,9 +116,9 @@ export default function LoginPage() {
                 <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
               )}
             </div>
-            <Button type="submit" className="w-full text-base py-3" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-              {isSubmitting ? 'Entrando...' : 'Entrar'}
+            <Button type="submit" className="w-full text-base py-3" disabled={isSubmitting || loadingAuth}>
+              {(isSubmitting || loadingAuth) && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+              {(isSubmitting || loadingAuth) ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
         </CardContent>
