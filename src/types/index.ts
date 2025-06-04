@@ -19,6 +19,7 @@ export interface Project {
   notas?: string;
   checklist: ChecklistItem[];
   prioridade?: PriorityType;
+  valor?: number; // Novo campo para o valor do projeto
 }
 
 export interface Client {

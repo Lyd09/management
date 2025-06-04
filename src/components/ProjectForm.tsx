@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CalendarIcon, PlusCircle, Loader2 } from "lucide-react";
+import { CalendarIcon, PlusCircle, Loader2, DollarSign } from "lucide-react"; // Adicionado DollarSign
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid, differenceInDays, isBefore, startOfDay } from "date-fns";
 import { ptBR } from 'date-fns/locale';
@@ -56,6 +56,16 @@ const projectFormSchema = z.object({
   prioridade: z.enum(PRIORITIES, {required_error: "Selecione uma prioridade."}).optional(),
   descricao: z.string().optional(),
   prazo: z.date().optional(),
+  valor: z.preprocess(
+    (val) => {
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = parseFloat(String(val).replace(",", ".")); // Trata vírgula como decimal
+      return isNaN(num) ? val : num;
+    },
+    z.number({ invalid_type_error: "O valor deve ser um número." })
+      .positive({ message: "O valor do projeto deve ser positivo." })
+      .optional()
+  ),
   notas: z.string().optional(),
   checklist: z.array(
     z.object({
@@ -103,6 +113,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       prioridade: project?.prioridade || "Média",
       descricao: project?.descricao || "",
       prazo: project?.prazo && isValid(parseISO(project.prazo)) ? parseISO(project.prazo) : undefined,
+      valor: project?.valor || undefined,
       notas: project?.notas || "",
       checklist: project?.checklist || [],
     },
@@ -122,6 +133,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       prioridade: project?.prioridade || "Média",
       descricao: project?.descricao || "",
       prazo: project?.prazo && isValid(parseISO(project.prazo)) ? parseISO(project.prazo) : undefined,
+      valor: project?.valor || undefined,
       notas: project?.notas || "",
       checklist: project?.checklist || [],
     });
@@ -229,6 +241,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     onSubmit({
       ...data,
       prazo: data.prazo ? format(data.prazo, "yyyy-MM-dd") : undefined,
+      valor: data.valor // O valor já é um número ou undefined devido ao preprocess
     } as any); 
     if (!isPage && onClose) { 
       form.reset({ 
@@ -238,6 +251,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         prioridade: "Média",
         descricao: "",
         prazo: undefined,
+        valor: undefined,
         notas: "",
         checklist: [],
       });
@@ -467,6 +481,39 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
             )}
         />
       </div>
+      
+      <FormField
+        control={form.control}
+        name="valor"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Valor do Projeto (R$)</FormLabel>
+            <FormControl>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="number"
+                  placeholder="Ex: 1500.00"
+                  step="0.01"
+                  {...field}
+                  value={field.value === undefined ? "" : field.value} // Controla o valor para ser string vazia se undefined
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "") {
+                      field.onChange(undefined); // Passa undefined se o campo estiver vazio
+                    } else {
+                      // Tenta converter para número, mas o Zod schema fará a conversão final e validação
+                      field.onChange(val);
+                    }
+                  }}
+                  className="pl-9" // Padding para o ícone
+                />
+              </div>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
 
 
       <FormField
@@ -565,6 +612,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                         prioridade: "Média",
                         descricao: "",
                         prazo: undefined,
+                        valor: undefined,
                         notas: "",
                         checklist: [],
                       });
@@ -622,4 +670,3 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     </Form>
   );
 }
-    

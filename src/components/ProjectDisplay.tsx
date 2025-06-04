@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, Edit, CalendarClock, Percent, Info, StickyNote, ListChecks } from "lucide-react";
+import { ArrowLeft, Edit, CalendarClock, Percent, Info, StickyNote, ListChecks, DollarSign } from "lucide-react"; // Adicionado DollarSign
 import { PRIORITIES, PROJECT_TYPES, PROJECT_STATUS_OPTIONS } from "@/lib/constants";
 import type { PriorityType, ProjectType } from '@/types';
 import { differenceInDays, parseISO, startOfDay, isBefore, format } from 'date-fns';
@@ -149,6 +149,15 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
               )}
             </div>
           </div>
+
+          {project.valor !== undefined && (
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/>Valor do Projeto</Label>
+              <p className="text-base font-semibold">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(project.valor)}
+              </p>
+            </div>
+          )}
           
           {project.status !== "Projeto Concluído" && project.status !== "Aguardando Início" && completionPercentage !== null && project.checklist && project.checklist.length > 0 && (
             <div>
@@ -218,4 +227,3 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
     </div>
   );
 }
-    

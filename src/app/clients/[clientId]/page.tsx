@@ -154,13 +154,14 @@ export default function ClientDetailPage() {
 
   const handleAddProject = (data: ProjectFormValues) => {
     if (!client) return;
-    const projectPayload: Omit<Project, 'id' | 'checklist'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType } = {
+    const projectPayload: Omit<Project, 'id' | 'checklist' | 'clientId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number } = {
       nome: data.nome,
       tipo: data.tipo as ProjectType,
       status: data.status,
       prioridade: data.prioridade,
       descricao: data.descricao,
       prazo: data.prazo as (string | undefined),
+      valor: data.valor, // Adicionado valor
       notas: data.notas,
       checklist: data.checklist,
     };
@@ -393,6 +394,11 @@ export default function ClientDetailPage() {
               <CardContent className="flex-grow space-y-2 mt-1">
                 <p className="text-sm text-muted-foreground line-clamp-2">{project.descricao || "Sem descrição."}</p>
                 {project.prazo && <p className="text-xs text-muted-foreground">Prazo: {new Date(project.prazo + "T00:00:00").toLocaleDateString('pt-BR')}</p>}
+                 {project.valor !== undefined && (
+                    <p className="text-xs text-muted-foreground">
+                        Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(project.valor)}
+                    </p>
+                )}
               </CardContent>
               <CardFooter className="flex justify-end gap-2">
                 <Button variant="outline" size="sm" onClick={() => handleDuplicateProject(project.id)}>

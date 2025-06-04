@@ -37,6 +37,7 @@ interface FirebaseProjectDoc {
   checklist: ChecklistItem[];
   createdAt: Timestamp;
   prioridade?: PriorityType;
+  valor?: number; // Adicionado valor
 }
 
 interface AppDataContextType {
@@ -46,7 +47,7 @@ interface AppDataContextType {
   updateClient: (clientId: string, nome: string, prioridade?: PriorityType) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   getClientById: (clientId: string) => Client | undefined;
-  addProject: (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType }) => Promise<void>;
+  addProject: (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number }) => Promise<void>;
   updateProject: (clientId: string, projectId: string, projectData: Partial<Project>) => Promise<void>;
   deleteProject: (clientId: string, projectId: string) => Promise<void>;
   getProjectById: (clientId: string, projectId: string) => Project | undefined;
@@ -87,7 +88,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
           return {
             id: projectDoc.id,
             ...projectFirebaseData,
-          } as Project;
+          } as Project; // Inclui valor aqui se estiver no FirebaseProjectDoc
         });
         clientsData.push(client);
       }
@@ -148,7 +149,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     return clients.find(c => c.id === clientId);
   }, [clients]);
 
-  const addProject = useCallback(async (clientId: string, projectData: Omit<Project, 'id' | 'checklist'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType }) => {
+  const addProject = useCallback(async (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number }) => {
     try {
       const projectsCollectionRef = collection(db, 'clients', clientId, 'projects');
       const newProjectData: Omit<FirebaseProjectDoc, 'createdAt'> = { // createdAt will be serverTimestamp
@@ -159,6 +160,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         prazo: projectData.prazo,
         notas: projectData.notas,
         prioridade: projectData.prioridade || "Média", // Default priority
+        valor: projectData.valor, // Adicionado valor
         checklist: (projectData.checklist || []).map(item => ({...item, id: item.id || uuidv4()})) as ChecklistItem[],
       };
       await addDoc(projectsCollectionRef, {
@@ -180,6 +182,17 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
           id: item.id || uuidv4(),
         }));
       }
+      // Assegura que `valor` é undefined se não for um número válido, ou se for para ser removido.
+      // Se projectData.valor for explicitamente null ou undefined, e queremos remover,
+      // poderíamos usar deleteFieldValue() do Firebase, mas por ora, passar undefined deve funcionar.
+      // Se o valor for 0, ele será salvo como 0.
+      if ('valor' in dataToUpdate && (dataToUpdate.valor === undefined || dataToUpdate.valor === null || isNaN(Number(dataToUpdate.valor)))) {
+         dataToUpdate.valor = undefined; // Ou use deleteFieldValue() se quiser remover o campo
+      } else if ('valor' in dataToUpdate) {
+         dataToUpdate.valor = Number(dataToUpdate.valor);
+      }
+
+
       await updateDoc(projectDocRef, dataToUpdate);
     } catch (error) {
       console.error("Error updating project in Firestore:", error);
@@ -207,18 +220,19 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       return;
     }
 
-    const duplicatedProjectData: Omit<Project, 'id' | 'checklist'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType } = {
+    const duplicatedProjectData: Omit<Project, 'id' | 'checklist' | 'clientId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number } = {
       nome: `${originalProject.nome} (Cópia)`,
       tipo: originalProject.tipo,
-      status: originalProject.status, // Mantém o status original
+      status: originalProject.status, 
       descricao: originalProject.descricao,
-      prazo: originalProject.prazo, // Mantém o prazo original
+      prazo: originalProject.prazo, 
       notas: originalProject.notas,
-      prioridade: originalProject.prioridade, // Mantém a prioridade original
+      prioridade: originalProject.prioridade,
+      valor: originalProject.valor, // Adicionado valor
       checklist: originalProject.checklist.map(item => ({
-        id: uuidv4(), // Novo ID para o item do checklist
+        id: uuidv4(), 
         item: item.item,
-        feito: item.feito, // Mantém o estado 'feito' original
+        feito: item.feito, 
       })),
     };
 

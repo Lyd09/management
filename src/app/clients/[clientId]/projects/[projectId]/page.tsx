@@ -40,15 +40,15 @@ export default function ProjectEditPage() {
 
   const handleUpdateProject = (data: ProjectFormValues) => {
     if (!project || !clientId) return;
-    // data.prazo aqui já é uma string "YYYY-MM-DD" ou undefined,
-    // devido à transformação feita pelo ProjectForm antes de chamar onSubmit.
+    
     const updatedProjectData: Partial<Project> = {
       nome: data.nome,
       tipo: data.tipo as ProjectType,
       status: data.status,
-      prioridade: data.prioridade as PriorityType, // Adicionado o campo prioridade
+      prioridade: data.prioridade as PriorityType, 
       descricao: data.descricao,
-      prazo: data.prazo as (string | undefined), // Usar diretamente, já é string
+      prazo: data.prazo as (string | undefined), 
+      valor: data.valor, // Adicionado valor
       notas: data.notas,
       checklist: data.checklist || [],
     };
