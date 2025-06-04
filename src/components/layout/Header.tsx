@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, History, LayoutDashboard, Menu, Home } from 'lucide-react';
+import { LogOut, History, LayoutDashboard, Menu, Home, CalendarDays } from 'lucide-react'; // Added CalendarDays
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import React from 'react';
 
@@ -17,7 +17,7 @@ export function Header() {
   }
 
   return (
-    <header className="py-4 px-6 border-b border-border sticky top-0 bg-background z-50">
+    <header className="py-4 px-6 border-b border-border sticky top-0 bg-background z-50 print:hidden">
       <div className="container mx-auto flex items-center gap-4">
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
@@ -54,6 +54,14 @@ export function Header() {
                 </Link>
               </SheetClose>
               <SheetClose asChild>
+                <Link href="/calendar" passHref>
+                  <Button variant="ghost" className="group w-full justify-start text-base py-3">
+                    <CalendarDays className="mr-2 h-5 w-5 text-primary group-hover:text-accent-foreground" />
+                    Calendário
+                  </Button>
+                </Link>
+              </SheetClose>
+              <SheetClose asChild>
                 <Link href="/updates" passHref>
                   <Button variant="ghost" className="group w-full justify-start text-base py-3">
                     <History className="mr-2 h-5 w-5 text-primary group-hover:text-accent-foreground" />
@@ -80,3 +88,5 @@ export function Header() {
     </header>
   );
 }
+
+    

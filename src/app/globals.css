@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -104,3 +105,37 @@ body {
     @apply dark;
   }
 }
+
+@layer components {
+  /* Custom class for deadline days in the react-day-picker Calendar */
+  .calendar-deadline-day {
+    /* Ensure the day cell itself is relative if not already, for ::after positioning */
+    /* Shadcn's Calendar cell is already relative, so this might not be strictly needed here */
+    /* but good for robustness if calendar internals change */
+    /* position: relative; */ 
+  }
+
+  /* Style for the text of a deadline day when it's NOT selected */
+  .calendar-deadline-day:not([aria-selected="true"]):not([class*="--selected"]):not(:hover) > .rdp-day_button {
+     /* The .rdp-day_button is the actual button inside the cell */
+    @apply font-semibold text-primary;
+  }
+  
+  /* Add a small dot under deadline days */
+  .calendar-deadline-day > .rdp-day_button::after { /* Target the button for better alignment */
+    content: '';
+    @apply absolute bottom-[5px] left-1/2 block h-[6px] w-[6px] -translate-x-1/2 rounded-full bg-primary;
+  }
+
+  /* For selected deadline days, change dot color to contrast with primary background */
+  .calendar-deadline-day[aria-selected="true"] > .rdp-day_button::after {
+     @apply bg-primary-foreground;
+  }
+
+  /* For hovered deadline days (that are not selected), make dot slightly lighter or accent */
+  .calendar-deadline-day:not([aria-selected="true"]):hover > .rdp-day_button::after {
+     @apply bg-accent;
+  }
+}
+
+    
