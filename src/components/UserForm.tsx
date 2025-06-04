@@ -20,7 +20,7 @@ import type { User } from "@/types";
 import { useEffect } from "react";
 
 // Base Zod schema for username (reusable)
-const usernameSchema = z.string().min(3, {
+const usernameSchema = z.string().trim().min(3, {
   message: "O nome de usuário deve ter pelo menos 3 caracteres.",
 }).max(20, {
   message: "O nome de usuário não pode exceder 20 caracteres.",
@@ -34,24 +34,30 @@ const roleSchema = z.enum(['admin', 'user'], { required_error: "Selecione um pap
 // Schema for ADDING a new user
 const userFormSchemaAdd = z.object({
   username: usernameSchema,
-  email: z.string().trim().nonempty({ message: "Email é obrigatório." }).email({ message: "Email inválido." }),
+  email: z.string()
+    .trim()
+    .min(1, { message: "Email é obrigatório." }) 
+    .email({ message: "Email inválido." }),
   role: roleSchema,
-  password: z.string().nonempty({message: "Senha é obrigatória."}).min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
-  confirmPassword: z.string().nonempty({message: "Confirmação de senha é obrigatória."}).min(6, { message: "Confirmação de senha deve ter pelo menos 6 caracteres." }),
+  password: z.string()
+    .trim()
+    .min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
+  confirmPassword: z.string()
+    .trim()
+    .min(6, { message: "Confirmação de senha deve ter pelo menos 6 caracteres." }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "As senhas não coincidem.",
-  path: ["confirmPassword"], 
+  path: ["confirmPassword"],
 });
 
 // Schema for EDITING an existing user
 const userFormSchemaEdit = z.object({
   username: usernameSchema,
-  email: z.string().trim().email({ message: "Email inválido." }).optional().or(z.literal("")), // Email can be empty (to signify no change) or a valid email
+  email: z.string().trim().email({ message: "Email inválido." }).optional().or(z.literal("")),
   role: roleSchema,
 });
 
-// Comprehensive type for form values, covering both add and edit scenarios
-// Zod schemas will determine which fields are required for each operation.
+// Comprehensive type for form values
 export type UserFormValues = {
   username: string;
   email: string; 
@@ -107,6 +113,15 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
       }
     }
     await onSubmit(data);
+    if (!isEditing) { // Reset form only on successful ADD
+        form.reset({ 
+            username: "", 
+            email: "", 
+            role: "user", 
+            password: "", 
+            confirmPassword: "" 
+        });
+    }
   };
 
   return (
@@ -208,7 +223,17 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         
         <DialogFooter className="mt-8">
           <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={() => {
+                onClose();
+                // Explicitly reset to initial/empty state when cancelling "add" or "edit"
+                form.reset({
+                    username: user?.username || "", // if editing, reset to original user data
+                    email: user?.email || "",    // otherwise, reset to empty
+                    role: user?.role || "user",
+                    password: "",
+                    confirmPassword: ""
+                });
+            }}>
               Cancelar
             </Button>
           </DialogClose>
@@ -220,3 +245,6 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
     </Form>
   );
 }
+
+
+    
