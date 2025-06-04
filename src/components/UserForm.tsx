@@ -17,15 +17,15 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import type { User } from "@/types";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 // Define a single comprehensive type for form values
 export type UserFormValues = {
   username: string;
   email: string;
   role: 'admin' | 'user';
-  password: string; // Should always be string, defaults to ""
-  confirmPassword: string; // Should always be string, defaults to ""
+  password?: string; // Optional because it's not used for editing
+  confirmPassword?: string; // Optional
 };
 
 // Schema for ADDING a new user
@@ -37,15 +37,15 @@ const userFormSchemaForAdd = z.object({
   }).regex(/^[a-zA-Z0-9_.-]+$/, {
     message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
   }),
-  email: z.string().trim().nonempty({ message: "Email é obrigatório." }).email({ message: "Email inválido." }),
+  email: z.string({ required_error: "Email é obrigatório." }).trim().email({ message: "Email inválido." }).min(1, {message: "Email é obrigatório."}),
   role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
-  password: z.string()
+  password: z.string({ required_error: "Senha é obrigatória." })
     .trim()
-    .min(1, { message: "Senha é obrigatória." })
+    .nonempty({ message: "Senha não pode ser vazia." })
     .min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
-  confirmPassword: z.string()
+  confirmPassword: z.string({ required_error: "Confirmação de senha é obrigatória." })
     .trim()
-    .min(1, { message: "Confirmação de senha é obrigatória." })
+    .nonempty({ message: "Confirmação de senha não pode ser vazia." })
     .min(6, { message: "A confirmação de senha deve ter pelo menos 6 caracteres." }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "As senhas não coincidem.",
@@ -61,7 +61,7 @@ const userFormSchemaForEdit = z.object({
   }).regex(/^[a-zA-Z0-9_.-]+$/, {
     message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
   }),
-  email: z.string().trim().optional().or(z.literal("")).or(z.string().trim().min(1, {message: "Email é obrigatório se fornecido."}).email({message: "Email inválido."})),
+  email: z.string().trim().email({message: "Email inválido."}).optional().or(z.literal("")), // Allows empty or valid email
   role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
 });
 
@@ -81,24 +81,32 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
   const form = useForm<UserFormValues>({
     resolver: zodResolver(isEditing ? userFormSchemaForEdit : userFormSchemaForAdd),
     defaultValues: {
-      username: user?.username || "",
-      email: user?.email || "",
-      role: user?.role || "user",
-      password: "", 
-      confirmPassword: "",
+      username: "", // Default to empty, useEffect will populate if 'user' prop exists
+      email: "",    // Default to empty
+      role: "user", // Default role
+      password: "", // Default to empty, will be undefined if !isEditing after initial reset
+      confirmPassword: "", // Default to empty
     },
   });
   
+  const prevUserRef = useRef<User | null | undefined>(user);
+
   useEffect(() => {
-    form.reset({
-        username: user?.username || "",
-        email: user?.email || "",
-        role: user?.role || "user",
-        password: "", 
-        confirmPassword: "",
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+    // Only reset form if the 'user' prop instance actually changes,
+    // or if we are switching from editing (user was not null) to adding (user is null).
+    if (prevUserRef.current !== user) {
+      form.reset({
+          username: user?.username || "",
+          email: user?.email || "",
+          role: user?.role || "user",
+          // For 'add' mode (user is null), password fields should effectively be empty/undefined for validation
+          // For 'edit' mode, they are not part of the form data schema, so "" is fine.
+          password: user ? "" : "", // Zod will check required_error if undefined for add
+          confirmPassword: user ? "" : "",
+      });
+      prevUserRef.current = user;
+    }
+  }, [user, form.reset]);
 
 
   const handleSubmit = async (data: UserFormValues) => {
@@ -115,16 +123,22 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
       }
     }
         
-    await onSubmit(data); 
-    
-    if (!isEditing) { 
-        form.reset({ 
-            username: "", 
-            email: "", 
-            role: "user", 
-            password: "", 
-            confirmPassword: "" 
-        });
+    try {
+      await onSubmit(data); 
+      // Reset only if ADDING was successful. For editing, the dialog closes and unmounts/resets via useEffect.
+      if (!isEditing) { 
+          form.reset({ 
+              username: "", 
+              email: "", 
+              role: "user", 
+              password: "", 
+              confirmPassword: "" 
+          });
+      }
+    } catch (error) {
+      // Error is typically handled by the onSubmit prop's implementation (e.g., toast in parent)
+      // Do not reset the form here on error so user can see their input.
+      console.error("Error during UserForm onSubmit prop call:", error);
     }
   };
 
@@ -206,8 +220,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
               <FormLabel>Papel (Role)</FormLabel>
               <Select 
                 onValueChange={field.onChange} 
-                defaultValue={field.value}
-                value={field.value}
+                value={field.value} // Use value for controlled component
                 disabled={isEditingFfAdmin || (editingSelf && !currentUserIsAdmin)} 
               >
                 <FormControl>
@@ -228,14 +241,8 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         <DialogFooter className="mt-8">
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => {
-                onClose();
-                form.reset({
-                    username: user?.username || "",
-                    email: user?.email || "",
-                    role: user?.role || "user",
-                    password: "",
-                    confirmPassword: ""
-                });
+                onClose(); // This will set isUserFormOpen to false in parent
+                           // The useEffect in this component will then handle the reset based on 'user' prop
             }}>
               Cancelar
             </Button>
@@ -248,3 +255,4 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
     </Form>
   );
 }
+
