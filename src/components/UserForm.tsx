@@ -34,13 +34,13 @@ const roleSchema = z.enum(['admin', 'user'], { required_error: "Selecione um pap
 // Schema for ADDING a new user
 const userFormSchemaAdd = z.object({
   username: usernameSchema,
-  email: z.string().trim().min(1, { message: "Email é obrigatório." }).email({ message: "Email inválido." }),
+  email: z.string().trim().nonempty({ message: "Email é obrigatório." }).email({ message: "Email inválido." }),
   role: roleSchema,
-  password: z.string().min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
-  confirmPassword: z.string().min(6, { message: "Confirmação de senha é obrigatória e deve ter pelo menos 6 caracteres." }),
+  password: z.string().nonempty({message: "Senha é obrigatória."}).min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
+  confirmPassword: z.string().nonempty({message: "Confirmação de senha é obrigatória."}).min(6, { message: "Confirmação de senha deve ter pelo menos 6 caracteres." }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "As senhas não coincidem.",
-  path: ["confirmPassword"], // Apply error to confirmPassword field
+  path: ["confirmPassword"], 
 });
 
 // Schema for EDITING an existing user
@@ -48,16 +48,16 @@ const userFormSchemaEdit = z.object({
   username: usernameSchema,
   email: z.string().trim().email({ message: "Email inválido." }).optional().or(z.literal("")), // Email can be empty (to signify no change) or a valid email
   role: roleSchema,
-  // Password fields are not included for editing in this form
 });
 
-// Comprehensive type for form values
+// Comprehensive type for form values, covering both add and edit scenarios
+// Zod schemas will determine which fields are required for each operation.
 export type UserFormValues = {
   username: string;
-  email: string; // Will be validated by Zod (required for add, optional/empty for edit)
+  email: string; 
   role: 'admin' | 'user';
-  password?: string; // Only relevant and validated for 'add'
-  confirmPassword?: string; // Only relevant and validated for 'add'
+  password?: string; 
+  confirmPassword?: string; 
 };
 
 interface UserFormProps {
@@ -76,10 +76,10 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
     resolver: zodResolver(isEditing ? userFormSchemaEdit : userFormSchemaAdd),
     defaultValues: {
       username: user?.username || "",
-      email: user?.email || "", // Email defaults to empty, Zod validation handles requirement for add
+      email: user?.email || "",
       role: user?.role || "user",
-      password: "", // Always default to empty
-      confirmPassword: "", // Always default to empty
+      password: "", 
+      confirmPassword: "",
     },
   });
   
@@ -106,9 +106,6 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         return;
       }
     }
-    // For "add" (isEditing is false), password will be present in data due to userFormSchemaAdd
-    // For "edit" (isEditing is true), password fields are not in userFormSchemaEdit, so data.password will be from defaultValues (empty string) or undefined
-    // The onSubmit prop function (handleAddUserSubmit or handleEditUserSubmit) will decide what to do with the password field
     await onSubmit(data);
   };
 
