@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CalendarIcon, PlusCircle, Loader2, DollarSign } from "lucide-react"; // Adicionado DollarSign
+import { CalendarIcon, PlusCircle, Loader2, DollarSign, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid, differenceInDays, isBefore, startOfDay } from "date-fns";
 import { ptBR } from 'date-fns/locale';
@@ -99,9 +99,10 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   const [prioritySuggestionDetails, setPrioritySuggestionDetails] = useState<{ suggested: PriorityType; reason: string } | null>(null);
   const lastPrazoRef = useRef<Date | undefined | null>(null);
 
-  // State for drag and drop
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [dragOverItemIndex, setDragOverItemIndex] = useState<number | null>(null);
+
+  const [isValueInputVisible, setIsValueInputVisible] = useState(false);
 
 
   const form = useForm<ProjectFormValues>({
@@ -145,7 +146,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]); 
 
-  const { fields, append, remove, update, move } = useFieldArray({ // Adicionado 'move'
+  const { fields, append, remove, update, move } = useFieldArray({
     control: form.control,
     name: "checklist",
   });
@@ -205,8 +206,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                 newSuggestion = { suggested: 'Alta', reason: 'O prazo definido é muito próximo ou está vencido.' };
                 shouldShowDialog = true;
             } else if (!isDeadlineUrgent && currentFormPriority === 'Alta' && (!project || project.prioridade !== 'Alta')) {
-                 // Sugere 'Média' apenas se 'Alta' não foi a prioridade original do projeto (se existente)
-                 // e se a prioridade atual do formulário é 'Alta' (provavelmente por sugestão anterior ou padrão).
                 newSuggestion = { suggested: 'Média', reason: 'O prazo não é mais considerado urgente.' };
                 shouldShowDialog = true;
             }
@@ -241,7 +240,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     onSubmit({
       ...data,
       prazo: data.prazo ? format(data.prazo, "yyyy-MM-dd") : undefined,
-      valor: data.valor // O valor já é um número ou undefined devido ao preprocess
+      valor: data.valor
     } as any); 
     if (!isPage && onClose) { 
       form.reset({ 
@@ -259,9 +258,11 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       setStatusOptions([]); 
       initialStatusOnLoadRef.current = ""; 
       lastPrazoRef.current = undefined; 
+      setIsValueInputVisible(false); // Reset visibility on close for dialogs
     } else if (isPage) { 
         initialStatusOnLoadRef.current = data.status; 
         lastPrazoRef.current = data.prazo; 
+        // isValueInputVisible remains as is for page context
     }
   };
 
@@ -298,13 +299,12 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     setPrioritySuggestionDetails(null); 
   };
 
-  // Handlers for drag and drop
   const handleChecklistItemDragStart = (index: number) => {
     setDraggedItemIndex(index);
   };
 
   const handleChecklistItemDragOver = (event: React.DragEvent<HTMLDivElement>, index: number) => {
-    event.preventDefault(); // Necessário para permitir o drop
+    event.preventDefault();
     if (index !== draggedItemIndex) {
       setDragOverItemIndex(index);
     }
@@ -324,10 +324,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   };
   
   const handleChecklistItemDragLeave = () => {
-    // Só limpa o dragOverItemIndex se o mouse realmente saiu da área de itens do checklist
-    // Uma forma mais simples é limpar em dragEnd e drop.
-    // Se precisar de mais precisão, pode-se verificar se o e.relatedTarget está fora da lista.
-    // Por agora, vamos deixar o dragOverItemIndex ser limpo principalmente por dragEnd e Drop.
+    // Handled by dragEnd and Drop
   };
 
 
@@ -487,28 +484,54 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         name="valor"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Valor do Projeto (R$)</FormLabel>
+            <div className="flex items-center justify-between">
+                <FormLabel>Valor do Projeto (R$)</FormLabel>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsValueInputVisible(!isValueInputVisible)}
+                    className="h-7 w-7"
+                    aria-label={isValueInputVisible ? "Ocultar valor" : "Mostrar valor"}
+                >
+                    {isValueInputVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+            </div>
             <FormControl>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="number"
-                  placeholder="Ex: 1500.00"
-                  step="0.01"
-                  {...field}
-                  value={field.value === undefined ? "" : field.value} // Controla o valor para ser string vazia se undefined
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === "") {
-                      field.onChange(undefined); // Passa undefined se o campo estiver vazio
-                    } else {
-                      // Tenta converter para número, mas o Zod schema fará a conversão final e validação
-                      field.onChange(val);
-                    }
-                  }}
-                  className="pl-9" // Padding para o ícone
-                />
-              </div>
+              {isValueInputVisible ? (
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    placeholder="Ex: 1500.00"
+                    step="0.01"
+                    {...field}
+                    value={field.value === undefined ? "" : String(field.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || val === null) {
+                        field.onChange(undefined);
+                      } else {
+                        // Let Zod handle conversion from string if needed
+                        field.onChange(e.target.valueAsNumber !== undefined && !isNaN(e.target.valueAsNumber) ? e.target.valueAsNumber : e.target.value);
+                      }
+                    }}
+                    className="pl-9"
+                  />
+                </div>
+              ) : (
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    value="••••••"
+                    readOnly
+                    disabled
+                    className="pl-9 text-muted-foreground"
+                    aria-label="Valor oculto"
+                  />
+                </div>
+              )}
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -620,6 +643,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                       setStatusOptions([]);
                       initialStatusOnLoadRef.current = "";
                       lastPrazoRef.current = undefined;
+                      setIsValueInputVisible(false);
                       if(onClose) onClose(); 
                     }}>
                     Cancelar
@@ -670,3 +694,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     </Form>
   );
 }
+
+
+    
