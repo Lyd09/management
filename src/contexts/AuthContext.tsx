@@ -13,12 +13,12 @@ import {
   signOut as firebaseSignOut,
   type User as FirebaseUser // Firebase User type
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 interface AuthContextType {
   isLoggedIn: boolean;
   currentUser: AppUser | null;
-  login: (email: string, pass: string) => Promise<boolean>;
+  login: (usernameOrEmail: string, pass: string) => Promise<boolean>; // Can be username or email
   logout: () => void;
   loadingAuth: boolean;
   setLoginError: (message: string | null) => void; // To show errors on login page
@@ -42,31 +42,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoadingAuth(true);
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // User is signed in with Firebase Auth
-        // Fetch user profile from Firestore.
-        // IMPORTANT: The document ID in the 'users' collection in Firestore
-        // MUST match the Firebase Auth UID for this user.
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const userDocSnap = await getDoc(userDocRef);
 
         if (userDocSnap.exists()) {
           const appUserData = userDocSnap.data() as Omit<AppUser, 'id'>;
-          setCurrentUser({ ...appUserData, id: firebaseUser.uid });
+          const finalUserData = { ...appUserData, id: firebaseUser.uid };
+          setCurrentUser(finalUserData);
           setIsLoggedIn(true);
+          console.log('[AuthContext] User logged in. Firebase UID:', firebaseUser.uid, 'Firestore User Data:', finalUserData);
           if (pathname === '/login') {
             router.push('/');
           }
         } else {
-          // User exists in Firebase Auth but not in Firestore 'users' collection
-          // This is an inconsistent state, log them out from the app's perspective
-          console.error(`User profile not found in Firestore for UID: ${firebaseUser.uid}. Logging out.`);
-          await firebaseSignOut(auth); // Sign out from Firebase Auth
+          console.error(`[AuthContext] User profile not found in Firestore for UID: ${firebaseUser.uid}. Logging out.`);
+          await firebaseSignOut(auth); 
           setCurrentUser(null);
           setIsLoggedIn(false);
-          // onAuthStateChanged will trigger again with null user, handling redirect if needed
         }
       } else {
-        // User is signed out
         setCurrentUser(null);
         setIsLoggedIn(false);
         if (pathname !== '/login') {
@@ -76,29 +70,59 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoadingAuth(false);
     });
 
-    return () => unsubscribe(); // Cleanup subscription on unmount
+    return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, router]); // Add pathname and router to ensure correct redirection logic
+  }, [pathname, router]); 
 
-  const login = useCallback(async (email: string, pass: string): Promise<boolean> => {
+  const login = useCallback(async (usernameOrEmail: string, pass: string): Promise<boolean> => {
     setLoadingAuth(true);
-    setLoginError(null); // Clear previous errors
+    setLoginError(null);
+    let emailToUse = usernameOrEmail;
+
+    // Check if it's an email or username
+    if (!usernameOrEmail.includes('@')) { // Simple check, assumes username doesn't have '@'
+      // It's a username, try to find the email
+      const usersCollectionRef = collection(db, 'users');
+      const q = query(usersCollectionRef, where('username', '==', usernameOrEmail));
+      
+      try {
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+          setLoginError('Nome de usuário ou senha inválidos.');
+          setLoadingAuth(false);
+          return false;
+        }
+        // Assuming usernames are unique
+        const userData = querySnapshot.docs[0].data() as AppUser;
+        if (!userData.email) {
+          setLoginError('Conta de usuário não configurada corretamente (sem email).');
+          setLoadingAuth(false);
+          return false;
+        }
+        emailToUse = userData.email;
+      } catch (error) {
+        console.error("Error fetching user by username:", error);
+        setLoginError('Erro ao tentar encontrar o usuário.');
+        setLoadingAuth(false);
+        return false;
+      }
+    }
+
+    // At this point, emailToUse should be the email (either provided directly or fetched)
     try {
-      await signInWithEmailAndPassword(auth, email, pass);
-      // onAuthStateChanged will handle setting isLoggedIn, currentUser, and redirecting
-      // setLoadingAuth(false) will be handled by onAuthStateChanged
-      return true; // Indicates Firebase login attempt was successful
+      await signInWithEmailAndPassword(auth, emailToUse, pass);
+      return true;
     } catch (error: any) {
       console.error("Firebase Auth login error:", error);
-      let errorMessage = 'Email ou senha inválidos.';
+      let errorMessage = 'Nome de usuário/Email ou senha inválidos.';
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = 'Email ou senha inválidos.';
+        errorMessage = 'Nome de usuário/Email ou senha inválidos.';
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'O formato do email é inválido.';
       } else {
         errorMessage = 'Ocorreu um erro ao tentar fazer login. Tente novamente.';
       }
-      setLoginError(errorMessage); // Set error for login page
+      setLoginError(errorMessage);
       setCurrentUser(null);
       setIsLoggedIn(false);
       setLoadingAuth(false);
@@ -110,11 +134,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoadingAuth(true);
     try {
       await firebaseSignOut(auth);
-      // onAuthStateChanged will handle setting isLoggedIn to false, currentUser to null, and redirecting
     } catch (error) {
       console.error("Firebase Auth logout error:", error);
     }
-    // setLoadingAuth(false) will be handled by onAuthStateChanged
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -125,7 +147,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     login,
     logout,
     loadingAuth,
-    setLoginError, // Expose setLoginError
+    setLoginError, 
   };
   
   if (loadingAuth && pathname !== '/login') {

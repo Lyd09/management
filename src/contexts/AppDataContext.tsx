@@ -93,14 +93,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   const { currentUser: loggedInUserFromAuthContext } = useAuth();
   const { toast } = useToast();
 
-  // console.log for debugging password issue (can be removed later)
-  useEffect(() => {
-    if (loggedInUserFromAuthContext) {
-      // console.log('AppDataContext - loggedInUserFromAuthContext updated:', loggedInUserFromAuthContext);
-    }
-  }, [loggedInUserFromAuthContext]);
-
-  // Fetch Users
   useEffect(() => {
     const usersCollectionRef = collection(db, 'users');
     const qUsers = query(usersCollectionRef, orderBy('createdAt', 'desc'));
@@ -119,18 +111,17 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
 
-  // Fetch Clients and their Projects, filtered by creatorUserId
   useEffect(() => {
+    console.log('[AppDataContext] useEffect for clientes. LoggedInUser ID:', loggedInUserFromAuthContext?.id);
     if (!loggedInUserFromAuthContext) {
       setClients([]);
-      setLoading(false); // No user, so loading is complete (with no data for this user)
-      return; // No cleanup function needed as no subscription will be made
+      setLoading(false); 
+      return; 
     }
 
     setLoading(true);
-    const clientsCollectionRef = collection(db, 'clientes'); // MODIFICADO AQUI
+    const clientsCollectionRef = collection(db, 'clientes'); 
     
-    // Filter clients by creatorUserId
     const q = query(
       clientsCollectionRef, 
       where('creatorUserId', '==', loggedInUserFromAuthContext.id), 
@@ -138,6 +129,9 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     );
 
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
+      console.log('[AppDataContext] Raw querySnapshot docs for clientes:', querySnapshot.docs.length, 'docs found.');
+      querySnapshot.docs.forEach(doc => console.log('[AppDataContext] Client doc data from Firestore:', doc.id, doc.data()));
+      
       const clientsData: Client[] = [];
       for (const clientDoc of querySnapshot.docs) {
         const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
@@ -150,7 +144,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
           projetos: [],
         };
 
-        const projectsCollectionRef = collection(db, 'clientes', clientDoc.id, 'projects'); // MODIFICADO AQUI
+        const projectsCollectionRef = collection(db, 'clientes', clientDoc.id, 'projects'); 
         const projectsSnapshot = await getDocs(projectsCollectionRef);
         
         client.projetos = projectsSnapshot.docs.map(projectDoc => {
@@ -162,10 +156,11 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         });
         clientsData.push(client);
       }
+      console.log('[AppDataContext] Processed clientsData to be set:', clientsData);
       setClients(clientsData);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching clients from Firestore:", error);
+      console.error("Error fetching clientes from Firestore:", error);
       toast({ variant: "destructive", title: "Erro ao Carregar Clientes", description: "Não foi possível buscar os dados dos clientes." });
       setClients([]);
       setLoading(false);
@@ -181,7 +176,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         return;
     }
     try {
-      await addDoc(collection(db, 'clientes'), { // MODIFICADO AQUI
+      await addDoc(collection(db, 'clientes'), { 
         nome,
         prioridade: prioridade || "Média",
         creatorUserId: loggedInUserFromAuthContext.id,
@@ -195,7 +190,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const updateClient = useCallback(async (clientId: string, nome: string, prioridade?: PriorityType) => {
     try {
-      const clientDocRef = doc(db, 'clientes', clientId); // MODIFICADO AQUI
+      const clientDocRef = doc(db, 'clientes', clientId); 
       const updateData: Partial<FirebaseClientDoc> = { nome };
       if (prioridade) {
         updateData.prioridade = prioridade;
@@ -209,13 +204,13 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const deleteClient = useCallback(async (clientId: string) => {
     try {
-      const clientDocRef = doc(db, 'clientes', clientId); // MODIFICADO AQUI
-      const projectsCollectionRef = collection(db, 'clientes', clientId, 'projects'); // MODIFICADO AQUI
+      const clientDocRef = doc(db, 'clientes', clientId); 
+      const projectsCollectionRef = collection(db, 'clientes', clientId, 'projects'); 
       const projectsSnapshot = await getDocs(projectsCollectionRef);
 
       const batch = writeBatch(db);
       projectsSnapshot.docs.forEach(projectDoc => {
-        batch.delete(doc(db, 'clientes', clientId, 'projects', projectDoc.id)); // MODIFICADO AQUI
+        batch.delete(doc(db, 'clientes', clientId, 'projects', projectDoc.id)); 
       });
       batch.delete(clientDocRef);
       await batch.commit();
@@ -236,7 +231,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         return;
     }
     try {
-      const projectsCollectionRef = collection(db, 'clientes', clientId, 'projects'); // MODIFICADO AQUI
+      const projectsCollectionRef = collection(db, 'clientes', clientId, 'projects'); 
       const newProjectData: Omit<FirebaseProjectDoc, 'createdAt' | 'assignedUserId'> = {
         nome: projectData.nome,
         tipo: projectData.tipo,
@@ -262,7 +257,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const updateProject = useCallback(async (clientId: string, projectId: string, projectData: Partial<Omit<Project, 'creatorUserId'>>) => {
     try {
-      const projectDocRef = doc(db, 'clientes', clientId, 'projects', projectId); // MODIFICADO AQUI
+      const projectDocRef = doc(db, 'clientes', clientId, 'projects', projectId); 
       const dataToUpdate = {...projectData} as any;
       delete dataToUpdate.creatorUserId;
 
@@ -287,7 +282,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const deleteProject = useCallback(async (clientId: string, projectId: string) => {
     try {
-      const projectDocRef = doc(db, 'clientes', clientId, 'projects', projectId); // MODIFICADO AQUI
+      const projectDocRef = doc(db, 'clientes', clientId, 'projects', projectId); 
       await deleteDoc(projectDocRef);
     } catch (error) {
       console.error("Error deleting project from Firestore:", error);
