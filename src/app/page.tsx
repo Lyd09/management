@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/ClientForm";
 import type { ClientFormValues } from "@/components/ClientForm";
-import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Percent } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Percent, CalendarClock } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +26,7 @@ import type { PriorityType, Client, Project } from '@/types';
 import { PRIORITIES } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { differenceInDays, parseISO, startOfDay, isBefore } from 'date-fns';
+import { differenceInDays, parseISO, startOfDay, isBefore, isValid } from 'date-fns';
 
 
 const getPriorityBadgeVariant = (priority?: PriorityType) => {
@@ -43,7 +43,7 @@ const getPriorityBadgeVariant = (priority?: PriorityType) => {
 };
 
 const getProjectDeadlineText = (prazo?: string): string | null => {
-  if (!prazo) return null;
+  if (!prazo || !isValid(parseISO(prazo))) return null;
   try {
     const today = startOfDay(new Date());
     const deadlineDate = startOfDay(parseISO(prazo));
@@ -65,7 +65,7 @@ const getProjectDeadlineText = (prazo?: string): string | null => {
 };
 
 const projectHasImminentDeadline = (project: Project): boolean => {
-  if (!project.prazo || project.status === "Projeto Concluído") return false; 
+  if (!project.prazo || project.status === "Projeto Concluído" || !isValid(parseISO(project.prazo))) return false; 
   try {
     const today = startOfDay(new Date());
     const deadlineDate = startOfDay(parseISO(project.prazo));
@@ -84,9 +84,6 @@ const getProjectCompletionPercentage = (project: Project): number | null => {
   if (project.status === "Aguardando Início") {
     return 0;
   }
-  // "Projeto Concluído" status projects are filtered out from display on this dashboard page.
-  // So, this function will effectively not be called for them in this context.
-
   if (!project.checklist || project.checklist.length === 0) {
     return null;
   }
@@ -97,10 +94,18 @@ const getProjectCompletionPercentage = (project: Project): number | null => {
 
 const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
   if (percentage === null) return { variant: "secondary", className: "" };
-  if (percentage >= 50) return { variant: "default", className: "" }; // Red (primary)
-  return { variant: "secondary", className: "" }; // Gray
+  if (percentage >= 50) return { variant: "default", className: "" }; 
+  return { variant: "secondary", className: "" };
 };
 
+type DeadlineProximityFilterType = "Todos" | "Urgentes" | "NaoUrgentes" | "SemPrazosAtivos";
+
+const DEADLINE_PROXIMITY_FILTER_OPTIONS: { value: DeadlineProximityFilterType; label: string }[] = [
+  { value: "Todos", label: "Todos os Clientes" },
+  { value: "Urgentes", label: "Com Prazos Urgentes (<=3d ou Atrasado)" },
+  { value: "NaoUrgentes", label: "Com Prazos Não Urgentes (>3d)" },
+  { value: "SemPrazosAtivos", label: "Sem Prazos Ativos" },
+];
 
 export default function DashboardPage() {
   const { clients, addClient, updateClient, deleteClient, loading } = useAppData();
@@ -112,6 +117,7 @@ export default function DashboardPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<PriorityType | "Todas">("Todas");
+  const [deadlineProximityFilter, setDeadlineProximityFilter] = useState<DeadlineProximityFilterType>("Todos");
 
 
   const handleAddClient = (data: ClientFormValues) => {
@@ -156,6 +162,48 @@ export default function DashboardPage() {
       tempClients = tempClients.filter(client => client.prioridade === priorityFilter);
     }
 
+    if (deadlineProximityFilter !== "Todos") {
+      tempClients = tempClients.filter(client => {
+        const nonCompletedProjects = client.projetos.filter(p => p.status !== "Projeto Concluído");
+
+        if (deadlineProximityFilter === "SemPrazosAtivos") {
+          const hasActiveDeadlines = nonCompletedProjects.some(p => p.prazo && isValid(parseISO(p.prazo)));
+          return !hasActiveDeadlines;
+        }
+
+        const activeProjectsWithDeadline = nonCompletedProjects.filter(p => p.prazo && isValid(parseISO(p.prazo)));
+
+        if (activeProjectsWithDeadline.length === 0) {
+          // Se não tem projetos ativos com prazo, não pode ser "Urgente" nem "NaoUrgente"
+          // E também não seria "SemPrazosAtivos" se chegou aqui, pois esse é tratado acima.
+          // Isso significa que o cliente pode ter projetos não concluídos, mas nenhum deles tem prazo.
+          // Esse caso já é coberto por "SemPrazosAtivos".
+          return false; 
+        }
+
+        let clientIsUrgent = false;
+        let clientHasNonUrgentActiveDeadline = false;
+
+        for (const project of activeProjectsWithDeadline) {
+          const today = startOfDay(new Date());
+          const deadlineDate = startOfDay(parseISO(project.prazo!));
+          const daysRemaining = differenceInDays(deadlineDate, today);
+
+          if (isBefore(deadlineDate, today) || daysRemaining <= 3) {
+            clientIsUrgent = true;
+          }
+          if (daysRemaining > 3) { 
+            clientHasNonUrgentActiveDeadline = true;
+          }
+        }
+
+        if (deadlineProximityFilter === "Urgentes") return clientIsUrgent;
+        if (deadlineProximityFilter === "NaoUrgentes") return !clientIsUrgent && clientHasNonUrgentActiveDeadline;
+        
+        return false; // Should not be reached if filter is not "Todos"
+      });
+    }
+
     if (searchTerm) {
         tempClients = tempClients.filter(client =>
             client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -180,7 +228,7 @@ export default function DashboardPage() {
     });
 
     return tempClients;
-  }, [clients, searchTerm, priorityFilter]);
+  }, [clients, searchTerm, priorityFilter, deadlineProximityFilter]);
 
   if (loading) {
     return (
@@ -209,27 +257,40 @@ export default function DashboardPage() {
         </Dialog>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center">
-        <div className="relative flex-grow w-full sm:w-auto">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+        <div className="relative md:col-span-1">
           <Input
             type="search"
             placeholder="Buscar cliente ou projeto..."
-            className="pl-10"
+            className="pl-10 w-full"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         </div>
-        <div className="w-full sm:w-auto sm:min-w-[200px]">
+        <div className="md:col-span-1">
             <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as PriorityType | "Todas")}>
                 <SelectTrigger className="w-full">
                     <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Filtrar por prioridade" />
+                    <SelectValue placeholder="Prioridade do Cliente" />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="Todas">Todas Prioridades</SelectItem>
                     {PRIORITIES.map(priority => (
                     <SelectItem key={priority} value={priority}>{priority}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
+        <div className="md:col-span-1">
+            <Select value={deadlineProximityFilter} onValueChange={(value) => setDeadlineProximityFilter(value as DeadlineProximityFilterType)}>
+                <SelectTrigger className="w-full">
+                    <CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Proximidade de Prazos" />
+                </SelectTrigger>
+                <SelectContent>
+                    {DEADLINE_PROXIMITY_FILTER_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
@@ -244,10 +305,12 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <CardDescription>
-              {searchTerm || priorityFilter !== "Todas" ? `Nenhum cliente corresponde à sua busca/filtro.` : "Você ainda não adicionou nenhum cliente."}
+              {searchTerm || priorityFilter !== "Todas" || deadlineProximityFilter !== "Todos"
+                ? "Nenhum cliente corresponde à sua busca/filtros."
+                : "Você ainda não adicionou nenhum cliente."}
             </CardDescription>
           </CardContent>
-          {!(searchTerm || priorityFilter !== "Todas") && (
+          {!(searchTerm || priorityFilter !== "Todas" || deadlineProximityFilter !== "Todos") && (
              <CardFooter className="justify-center">
                 <Dialog open={isAddClientDialogOpen} onOpenChange={setIsAddClientDialogOpen}>
                 <DialogTrigger asChild>
