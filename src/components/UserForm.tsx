@@ -19,49 +19,47 @@ import { DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose
 import type { User } from "@/types";
 import { useEffect, useRef } from "react";
 
-// Define a single comprehensive type for form values
 export type UserFormValues = {
   username: string;
   email: string;
   role: 'admin' | 'user';
-  password?: string; 
-  confirmPassword?: string; 
+  password?: string;
+  confirmPassword?: string;
 };
 
-// Schema for ADDING a new user
 const userFormSchemaForAdd = z.object({
-  username: z.string().trim().min(3, {
-    message: "O nome de usuário deve ter pelo menos 3 caracteres.",
-  }).max(20, {
-    message: "O nome de usuário não pode exceder 20 caracteres.",
-  }).regex(/^[a-zA-Z0-9_.-]+$/, {
-    message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
-  }),
-  email: z.string({ required_error: "Email é obrigatório." }).trim().nonempty({ message: "Email não pode ser vazio." }).email({ message: "Email inválido." }),
+  username: z.string({ required_error: "Nome de usuário é obrigatório." })
+    .trim()
+    .nonempty({ message: "Nome de usuário não pode ser vazio." })
+    .min(3, { message: "O nome de usuário deve ter pelo menos 3 caracteres."})
+    .max(20, { message: "O nome de usuário não pode exceder 20 caracteres."})
+    .regex(/^[a-zA-Z0-9_.-]+$/, { message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'."}),
+  email: z.string({ required_error: "Email é obrigatório." })
+    .trim()
+    .nonempty({ message: "Email não pode ser vazio." })
+    .email({ message: "Email inválido." }),
   role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
   password: z.string({ required_error: "Senha é obrigatória." })
     .trim()
-    .nonempty({ message: "Senha não pode ser vazia." })
+    .nonempty({ message: "Senha não pode ser vazia."})
     .min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
   confirmPassword: z.string({ required_error: "Confirmação de senha é obrigatória." })
     .trim()
-    .nonempty({ message: "Confirmação de senha não pode ser vazia." })
+    .nonempty({ message: "Confirmação de senha não pode ser vazia."})
     .min(6, { message: "A confirmação de senha deve ter pelo menos 6 caracteres." }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "As senhas não coincidem.",
   path: ["confirmPassword"],
 });
 
-// Schema for EDITING an existing user (no password fields)
 const userFormSchemaForEdit = z.object({
-  username: z.string().trim().min(3, {
-    message: "O nome de usuário deve ter pelo menos 3 caracteres.",
-  }).max(20, {
-    message: "O nome de usuário não pode exceder 20 caracteres.",
-  }).regex(/^[a-zA-Z0-9_.-]+$/, {
-    message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
-  }),
-  email: z.string().trim().email({message: "Email inválido."}).optional().or(z.literal("")), // Allows empty or valid email for edit
+  username: z.string({ required_error: "Nome de usuário é obrigatório." })
+    .trim()
+    .nonempty({ message: "Nome de usuário não pode ser vazio." })
+    .min(3, { message: "O nome de usuário deve ter pelo menos 3 caracteres."})
+    .max(20, { message: "O nome de usuário não pode exceder 20 caracteres."})
+    .regex(/^[a-zA-Z0-9_.-]+$/, { message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'."}),
+  email: z.string().trim().email({message: "Email inválido."}).optional().or(z.literal("")),
   role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
 });
 
@@ -84,11 +82,11 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
       username: user?.username || "",
       email: user?.email || "",
       role: user?.role || "user",
-      password: "", 
+      password: "",
       confirmPassword: "",
     },
   });
-  
+
   const prevUserRef = useRef<User | null | undefined>(user);
 
   useEffect(() => {
@@ -97,30 +95,29 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
           username: user?.username || "",
           email: user?.email || "",
           role: user?.role || "user",
-          password: "", 
+          password: "",
           confirmPassword: "",
       });
       prevUserRef.current = user;
     }
-  }, [user, form.reset]);
+  }, [user, form, form.reset]);
 
 
   const handleSubmit = async (data: UserFormValues) => {
     console.log('UserForm handleSubmit data (raw from RHF):', JSON.stringify(data, null, 2));
 
-    if (!isEditing) { // Manual check when adding a user
-      const trimmedPassword = data.password?.trim() || "";
+    if (!isEditing) {
+      const trimmedPassword = data.password?.trim() ?? "";
       if (trimmedPassword === "" || trimmedPassword.length < 6) {
         console.error("MANUAL CHECK FAIL (UserForm): Password is empty or too short BEFORE calling onSubmit prop.", { passwordValue: data.password });
         form.setError("password", { type: "manual", message: "A senha é obrigatória e deve ter pelo menos 6 caracteres." });
-        // Also set error for confirmPassword if it's the one failing the refine, though the primary issue is password itself
         if (data.password !== data.confirmPassword) {
              form.setError("confirmPassword", { type: "manual", message: "As senhas não coincidem." });
         }
-        return; // Stop submission
+        return;
       }
     }
-        
+
     if (isEditingFfAdmin) {
       if (data.username !== 'ff.admin') {
         form.setError("username", { message: "O nome de usuário 'ff.admin' não pode ser alterado."});
@@ -131,20 +128,21 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         return;
       }
     }
-        
+
     try {
-      await onSubmit(data); 
-      if (!isEditing) { 
-          form.reset({ 
-              username: "", 
-              email: "", 
-              role: "user", 
-              password: "", 
-              confirmPassword: "" 
+      await onSubmit(data);
+      if (!isEditing) {
+          form.reset({
+              username: "",
+              email: "",
+              role: "user",
+              password: "",
+              confirmPassword: ""
           });
       }
     } catch (error) {
       console.error("Error during UserForm onSubmit prop call:", error);
+      // Errors from onSubmit (e.g., from AppDataContext) should be handled by the parent component (AdminUsersPage) to show toasts.
     }
   };
 
@@ -158,15 +156,15 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
             {!isEditing && " A senha é obrigatória para novos usuários."}
           </DialogDescription>
         </DialogHeader>
-        
+
         <FormField
           control={form.control}
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nome de Usuário</FormLabel>
+              <FormLabel htmlFor="username">Nome de Usuário</FormLabel>
               <FormControl>
-                <Input placeholder="Ex: joao.silva" {...field} disabled={isEditingFfAdmin} />
+                <Input id="username" placeholder="Ex: joao.silva" {...field} disabled={isEditingFfAdmin} autoComplete="username" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -178,15 +176,15 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email (para login)</FormLabel>
+              <FormLabel htmlFor="email">Email (para login)</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="Ex: usuario@dominio.com" {...field} />
+                <Input id="email" type="email" placeholder="Ex: usuario@dominio.com" {...field} autoComplete="email" />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        
+
         {!isEditing && (
           <>
             <FormField
@@ -194,9 +192,9 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Senha</FormLabel>
+                  <FormLabel htmlFor="password">Senha</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="Mínimo 6 caracteres" {...field} />
+                    <Input id="password" type="password" placeholder="Mínimo 6 caracteres" {...field} autoComplete="new-password" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -207,9 +205,9 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
               name="confirmPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Confirmar Senha</FormLabel>
+                  <FormLabel htmlFor="confirmPassword">Confirmar Senha</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="Repita a senha" {...field} />
+                    <Input id="confirmPassword" type="password" placeholder="Repita a senha" {...field} autoComplete="new-password" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -217,20 +215,20 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
             />
           </>
         )}
-        
+
         <FormField
           control={form.control}
           name="role"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Papel (Role)</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                value={field.value} 
-                disabled={isEditingFfAdmin || (editingSelf && !currentUserIsAdmin)} 
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
+                disabled={isEditingFfAdmin || (editingSelf && !currentUserIsAdmin)}
               >
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger id="role">
                     <SelectValue placeholder="Selecione o papel" />
                   </SelectTrigger>
                 </FormControl>
@@ -243,11 +241,11 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
             </FormItem>
           )}
         />
-        
+
         <DialogFooter className="mt-8">
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => {
-                onClose(); 
+                onClose();
             }}>
               Cancelar
             </Button>

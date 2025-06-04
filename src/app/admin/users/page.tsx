@@ -49,6 +49,7 @@ export default function AdminUsersPage() {
         username: data.username,
         email: data.email,
         role: data.role,
+        password: data.password, // ADICIONADO: Passar a senha
       });
       setIsUserFormOpen(false);
       toast({ title: "Usuário Adicionado", description: `O usuário ${data.username} foi adicionado.` });
@@ -63,9 +64,9 @@ export default function AdminUsersPage() {
         let dataToUpdate: Partial<User> = { email: data.email };
          // UserForm component itself disables username/role for ff.admin.
          // Context handles backend prevention.
-        dataToUpdate.username = data.username; 
+        dataToUpdate.username = data.username;
         dataToUpdate.role = data.role;
-        
+
         await updateUser(editingUser.id, dataToUpdate);
         setIsUserFormOpen(false);
         setEditingUser(null);
@@ -111,9 +112,7 @@ export default function AdminUsersPage() {
       </div>
     );
   }
-  
-  // Filter out ff.admin to not display in the main list, but it's still in `users` from context
-  // For this page, we show all users including ff.admin, but disable actions for ff.admin
+
   const displayUsers = users;
 
 
@@ -126,7 +125,7 @@ export default function AdminUsersPage() {
         </div>
         <Dialog open={isUserFormOpen} onOpenChange={(isOpen) => {
           setIsUserFormOpen(isOpen);
-          if (!isOpen) setEditingUser(null); 
+          if (!isOpen) setEditingUser(null);
         }}>
           <DialogTrigger asChild>
             <Button>
@@ -208,7 +207,6 @@ export default function AdminUsersPage() {
                           size="sm"
                           onClick={() => openEditDialog(user)}
                           className="mr-2"
-                          // UserForm handles disabling fields for ff.admin
                         >
                           <Edit2 className="mr-1 h-3 w-3" /> Editar
                         </Button>
