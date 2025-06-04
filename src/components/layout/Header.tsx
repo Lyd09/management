@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, History, LayoutDashboard, Menu, Home, CalendarDays, Users as UsersIcon } from 'lucide-react';
+import { LogOut, History, LayoutDashboard, Menu, Home, CalendarDays, Users as UsersIcon, Briefcase } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import React from 'react';
 
@@ -64,14 +64,24 @@ export function Header() {
                 </SheetClose>
                 
                 {currentUser && currentUser.role === 'admin' && (
-                  <SheetClose asChild>
-                    <Link href="/admin/users" passHref>
-                      <Button variant="ghost" className="group w-full justify-start text-base py-3">
-                        <UsersIcon className="mr-2 h-5 w-5 text-primary group-hover:text-accent-foreground" />
-                        Usuários
-                      </Button>
-                    </Link>
-                  </SheetClose>
+                  <>
+                    <SheetClose asChild>
+                      <Link href="/admin/users" passHref>
+                        <Button variant="ghost" className="group w-full justify-start text-base py-3">
+                          <UsersIcon className="mr-2 h-5 w-5 text-primary group-hover:text-accent-foreground" />
+                          Usuários
+                        </Button>
+                      </Link>
+                    </SheetClose>
+                    <SheetClose asChild>
+                       <a href="https://orcafast-io.netlify.app/" target="_blank" rel="noopener noreferrer" className="w-full">
+                        <Button variant="ghost" className="group w-full justify-start text-base py-3">
+                          <Briefcase className="mr-2 h-5 w-5 text-primary group-hover:text-accent-foreground" />
+                          Orçamentos/Contratos
+                        </Button>
+                      </a>
+                    </SheetClose>
+                  </>
                 )}
 
                 <SheetClose asChild>
