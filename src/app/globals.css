@@ -26,8 +26,8 @@ body {
     --muted: 210 8% 25%; /* Muted background */
     --muted-foreground: 210 8% 65%; /* Muted text */
 
-    --accent: 0 100% 94%; /* Light red/pink for accent - can be adjusted */
-    --accent-foreground: 0 72% 20%; /* Dark Red for text on accent - can be adjusted */
+    --accent: 0 68% 51%; /* New accent color: #dc2828 */
+    --accent-foreground: 0 0% 100%; /* New accent foreground: White for contrast */
 
     --destructive: 0 62.8% 30.6%; /* Default destructive - kept for consistency */
     --destructive-foreground: 0 0% 98%; /* Default destructive foreground */
@@ -69,8 +69,8 @@ body {
     --secondary-foreground: 0 0% 94%;
     --muted: 210 8% 25%;
     --muted-foreground: 210 8% 65%;
-    --accent: 0 100% 94%; /* Light red/pink for accent */
-    --accent-foreground: 0 72% 20%; /* Dark Red for text on accent */
+    --accent: 0 68% 51%; /* New accent color: #dc2828 */
+    --accent-foreground: 0 0% 100%; /* New accent foreground: White for contrast */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 217 6% 31%;
