@@ -12,12 +12,18 @@ import type { Client, Project, ProjectType } from '@/types';
 import { PROJECT_TYPES } from '@/lib/constants'; // Import PROJECT_TYPES
 
 const COLORS_PIE = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+const EXCLUDED_PROJECT_NAMES = ["SITE LOGS", "MY BROKER"];
 
 export default function DashboardMetricsPage() {
   const { clients, loading } = useAppData();
 
   const allProjects = useMemo(() => {
-    return clients.reduce((acc, client) => acc.concat(client.projetos.map(p => ({ ...p, clientName: client.nome }))), [] as (Project & { clientName: string })[]);
+    return clients.reduce((acc, client) => {
+      const clientProjects = client.projetos
+        .filter(p => !EXCLUDED_PROJECT_NAMES.includes(p.nome.toUpperCase()))
+        .map(p => ({ ...p, clientName: client.nome }));
+      return acc.concat(clientProjects);
+    }, [] as (Project & { clientName: string })[]);
   }, [clients]);
 
   const activeProjectsCount = useMemo(() => {
@@ -29,19 +35,24 @@ export default function DashboardMetricsPage() {
   }, [allProjects]);
 
   const clientsByProjectCount = useMemo(() => {
+    // This metric might still include clients whose only projects are the excluded ones,
+    // but those projects won't count towards their projectCount here if `allProjects` is used.
+    // If the goal is to also filter clients who *only* have excluded projects,
+    // this logic would need to be more complex. For now, assuming projectCount reflects non-excluded projects.
     return clients
       .map(client => ({
         id: client.id,
         name: client.nome,
-        projectCount: client.projetos.length,
+        projectCount: client.projetos.filter(p => !EXCLUDED_PROJECT_NAMES.includes(p.nome.toUpperCase())).length,
       }))
+      .filter(client => client.projectCount > 0) // Only show clients with non-excluded projects
       .sort((a, b) => b.projectCount - a.projectCount)
       .slice(0, 5); // Top 5
   }, [clients]);
 
   const overdueProjects = useMemo(() => {
     const today = startOfDay(new Date());
-    return allProjects
+    return allProjects // allProjects is already filtered
       .filter(p => p.status !== "Projeto Concluído" && p.prazo)
       .map(p => {
         try {
@@ -63,7 +74,7 @@ export default function DashboardMetricsPage() {
   }, [allProjects]);
 
   const projectsByTypeChartData = useMemo(() => {
-    const counts = allProjects.reduce((acc, project) => {
+    const counts = allProjects.reduce((acc, project) => { // allProjects is already filtered
       acc[project.tipo] = (acc[project.tipo] || 0) + 1;
       return acc;
     }, {} as Record<ProjectType, number>);
@@ -108,7 +119,7 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeProjectsCount}</div>
-            <p className="text-xs text-muted-foreground">Total de projetos em andamento</p>
+            <p className="text-xs text-muted-foreground">Total de projetos em andamento (excluindo SITE LOGS, MY BROKER)</p>
           </CardContent>
         </Card>
         <Card>
@@ -118,7 +129,7 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completedProjectsCount}</div>
-             <p className="text-xs text-muted-foreground">Total de projetos finalizados</p>
+             <p className="text-xs text-muted-foreground">Total de projetos finalizados (excluindo SITE LOGS, MY BROKER)</p>
           </CardContent>
         </Card>
          <Card>
@@ -137,6 +148,7 @@ export default function DashboardMetricsPage() {
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5 text-primary" />Top 5 Clientes por Nº de Projetos</CardTitle>
+             <CardDescription>Contagem exclui projetos "SITE LOGS" e "MY BROKER".</CardDescription>
           </CardHeader>
           <CardContent>
             {clientsByProjectCount.length > 0 ? (
@@ -149,7 +161,7 @@ export default function DashboardMetricsPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhum cliente com projetos para exibir.</p>
+              <p className="text-sm text-muted-foreground">Nenhum cliente com projetos (não excluídos) para exibir.</p>
             )}
           </CardContent>
         </Card>
@@ -157,7 +169,7 @@ export default function DashboardMetricsPage() {
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-destructive" />Top 5 Projetos Mais Atrasados</CardTitle>
-            <CardDescription>Apenas projetos não concluídos com prazo vencido.</CardDescription>
+            <CardDescription>Apenas projetos não concluídos com prazo vencido (excluindo SITE LOGS, MY BROKER).</CardDescription>
           </CardHeader>
           <CardContent>
             {overdueProjects.length > 0 ? (
@@ -173,7 +185,7 @@ export default function DashboardMetricsPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhum projeto atrasado para exibir.</p>
+              <p className="text-sm text-muted-foreground">Nenhum projeto atrasado (não excluído) para exibir.</p>
             )}
           </CardContent>
         </Card>
@@ -181,6 +193,7 @@ export default function DashboardMetricsPage() {
        <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><PieChartIcon className="mr-2 h-5 w-5 text-primary" />Distribuição de Projetos por Tipo</CardTitle>
+          <CardDescription>Exclui projetos "SITE LOGS" e "MY BROKER".</CardDescription>
         </CardHeader>
         <CardContent className="h-[350px] w-full">
           {projectsByTypeChartData.length > 0 ? (
@@ -216,7 +229,7 @@ export default function DashboardMetricsPage() {
             </ChartContainer>
           ) : (
              <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-muted-foreground">Nenhum projeto para exibir no gráfico.</p>
+                <p className="text-sm text-muted-foreground">Nenhum projeto (não excluído) para exibir no gráfico.</p>
             </div>
           )}
         </CardContent>
@@ -224,3 +237,4 @@ export default function DashboardMetricsPage() {
     </div>
   );
 }
+
