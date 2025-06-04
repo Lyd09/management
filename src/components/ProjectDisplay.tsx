@@ -13,8 +13,9 @@ import Link from "next/link";
 import { ArrowLeft, Edit, CalendarClock, Percent, Info, StickyNote, ListChecks, DollarSign, Eye, EyeOff } from "lucide-react"; // Adicionado Eye, EyeOff
 import { PRIORITIES, PROJECT_TYPES, PROJECT_STATUS_OPTIONS } from "@/lib/constants";
 import type { PriorityType, ProjectType } from '@/types';
-import { differenceInDays, parseISO, startOfDay, isBefore, format } from 'date-fns';
+import { differenceInDays, parseISO, startOfDay, isBefore, format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from "@/lib/utils";
 
 const getPriorityBadgeVariant = (priority?: PriorityType) => {
   switch (priority) {
@@ -29,26 +30,31 @@ const getPriorityBadgeVariant = (priority?: PriorityType) => {
   }
 };
 
-const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default" | "secondary" | "destructive" | "outline" } | null => {
+const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default" | "secondary" | "destructive" | "outline"; colorClass: string; } | null => {
     if (!prazo) return null;
     try {
         const today = startOfDay(new Date());
-        const deadlineDate = startOfDay(parseISO(prazo));
-        const daysRemaining = differenceInDays(deadlineDate, today);
+        const deadlineDate = parseISO(prazo);
+        if (!isValid(deadlineDate)) {
+            console.warn("Prazo inválido fornecido para getDeadlineBadgeInfo:", prazo);
+            return null;
+        }
+        const deadlineDay = startOfDay(deadlineDate);
+        const daysRemaining = differenceInDays(deadlineDay, today);
 
-        if (isBefore(deadlineDate, today)) {
-            return { text: `Atrasado (${Math.abs(daysRemaining)}d)`, variant: "destructive" };
+        if (isBefore(deadlineDay, today)) {
+            return { text: `Atrasado (${Math.abs(daysRemaining)}d)`, variant: "destructive", colorClass: "text-destructive" };
         }
         if (daysRemaining === 0) {
-            return { text: "Hoje!", variant: "destructive" };
+            return { text: "Hoje!", variant: "destructive", colorClass: "text-destructive" };
         }
         if (daysRemaining <= 3) {
-            return { text: `${daysRemaining}d restantes`, variant: "destructive" };
+            return { text: `${daysRemaining}d restantes`, variant: "destructive", colorClass: "text-destructive" };
         }
         if (daysRemaining <= 7) {
-            return { text: `${daysRemaining}d restantes`, variant: "secondary" };
+            return { text: `${daysRemaining}d restantes`, variant: "secondary", colorClass: "text-secondary-foreground" };
         }
-        return null;
+        return { text: `${daysRemaining}d restantes`, variant: "default", colorClass: "text-muted-foreground" };
     } catch (error) {
         console.error("Error parsing prazo for deadline badge:", error);
         return null;
@@ -59,7 +65,7 @@ const getProjectCompletionPercentage = (project: Project): number | null => {
   if (project.status === "Aguardando Início") {
     return 0;
   }
-   if (project.status === "Projeto Concluído") { // Already handled by main status badge, effectively
+   if (project.status === "Projeto Concluído") { 
     return 100;
   }
   if (!project.checklist || project.checklist.length === 0) {
@@ -76,7 +82,7 @@ interface ProjectDisplayProps {
 }
 
 export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
-  const [isValueVisible, setIsValueVisible] = useState(false); // Estado para visibilidade do valor
+  const [isValueVisible, setIsValueVisible] = useState(false); 
   const deadlineInfo = getDeadlineBadgeInfo(project.prazo);
   const completionPercentage = getProjectCompletionPercentage(project);
 
@@ -88,6 +94,22 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
   const toggleValueVisibility = () => {
     setIsValueVisible(!isValueVisible);
   };
+
+  const formattedConclusionDate = () => {
+    if (project.status === "Projeto Concluído" && project.dataConclusao) {
+        try {
+            const parsedDate = parseISO(project.dataConclusao);
+            if (isValid(parsedDate)) {
+                return format(parsedDate, "PPP", { locale: ptBR });
+            }
+        } catch (e) {
+            console.error("Error parsing dataConclusao:", e);
+        }
+    }
+    return null;
+  };
+  const conclusionDateText = formattedConclusionDate();
+
 
   return (
     <div className="space-y-6">
@@ -138,23 +160,46 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
                 <p className="text-base">Não definida</p>
               )}
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Prazo de Entrega</Label>
-              {project.prazo ? (
-                <div className="flex items-center gap-2">
-                    <p className="text-base font-semibold">{format(parseISO(project.prazo), "PPP", { locale: ptBR })}</p>
-                    {project.status !== "Projeto Concluído" && deadlineInfo && (
-                        <Badge variant={deadlineInfo.variant} className="text-xs flex items-center">
-                        <CalendarClock className="mr-1 h-3 w-3" /> {deadlineInfo.text}
-                        </Badge>
-                    )}
+            {project.status === "Projeto Concluído" && conclusionDateText ? (
+                 <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Data de Conclusão</Label>
+                    <p className="text-base font-semibold text-green-600">{conclusionDateText}</p>
+                 </div>
+            ) : project.status !== "Projeto Concluído" && project.prazo ? (
+                 <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Prazo de Entrega</Label>
+                     <div className="flex items-center gap-1">
+                        <p className="text-base font-semibold">
+                            {(() => {
+                                try {
+                                    const parsed = parseISO(project.prazo!);
+                                    if (isValid(parsed)) {
+                                        return format(parsed, "PPP", { locale: ptBR });
+                                    }
+                                    return "Data inválida";
+                                } catch {
+                                    return "Data inválida";
+                                }
+                            })()}
+                        </p>
+                        {deadlineInfo && deadlineInfo.text && (
+                            <span className={cn(
+                              "text-sm ml-1", 
+                              deadlineInfo.colorClass 
+                            )}>
+                              | {deadlineInfo.text}
+                            </span>
+                        )}
+                    </div>
+                 </div>
+            ) : project.status !== "Projeto Concluído" ? (
+                <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Prazo de Entrega</Label>
+                    <p className="text-base">Não definido</p>
                 </div>
-              ) : (
-                <p className="text-base">Não definido</p>
-              )}
-            </div>
+            ) : null}
           </div>
-
+          
           {project.valor !== undefined && (
             <div>
               <div className="flex items-center gap-2">
@@ -239,4 +284,3 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
     </div>
   );
 }
-
