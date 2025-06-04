@@ -124,17 +124,16 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     setLoading(true);
     const clientesCollectionRef = collection(db, 'clientes'); 
     
-    // Diagnóstico: Tente primeiro sem o orderBy
-    const q = query(
-      clientesCollectionRef, 
-      where('creatorUserId', '==', loggedInUserFromAuthContext.id)
-      // orderBy('createdAt', 'desc') // Temporariamente comentado para diagnóstico
-    );
+    // DIAGNÓSTICO: Consulta mais simples, sem 'where' e sem 'orderBy'
+    console.log(`[AppDataContext] Querying ALL 'clientes' documents (temporary diagnostic step)`);
+    const q = query(clientesCollectionRef);
+    // const q = query(
+    //   clientesCollectionRef, 
+    //   // where('creatorUserId', '==', loggedInUserFromAuthContext.id) // TEMPORARIAMENTE REMOVIDO PARA DIAGNÓSTICO
+    //   // orderBy('createdAt', 'desc') // Mantido comentado para diagnóstico focado no 'where'
+    // );
 
-    // Para diagnóstico mais aprofundado, se o acima não funcionar, tente apenas:
-    // const q = query(clientesCollectionRef);
-
-    console.log(`[AppDataContext] Querying 'clientes' where 'creatorUserId' == '${loggedInUserFromAuthContext.id}'`);
+    console.log(`[AppDataContext] Current diagnostic query: Simple collection query for 'clientes'`);
 
 
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
@@ -146,11 +145,9 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
         
         // Verificação adicional do creatorUserId
-        if (clientFirebaseData.creatorUserId !== loggedInUserFromAuthContext.id) {
-            console.warn(`[AppDataContext] Mismatch! Client doc ${clientDoc.id} has creatorUserId ${clientFirebaseData.creatorUserId} but expected ${loggedInUserFromAuthContext.id}. This client will be filtered out by the 'where' clause if it's working correctly.`);
-            // Se a cláusula 'where' estiver funcionando, este log não deveria aparecer para os documentos retornados.
-            // Se a cláusula 'where' for comentada para teste, este log se torna relevante.
-        }
+        // if (clientFirebaseData.creatorUserId !== loggedInUserFromAuthContext.id) {
+        //     console.warn(`[AppDataContext] Mismatch! Client doc ${clientDoc.id} has creatorUserId ${clientFirebaseData.creatorUserId} but expected ${loggedInUserFromAuthContext.id}. This client will be filtered out by the 'where' clause if it's working correctly.`);
+        // }
 
         const client: Client = {
           id: clientDoc.id,
@@ -174,7 +171,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         clientsData.push(client);
       }
       console.log('[AppDataContext] Processed clientsData to be set:', clientsData);
-      setClients(clientsData);
+      setClients(clientsData); // ATENÇÃO: Isso agora irá mostrar TODOS os clientes se a leitura funcionar.
       setLoading(false);
     }, (error) => {
       console.error("Error fetching clientes from Firestore:", error);
