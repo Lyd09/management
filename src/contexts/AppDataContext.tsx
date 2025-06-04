@@ -124,17 +124,12 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     setLoading(true);
     const clientesCollectionRef = collection(db, 'clientes'); 
     
-    // DIAGNÓSTICO: Consulta mais simples, sem 'where' e sem 'orderBy'
-    console.log(`[AppDataContext] Querying ALL 'clientes' documents (temporary diagnostic step)`);
-    const q = query(clientesCollectionRef);
-    // const q = query(
-    //   clientesCollectionRef, 
-    //   // where('creatorUserId', '==', loggedInUserFromAuthContext.id) // TEMPORARIAMENTE REMOVIDO PARA DIAGNÓSTICO
-    //   // orderBy('createdAt', 'desc') // Mantido comentado para diagnóstico focado no 'where'
-    // );
-
-    console.log(`[AppDataContext] Current diagnostic query: Simple collection query for 'clientes'`);
-
+    console.log(`[AppDataContext] Querying 'clientes' where 'creatorUserId' == '${loggedInUserFromAuthContext.id}' and ordered by 'createdAt' desc.`);
+    const q = query(
+      clientesCollectionRef, 
+      where('creatorUserId', '==', loggedInUserFromAuthContext.id),
+      orderBy('createdAt', 'desc')
+    );
 
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
       console.log('[AppDataContext] Raw querySnapshot docs for clientes:', querySnapshot.docs.length, 'docs found.');
@@ -144,11 +139,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       for (const clientDoc of querySnapshot.docs) {
         const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
         
-        // Verificação adicional do creatorUserId
-        // if (clientFirebaseData.creatorUserId !== loggedInUserFromAuthContext.id) {
-        //     console.warn(`[AppDataContext] Mismatch! Client doc ${clientDoc.id} has creatorUserId ${clientFirebaseData.creatorUserId} but expected ${loggedInUserFromAuthContext.id}. This client will be filtered out by the 'where' clause if it's working correctly.`);
-        // }
-
         const client: Client = {
           id: clientDoc.id,
           nome: clientFirebaseData.nome,
@@ -171,7 +161,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         clientsData.push(client);
       }
       console.log('[AppDataContext] Processed clientsData to be set:', clientsData);
-      setClients(clientsData); // ATENÇÃO: Isso agora irá mostrar TODOS os clientes se a leitura funcionar.
+      setClients(clientsData);
       setLoading(false);
     }, (error) => {
       console.error("Error fetching clientes from Firestore:", error);
