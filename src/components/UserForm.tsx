@@ -19,19 +19,22 @@ import { DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose
 import type { User } from "@/types";
 import { useEffect } from "react";
 
-const userFormSchemaBase = z.object({
-  username: z.string().min(3, {
-    message: "O nome de usuário deve ter pelo menos 3 caracteres.",
-  }).max(20, {
-    message: "O nome de usuário não pode exceder 20 caracteres.",
-  }).regex(/^[a-zA-Z0-9_.-]+$/, {
-    message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
-  }),
-  email: z.string().email({ message: "Formato de email inválido." }).optional().or(z.literal("")),
-  role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
+// Esquema base para campos comuns que podem ter requisitos diferentes
+const usernameSchema = z.string().min(3, {
+  message: "O nome de usuário deve ter pelo menos 3 caracteres.",
+}).max(20, {
+  message: "O nome de usuário não pode exceder 20 caracteres.",
+}).regex(/^[a-zA-Z0-9_.-]+$/, {
+  message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
 });
 
-const userFormSchemaWithPassword = userFormSchemaBase.extend({
+const roleSchema = z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." });
+
+// Esquema para ADICIONAR um novo usuário
+const userFormSchemaAdd = z.object({
+  username: usernameSchema,
+  email: z.string().email({ message: "Email inválido." }).min(1, { message: "Email é obrigatório." }), // Email obrigatório e não vazio
+  role: roleSchema,
   password: z.string().min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
@@ -39,7 +42,23 @@ const userFormSchemaWithPassword = userFormSchemaBase.extend({
   path: ["confirmPassword"],
 });
 
-export type UserFormValues = z.infer<typeof userFormSchemaBase> & { password?: string }; // Senha opcional no tipo geral
+// Esquema para EDITAR um usuário existente
+const userFormSchemaEdit = z.object({
+  username: usernameSchema, // Username ainda validado, mas pode ser desabilitado para edição exceto ff.admin
+  email: z.string().email({ message: "Email inválido." }).optional().or(z.literal("")), // Email opcional na edição
+  role: roleSchema,
+  // Campos de senha não estão presentes para edição neste formulário
+});
+
+// Tipo para os valores do formulário, englobando todos os campos possíveis.
+// A validação Zod específica (Add ou Edit) cuidará dos requisitos.
+export type UserFormValues = {
+  username: string;
+  email?: string;
+  role: 'admin' | 'user';
+  password?: string;
+  confirmPassword?: string;
+};
 
 interface UserFormProps {
   user?: User | null;
@@ -54,7 +73,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
   const isEditingFfAdmin = user?.username === 'ff.admin';
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(isEditing ? userFormSchemaBase : userFormSchemaWithPassword),
+    resolver: zodResolver(isEditing ? userFormSchemaEdit : userFormSchemaAdd),
     defaultValues: {
       username: user?.username || "",
       email: user?.email || "",
@@ -69,13 +88,11 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         username: user?.username || "",
         email: user?.email || "",
         role: user?.role || "user",
-        password: "", // Sempre resetar senha para não vazar entre aberturas
+        password: "", 
         confirmPassword: "",
     });
-    // Atualiza o resolver do Zod com base se está editando ou adicionando
-    form.trigger(); // Re-valida para limpar erros de senha se mudar de add para edit
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, form.reset, form.trigger]);
+  }, [user, form.reset]);
 
 
   const handleSubmit = async (data: UserFormValues) => {
@@ -89,12 +106,6 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         return;
       }
     }
-    // Se não estiver editando (adicionando), e a senha não foi fornecida (o que não deveria acontecer devido ao Zod)
-    if (!isEditing && !data.password) {
-        form.setError("password", {message: "Senha é obrigatória ao criar usuário."});
-        return;
-    }
-
     await onSubmit(data);
   };
 
