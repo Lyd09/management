@@ -20,9 +20,9 @@ const robotoMono = Roboto_Mono({
 export const metadata: Metadata = {
   title: 'Projetex',
   description: 'Plataforma colaborativa para gestão de clientes e projetos.',
-  icons: {
-    icon: '/favicon.png', // Aponta para o arquivo PNG na pasta app
-  },
+  // icons: {
+  //   icon: '/favicon.png', // Removido temporariamente para evitar erro 404
+  // },
 };
 
 export default function RootLayout({

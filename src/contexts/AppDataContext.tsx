@@ -123,20 +123,20 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     setLoading(true);
     const clientesCollectionRef = collection(db, 'clientes'); 
-    const hardcodedUserId = "ETLUlSZMypM99rLXP8fJk8f7p6s1"; // UID para teste
+    const userIdToQuery = loggedInUserFromAuthContext.id;
     
-    console.log(`[AppDataContext] Preparing to query. User ID from context: ${loggedInUserFromAuthContext?.id}. HARDCODED ID being used for query: ${hardcodedUserId}`);
+    console.log(`[AppDataContext] Preparing to query. User ID from context: ${userIdToQuery}.`);
     
-    // Consulta simplificada: apenas com 'where' e UID hardcodado
     const q = query(
       clientesCollectionRef,
-      where('creatorUserId', '==', hardcodedUserId) 
+      where('creatorUserId', '==', userIdToQuery),
+      orderBy('createdAt', 'desc')
     );
-    console.log(`[AppDataContext] Current diagnostic query: where('creatorUserId', '==', '${hardcodedUserId}')`);
+    console.log(`[AppDataContext] Current query: where('creatorUserId', '==', '${userIdToQuery}') and ordered by 'createdAt' desc.`);
 
 
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
-      console.log(`[AppDataContext] Raw querySnapshot docs for clientes (where creatorUserId == ${hardcodedUserId}): ${querySnapshot.docs.length} docs found.`);
+      console.log(`[AppDataContext] Raw querySnapshot docs for clientes (where creatorUserId == ${userIdToQuery}): ${querySnapshot.docs.length} docs found.`);
       
       const clientsData: Client[] = [];
       if (querySnapshot.docs.length > 0) {
