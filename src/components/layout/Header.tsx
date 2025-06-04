@@ -21,8 +21,8 @@ export function Header() {
       <div className="container mx-auto flex items-center gap-4">
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Abrir menu">
-              <Menu className="h-6 w-6 text-primary" />
+            <Button variant="ghost" size="icon" aria-label="Abrir menu" className="group">
+              <Menu className="h-6 w-6 text-primary group-hover:text-accent-foreground" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[280px] p-4 flex flex-col">
