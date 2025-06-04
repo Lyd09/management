@@ -20,8 +20,8 @@ export interface Project {
   checklist: ChecklistItem[];
   prioridade?: PriorityType;
   valor?: number;
-  creatorUserId: string;
-  assignedUserId?: string;
+  creatorUserId: string; // ID do usuário que criou o projeto
+  assignedUserId?: string; // ID do usuário designado para o projeto
   dataConclusao?: string; // ISO date string: "YYYY-MM-DD"
 }
 
@@ -30,19 +30,20 @@ export interface Client {
   nome: string;
   projetos: Project[];
   prioridade?: PriorityType;
-  creatorUserId: string;
+  creatorUserId: string; // ID do usuário que criou o cliente
   createdAt?: any; // Firestore Timestamp
 }
 
+// Definição do tipo User
 export interface User {
   id: string;
   username: string;
-  email?: string;
-  role: 'admin' | 'user';
-  createdAt?: any; // Firestore Timestamp for users in DB
+  email?: string; // O email é opcional
+  role: 'admin' | 'user'; // Papéis definidos
+  createdAt: any; // Firestore Timestamp
 }
 
 export interface AppData {
   clientes: Client[];
-  users?: User[]; // users might not always be part of top-level app data structure for export/import
+  users?: User[];
 }
