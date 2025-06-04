@@ -25,7 +25,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { Client, Project, ProjectType, PriorityType } from '@/types';
 import { Badge } from '@/components/ui/badge';
-import { differenceInDays, parseISO, startOfDay, isBefore } from 'date-fns';
+import { differenceInDays, parseISO, startOfDay, isBefore, format, getYear } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { PRIORITIES } from '@/lib/constants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -71,12 +72,42 @@ const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default
         if (daysRemaining <= 7) {
             return { text: `${daysRemaining}d restantes`, variant: "secondary" };
         }
-        return null;
+        return null; // Não retorna badge para prazos mais distantes, mas o texto no card mostrará
     } catch (error) {
         console.error("Error parsing prazo for deadline badge:", error);
         return null;
     }
 };
+
+const formatProjectDeadlineForCard = (prazo?: string): { formattedDate: string; remainingText: string | null } | null => {
+  if (!prazo) return null;
+  try {
+    const today = startOfDay(new Date());
+    const deadlineDate = startOfDay(parseISO(prazo));
+    const currentYear = getYear(today);
+    const deadlineYear = getYear(deadlineDate);
+
+    const dateFormatString = deadlineYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
+    const formattedDate = format(deadlineDate, dateFormatString, { locale: ptBR });
+
+    const daysRemaining = differenceInDays(deadlineDate, today);
+    let remainingText: string | null = null;
+
+    if (isBefore(deadlineDate, today)) {
+      remainingText = `Atrasado (${Math.abs(daysRemaining)}d)`;
+    } else if (daysRemaining === 0) {
+      remainingText = "Hoje!";
+    } else {
+      remainingText = `${daysRemaining}d restantes`;
+    }
+
+    return { formattedDate, remainingText };
+  } catch (error) {
+    console.error("Error formatting project deadline for card:", error);
+    return null;
+  }
+};
+
 
 const categorizeDeadline = (prazo?: string): DeadlineFilterCategory => {
   if (!prazo) return "Sem Prazo";
@@ -101,13 +132,8 @@ const getProjectCompletionPercentage = (project: Project): number | null => {
   if (project.status === "Aguardando Início") {
     return 0;
   }
-  // "Projeto Concluído" is handled by the main status badge, so no percentage badge needed for it.
-  // Or, if we wanted to show "100%" specifically for it, we'd handle it here.
-  // For now, if status is "Projeto Concluído", this function effectively won't be called
-  // for the percentage badge in the UI logic below.
-
   if (!project.checklist || project.checklist.length === 0) {
-    return null; // No checklist items, so no percentage to show
+    return null;
   }
   const totalItems = project.checklist.length;
   const completedItems = project.checklist.filter(item => item.feito).length;
@@ -116,8 +142,8 @@ const getProjectCompletionPercentage = (project: Project): number | null => {
 
 const getCompletionBadgeStyle = (percentage: number | null): { variant: "secondary" | "default"; className: string } => {
   if (percentage === null) return { variant: "secondary", className: "" };
-  if (percentage >= 50) return { variant: "default", className: "" }; // Red (primary)
-  return { variant: "secondary", className: "" }; // Gray
+  if (percentage >= 50) return { variant: "default", className: "" };
+  return { variant: "secondary", className: "" };
 };
 
 
@@ -161,7 +187,7 @@ export default function ClientDetailPage() {
       prioridade: data.prioridade,
       descricao: data.descricao,
       prazo: data.prazo as (string | undefined),
-      valor: data.valor, // Adicionado valor
+      valor: data.valor,
       notas: data.notas,
       checklist: data.checklist,
     };
@@ -343,7 +369,8 @@ export default function ClientDetailPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => {
-            const deadlineInfo = getDeadlineBadgeInfo(project.prazo);
+            const deadlineBadgeDisplayInfo = getDeadlineBadgeInfo(project.prazo); // For badge
+            const deadlineCardDisplayInfo = formatProjectDeadlineForCard(project.prazo); // For card text
             const completionPercentage = getProjectCompletionPercentage(project);
             const completionBadgeStyle = getCompletionBadgeStyle(completionPercentage);
 
@@ -371,9 +398,9 @@ export default function ClientDetailPage() {
                     >
                         {project.status}
                     </Badge>
-                    {project.status !== "Projeto Concluído" && deadlineInfo && (
-                        <Badge variant={deadlineInfo.variant} className="text-xs flex items-center">
-                           <CalendarClock className="mr-1 h-3 w-3" /> {deadlineInfo.text}
+                    {project.status !== "Projeto Concluído" && deadlineBadgeDisplayInfo && (
+                        <Badge variant={deadlineBadgeDisplayInfo.variant} className="text-xs flex items-center">
+                           <CalendarClock className="mr-1 h-3 w-3" /> {deadlineBadgeDisplayInfo.text}
                         </Badge>
                     )}
                     {project.status !== "Projeto Concluído" && project.status !== "Aguardando Início" && completionPercentage !== null && project.checklist && project.checklist.length > 0 && (
@@ -393,11 +420,11 @@ export default function ClientDetailPage() {
               </CardHeader>
               <CardContent className="flex-grow space-y-2 mt-1">
                 <p className="text-sm text-muted-foreground line-clamp-2">{project.descricao || "Sem descrição."}</p>
-                {project.prazo && <p className="text-xs text-muted-foreground">Prazo: {new Date(project.prazo + "T00:00:00").toLocaleDateString('pt-BR')}</p>}
-                 {project.valor !== undefined && (
-                    <p className="text-xs text-muted-foreground">
-                        Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(project.valor)}
-                    </p>
+                {project.status !== "Projeto Concluído" && deadlineCardDisplayInfo && (
+                  <p className="text-xs text-muted-foreground">
+                    Prazo: {deadlineCardDisplayInfo.formattedDate}
+                    {deadlineCardDisplayInfo.remainingText && ` | ${deadlineCardDisplayInfo.remainingText}`}
+                  </p>
                 )}
               </CardContent>
               <CardFooter className="flex justify-end gap-2">
@@ -435,3 +462,6 @@ export default function ClientDetailPage() {
     </div>
   );
 }
+
+
+    
