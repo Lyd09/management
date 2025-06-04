@@ -19,10 +19,7 @@ import { DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose
 import type { User } from "@/types";
 import { useEffect } from "react";
 
-// Schema para validação do formulário de usuário
-// NOTA: Este formulário NÃO gerencia senhas. A criação de usuários com senha
-// deve ser integrada com o Firebase Authentication.
-const userFormSchema = z.object({
+const userFormSchemaBase = z.object({
   username: z.string().min(3, {
     message: "O nome de usuário deve ter pelo menos 3 caracteres.",
   }).max(20, {
@@ -34,41 +31,54 @@ const userFormSchema = z.object({
   role: z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." }),
 });
 
-export type UserFormValues = z.infer<typeof userFormSchema>;
+const userFormSchemaWithPassword = userFormSchemaBase.extend({
+  password: z.string().min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "As senhas não coincidem.",
+  path: ["confirmPassword"],
+});
+
+export type UserFormValues = z.infer<typeof userFormSchemaBase> & { password?: string }; // Senha opcional no tipo geral
 
 interface UserFormProps {
-  user?: User | null; // Usuário existente para edição, ou null/undefined para adição
-  onSubmit: (data: UserFormValues) => Promise<void>; // onSubmit é assíncrono
-  onClose: () => void; // Função para fechar o diálogo/modal
-  currentUserIsAdmin?: boolean; // O usuário logado é admin?
-  editingSelf?: boolean; // O usuário logado está editando o próprio perfil?
+  user?: User | null;
+  onSubmit: (data: UserFormValues) => Promise<void>;
+  onClose: () => void;
+  currentUserIsAdmin?: boolean;
+  editingSelf?: boolean;
 }
 
 export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingSelf }: UserFormProps) {
+  const isEditing = !!user;
   const isEditingFfAdmin = user?.username === 'ff.admin';
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
+    resolver: zodResolver(isEditing ? userFormSchemaBase : userFormSchemaWithPassword),
     defaultValues: {
       username: user?.username || "",
       email: user?.email || "",
       role: user?.role || "user",
+      password: "",
+      confirmPassword: "",
     },
   });
   
   useEffect(() => {
-    // Reseta o formulário quando o 'user' prop muda (ex: ao abrir para editar outro usuário)
     form.reset({
         username: user?.username || "",
         email: user?.email || "",
         role: user?.role || "user",
+        password: "", // Sempre resetar senha para não vazar entre aberturas
+        confirmPassword: "",
     });
+    // Atualiza o resolver do Zod com base se está editando ou adicionando
+    form.trigger(); // Re-valida para limpar erros de senha se mudar de add para edit
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, form.reset, form.trigger]);
 
 
   const handleSubmit = async (data: UserFormValues) => {
-    // Verificação do lado do cliente, embora o lado do servidor (regras do Firestore/contexto) seja primário
     if (isEditingFfAdmin) {
       if (data.username !== 'ff.admin') {
         form.setError("username", { message: "O nome de usuário 'ff.admin' não pode ser alterado."});
@@ -79,8 +89,13 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         return;
       }
     }
+    // Se não estiver editando (adicionando), e a senha não foi fornecida (o que não deveria acontecer devido ao Zod)
+    if (!isEditing && !data.password) {
+        form.setError("password", {message: "Senha é obrigatória ao criar usuário."});
+        return;
+    }
+
     await onSubmit(data);
-    // form.reset() é geralmente tratado pelo onOpenChange do Dialog, ou chame onClose que pode resetar
   };
 
   return (
@@ -90,6 +105,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
           <DialogTitle>{user ? "Editar Usuário" : "Adicionar Novo Usuário"}</DialogTitle>
           <DialogDescription>
             {user ? "Atualize os dados do usuário." : "Preencha os dados para adicionar um novo usuário."}
+            {!isEditing && " A senha é obrigatória para novos usuários."}
           </DialogDescription>
         </DialogHeader>
         
@@ -100,7 +116,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
             <FormItem>
               <FormLabel>Nome de Usuário</FormLabel>
               <FormControl>
-                <Input placeholder="Ex: joao.silva" {...field} disabled={isEditingFfAdmin || (!!user && user.username !== 'ff.admin')} />
+                <Input placeholder="Ex: joao.silva" {...field} disabled={isEditingFfAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -112,7 +128,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>Email (para login)</FormLabel>
               <FormControl>
                 <Input type="email" placeholder="Ex: usuario@dominio.com" {...field} />
               </FormControl>
@@ -120,6 +136,37 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
             </FormItem>
           )}
         />
+        
+        {!isEditing && (
+          <>
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Senha</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="Mínimo 6 caracteres" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirmar Senha</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="Repita a senha" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
         
         <FormField
           control={form.control}

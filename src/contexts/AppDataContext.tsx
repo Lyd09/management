@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import type { AppData, Client, Project, ProjectType, ChecklistItem, PriorityType, User } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase'; // Import auth
 import {
   collection,
   onSnapshot,
@@ -19,9 +19,11 @@ import {
   getDocs,
   serverTimestamp,
   Timestamp,
-  where
+  where,
+  setDoc // Import setDoc for specific ID
 } from 'firebase/firestore';
-import { useAuth } from '@/hooks/useAuth'; // Import useAuth
+import { createUserWithEmailAndPassword, updateEmail as firebaseUpdateEmail, deleteUser as firebaseDeleteUser, type User as FirebaseUser } from 'firebase/auth';
+import { useAuth } from '@/hooks/useAuth';
 
 interface FirebaseClientDoc {
   nome: string;
@@ -56,7 +58,7 @@ interface FirebaseUserDoc {
 
 interface AppDataContextType {
   clients: Client[];
-  users: User[]; // Add users to context
+  users: User[];
   loading: boolean;
   addClient: (nome: string, prioridade?: PriorityType) => Promise<void>;
   updateClient: (clientId: string, nome: string, prioridade?: PriorityType) => Promise<void>;
@@ -69,39 +71,38 @@ interface AppDataContextType {
   duplicateProject: (clientId: string, projectIdToDuplicate: string) => Promise<void>;
   importData: (jsonData: AppData) => boolean;
   exportData: () => AppData;
-  // User specific functions
-  addUser: (userData: Omit<User, 'id' | 'createdAt'>) => Promise<void>;
-  updateUser: (userId: string, userData: Partial<Omit<User, 'id' | 'createdAt'>>) => Promise<void>;
+  addUser: (userData: Omit<User, 'id' | 'createdAt'> & { password?: string }) => Promise<void>;
+  updateUser: (userId: string, userData: Partial<Omit<User, 'id' | 'createdAt' | 'username' >> & {username?: string}) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  fetchUsers: () => void; // Added to explicitly fetch users if needed, though onSnapshot is used
+  fetchUsers: () => void;
 }
 
 export const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
 export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>([]);
-  const [users, setUsers] = useState<User[]>([]); // State for users
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const { currentUser } = useAuth(); // Get currentUser for creatorUserId
+  const { currentUser: loggedInUser } = useAuth(); // Renamed to avoid conflict
 
   // Fetch Users
   useEffect(() => {
-    setLoading(true);
+    // setLoading(true); // Already set true initially or by clients
     const usersCollectionRef = collection(db, 'users');
     const qUsers = query(usersCollectionRef, orderBy('createdAt', 'desc'));
 
     const unsubscribeUsers = onSnapshot(qUsers, (querySnapshot) => {
       const usersData: User[] = querySnapshot.docs.map(doc => ({
-        id: doc.id,
+        id: doc.id, // Firestore document ID is the Firebase Auth UID
         ...(doc.data() as FirebaseUserDoc),
       }));
       setUsers(usersData);
-      // Consider loading state completed after both clients and users are fetched or handled separately
+      // setLoading(false); // Consider combined loading state
     }, (error) => {
       console.error("Error fetching users from Firestore:", error);
       setUsers([]);
+      // setLoading(false);
     });
-    // setLoading(false) here might be premature if clients are still loading
     return () => unsubscribeUsers();
   }, []);
 
@@ -138,7 +139,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         clientsData.push(client);
       }
       setClients(clientsData);
-      setLoading(false); // Set loading to false after all data is fetched
+      setLoading(false);
     }, (error) => {
       console.error("Error fetching clients from Firestore:", error);
       setClients([]);
@@ -149,7 +150,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const addClient = useCallback(async (nome: string, prioridade?: PriorityType) => {
-    if (!currentUser) {
+    if (!loggedInUser) {
         console.error("Não é possível adicionar cliente: usuário não logado.");
         return;
     }
@@ -157,13 +158,13 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       await addDoc(collection(db, 'clients'), {
         nome,
         prioridade: prioridade || "Média",
-        creatorUserId: currentUser.id, // Set creatorUserId
+        creatorUserId: loggedInUser.id,
         createdAt: serverTimestamp(),
       });
     } catch (error) {
       console.error("Error adding client to Firestore:", error);
     }
-  }, [currentUser]);
+  }, [loggedInUser]);
 
   const updateClient = useCallback(async (clientId: string, nome: string, prioridade?: PriorityType) => {
     try {
@@ -172,8 +173,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (prioridade) {
         updateData.prioridade = prioridade;
       }
-      // creatorUserId should not be updated
-      await updateDoc(clientDocRef, updateData as any); // Use 'as any' if TS complains about creatorUserId
+      await updateDoc(clientDocRef, updateData as any);
     } catch (error) {
       console.error("Error updating client in Firestore:", error);
     }
@@ -201,7 +201,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [clients]);
 
   const addProject = useCallback(async (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number }) => {
-    if (!currentUser) {
+    if (!loggedInUser) {
         console.error("Não é possível adicionar projeto: usuário não logado.");
         return;
     }
@@ -217,7 +217,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         notas: projectData.notas,
         prioridade: projectData.prioridade || "Média",
         valor: projectData.valor,
-        creatorUserId: currentUser.id, // Set creatorUserId
+        creatorUserId: loggedInUser.id,
         checklist: (projectData.checklist || []).map(item => ({...item, id: item.id || uuidv4()})) as ChecklistItem[],
       };
       await addDoc(projectsCollectionRef, {
@@ -227,13 +227,13 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     } catch (error) {
       console.error("Error adding project to Firestore:", error);
     }
-  }, [currentUser]);
+  }, [loggedInUser]);
 
   const updateProject = useCallback(async (clientId: string, projectId: string, projectData: Partial<Omit<Project, 'creatorUserId'>>) => {
     try {
       const projectDocRef = doc(db, 'clients', clientId, 'projects', projectId);
-      const dataToUpdate = {...projectData} as any; // Use any to avoid creatorUserId conflict if present
-      delete dataToUpdate.creatorUserId; // Ensure creatorUserId is not part of the update
+      const dataToUpdate = {...projectData} as any;
+      delete dataToUpdate.creatorUserId;
 
       if (dataToUpdate.checklist) {
         dataToUpdate.checklist = dataToUpdate.checklist.map(item => ({
@@ -268,7 +268,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [clients]);
 
   const duplicateProject = useCallback(async (clientId: string, projectIdToDuplicate: string) => {
-    if (!currentUser) {
+    if (!loggedInUser) {
         console.error("Não é possível duplicar projeto: usuário não logado.");
         return;
     }
@@ -288,7 +288,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       notas: originalProject.notas,
       prioridade: originalProject.prioridade,
       valor: originalProject.valor,
-      // creatorUserId will be set by addProject using current logged-in user
       checklist: originalProject.checklist.map(item => ({
         id: uuidv4(),
         item: item.item,
@@ -301,7 +300,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     } catch (error) {
       console.error("Erro ao duplicar projeto no Firestore:", error);
     }
-  }, [addProject, getProjectById, currentUser]);
+  }, [addProject, getProjectById, loggedInUser]);
 
   const importData = useCallback((jsonData: AppData): boolean => {
     console.warn("Data import from JSON is deprecated. Data is now managed in Firestore.");
@@ -310,48 +309,97 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const exportData = useCallback((): AppData => {
     console.warn("Data export to JSON is deprecated. Data is now managed in Firestore.");
-    return { clientes: clients, users: users }; // Include users in export if needed
+    return { clientes: clients, users: users };
   }, [clients, users]);
 
-  // User Management Functions
-  const addUser = useCallback(async (userData: Omit<User, 'id' | 'createdAt'>) => {
-    try {
-      // Check if username already exists
-      const usersCollectionRef = collection(db, 'users');
-      const q = query(usersCollectionRef, where("username", "==", userData.username));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        console.error("Username already exists.");
-        throw new Error("Username already exists."); // Or handle this more gracefully in UI
-      }
+  const addUser = useCallback(async (userData: Omit<User, 'id' | 'createdAt'> & { password?: string }) => {
+    if (!userData.email || !userData.password) {
+      console.error("Email e senha são obrigatórios para criar um novo usuário autenticado.");
+      throw new Error("Email e senha são obrigatórios.");
+    }
+    const { email, password, ...firestoreData } = userData;
 
-      await addDoc(collection(db, 'users'), {
-        ...userData,
+    try {
+      // 1. Create user in Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      // 2. Create user document in Firestore using the UID from Firebase Auth as document ID
+      const userDocRef = doc(db, 'users', firebaseUser.uid);
+      await setDoc(userDocRef, {
+        ...firestoreData, // username, role
+        email: email, // Store email in Firestore as well
         createdAt: serverTimestamp(),
       });
-    } catch (error) {
-      console.error("Error adding user to Firestore:", error);
-      throw error; // Re-throw to be caught by caller
+    } catch (error: any) {
+      console.error("Error adding user to Firebase Auth or Firestore:", error);
+      if (error.code === 'auth/email-already-in-use') {
+        throw new Error("Este email já está em uso por outra conta.");
+      } else if (error.code === 'auth/weak-password') {
+        throw new Error("A senha fornecida é muito fraca.");
+      }
+      throw new Error("Não foi possível adicionar o usuário: " + error.message);
     }
   }, []);
 
-  const updateUser = useCallback(async (userId: string, userData: Partial<Omit<User, 'id' | 'createdAt'>>) => {
+  const updateUser = useCallback(async (userId: string, userData: Partial<Omit<User, 'id' | 'createdAt' | 'username' >> & {username?: string}) => {
     try {
-      const userDocRef = doc(db, 'users', userId);
-      // Ensure ff.admin role and username are not changed through this function
       const userToUpdate = users.find(u => u.id === userId);
-      if (userToUpdate && userToUpdate.username === 'ff.admin') {
+      if (!userToUpdate) {
+        throw new Error("Usuário não encontrado para atualização.");
+      }
+
+      // Prevent username and role change for ff.admin
+      if (userToUpdate.username === 'ff.admin') {
         if (userData.username && userData.username !== 'ff.admin') {
           console.warn("Attempted to change username of ff.admin. Operation denied.");
-          delete userData.username; // Do not change username
+          throw new Error("O nome de usuário 'ff.admin' não pode ser alterado.");
         }
         if (userData.role && userData.role !== 'admin') {
           console.warn("Attempted to change role of ff.admin. Operation denied.");
-          delete userData.role; // Do not change role
+          throw new Error("O papel (role) de 'ff.admin' não pode ser alterado.");
         }
       }
-      await updateDoc(userDocRef, userData);
-    } catch (error) {
+      
+      const userDocRef = doc(db, 'users', userId);
+      const dataToUpdateInFirestore: Partial<FirebaseUserDoc> = {
+        email: userData.email, // email can be undefined if not changed
+        role: userData.role, // role can be undefined if not changed
+        username: userData.username, // username can be undefined if not changed
+      };
+
+      // Filter out undefined fields before updating Firestore
+      Object.keys(dataToUpdateInFirestore).forEach(key => 
+        dataToUpdateInFirestore[key as keyof typeof dataToUpdateInFirestore] === undefined && delete dataToUpdateInFirestore[key as keyof typeof dataToUpdateInFirestore]
+      );
+
+
+      // Attempt to update email in Firebase Auth if it has changed
+      if (userData.email && userData.email !== userToUpdate.email && auth.currentUser) {
+        // Firebase Auth's current user must match the user being edited, or be an admin with sufficient rights.
+        // For simplicity here, we assume an admin is performing this.
+        // Direct email update might require re-authentication for security reasons.
+        // This is a simplified attempt.
+        try {
+            // This part is tricky because updating another user's email directly as admin is not straightforward
+            // For the user themselves to update their email, they'd call firebaseUpdateEmail(auth.currentUser, newEmail)
+            // We'll update Firestore for now and log a warning for Auth email update.
+            console.warn(`Firestore email for user ${userId} updated to ${userData.email}. Manual update in Firebase Auth console might be needed if this isn't the logged-in user.`);
+             if (auth.currentUser && auth.currentUser.uid === userId) {
+                await firebaseUpdateEmail(auth.currentUser, userData.email);
+             }
+        } catch (authError: any) {
+          console.error("Error updating email in Firebase Auth for user:", userId, authError);
+          // Decide if this should throw or just warn. For now, it warns and proceeds with Firestore update.
+          // throw new Error("Não foi possível atualizar o email na autenticação: " + authError.message);
+        }
+      }
+      
+      if (Object.keys(dataToUpdateInFirestore).length > 0) {
+        await updateDoc(userDocRef, dataToUpdateInFirestore);
+      }
+
+    } catch (error: any) {
       console.error("Error updating user in Firestore:", error);
       throw error;
     }
@@ -362,22 +410,37 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       const userToDelete = users.find(u => u.id === userId);
       if (userToDelete && userToDelete.username === 'ff.admin') {
         console.error("Cannot delete the 'ff.admin' user.");
-        throw new Error("Cannot delete the 'ff.admin' user.");
+        throw new Error("O usuário 'ff.admin' não pode ser excluído.");
       }
+
+      // 1. Delete from Firestore
       const userDocRef = doc(db, 'users', userId);
       await deleteDoc(userDocRef);
-    } catch (error) {
+
+      // 2. Delete from Firebase Authentication
+      // This is complex because deleting a user from Auth requires admin privileges
+      // or the user to be currently signed in and deleting themselves.
+      // For an admin deleting another user, you'd typically use the Firebase Admin SDK on a backend.
+      // A client-side direct deletion of another user is not typically allowed for security reasons.
+      // For this prototype, we'll log a warning and skip Auth deletion from client-side.
+      // In a real app, this would be a backend/cloud function call.
+      console.warn(`User ${userId} deleted from Firestore. Manual deletion from Firebase Authentication console is required for full removal.`);
+      // If you had an admin SDK setup on a backend:
+      // await admin.auth().deleteUser(userId);
+      
+      // If the currently logged-in user is deleting themselves (not typical for an admin panel)
+      // if (auth.currentUser && auth.currentUser.uid === userId) {
+      //   await firebaseDeleteUser(auth.currentUser);
+      // }
+
+
+    } catch (error:any) {
       console.error("Error deleting user from Firestore:", error);
       throw error;
     }
   }, [users]);
   
   const fetchUsers = useCallback(() => {
-    // This function is kept for potential explicit fetching,
-    // but onSnapshot in useEffect already handles live updates.
-    // If called, it would re-trigger the snapshot listener setup
-    // by causing a re-render if its dependency array changes,
-    // or you could implement a direct getDocs here if needed for one-time fetch.
     console.log("fetchUsers called - onSnapshot handles live updates.");
   }, []);
 
@@ -386,7 +449,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     <AppDataContext.Provider
       value={{
         clients,
-        users, // Provide users
+        users,
         loading,
         addClient,
         updateClient,
@@ -399,7 +462,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         duplicateProject,
         importData,
         exportData,
-        addUser,     // Provide user functions
+        addUser,
         updateUser,
         deleteUser,
         fetchUsers,
