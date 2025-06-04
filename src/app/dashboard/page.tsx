@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react';
 import { useAppData } from '@/hooks/useAppData';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon } from "lucide-react"; // Removido BarChart3 pois não é usado
+import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon } from "lucide-react";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
 import { differenceInDays, parseISO, startOfDay, isBefore } from 'date-fns';
@@ -13,15 +13,16 @@ import { PROJECT_TYPES } from '@/lib/constants';
 
 const COLORS_PIE = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
-// Nomes de projetos a serem excluídos para diferentes métricas (case-insensitive)
-const EXCLUDE_BOTH_FOR_COUNTS_AND_TYPES = ["SITE LOGS", "MY BROKER"];
-const EXCLUDE_SITE_LOGS_FOR_TOTAL_CLIENTS = ["SITE LOGS"];
-const EXCLUDE_SITE_LOGS_FOR_OVERDUE = ["SITE LOGS"];
+const EXCLUDE_FOR_PROJECT_COUNTS_AND_TYPES = ["SITE LOGS", "MY BROKER"]; // Projetos a excluir de contagens gerais e tipos
+const EXCLUDE_CLIENT_NAMES_FOR_TOP_CLIENTS = ["SITE LOGS", "MY BROKER"]; // Nomes de clientes a excluir do Top 5
+const EXCLUDE_CLIENT_NAMES_FOR_TOTAL_CLIENTS = ["SITE LOGS"]; // Nomes de clientes a excluir do Total de Clientes
+const EXCLUDE_PROJECT_NAMES_FOR_TOTAL_CLIENTS_FILTER = ["SITE LOGS"]; // Projetos a excluir se forem os *únicos* de um cliente
+const EXCLUDE_PROJECT_NAMES_FOR_OVERDUE = ["SITE LOGS"]; // Projetos a excluir da lista de atrasados
+
 
 export default function DashboardMetricsPage() {
   const { clients, loading } = useAppData();
 
-  // 1. Lista bruta de todos os projetos, cada um com o nome do cliente associado.
   const rawAllProjectsWithClientName = useMemo(() => {
     return clients.reduce((acc, client) => {
       const clientProjects = client.projetos.map(p => ({ ...p, clientName: client.nome }));
@@ -29,11 +30,9 @@ export default function DashboardMetricsPage() {
     }, [] as (Project & { clientName: string })[]);
   }, [clients]);
 
-  // 2. Projetos filtrados para contagens gerais (ativos, concluídos) e gráfico de tipos
-  //    Exclui "SITE LOGS" e "MY BROKER".
   const generalFilteredProjects = useMemo(() => {
-    return rawAllProjectsWithClientName.filter(p => 
-      !EXCLUDE_BOTH_FOR_COUNTS_AND_TYPES.some(excluded => p.nome.trim().toUpperCase() === excluded.toUpperCase())
+    return rawAllProjectsWithClientName.filter(p =>
+      !EXCLUDE_FOR_PROJECT_COUNTS_AND_TYPES.some(excluded => p.nome.trim().toUpperCase() === excluded.toUpperCase())
     );
   }, [rawAllProjectsWithClientName]);
 
@@ -45,46 +44,55 @@ export default function DashboardMetricsPage() {
     return generalFilteredProjects.filter(p => p.status === "Projeto Concluído").length;
   }, [generalFilteredProjects]);
 
-  // 3. Contagem total de clientes, excluindo aqueles que SÓ têm projetos "SITE LOGS"
   const totalClientsCount = useMemo(() => {
-    return clients.filter(client => {
-      if (client.projetos.length === 0) return true; // Cliente sem projetos é contado
-      
-      // Verifica se TODOS os projetos do cliente são "SITE LOGS"
-      const allProjectsAreSiteLogs = client.projetos.every(p => 
-        EXCLUDE_SITE_LOGS_FOR_TOTAL_CLIENTS.some(excludedName => 
-            p.nome.trim().toUpperCase() === excludedName.toUpperCase()
-        )
-      );
-      // Se todos os projetos são "SITE LOGS", o cliente NÃO é contado.
-      // Caso contrário (ou seja, se pelo menos um projeto NÃO é "SITE LOGS"), o cliente é contado.
-      return !allProjectsAreSiteLogs;
-    }).length;
+    return clients
+      .filter(client => { // 1. Exclui clientes com nomes específicos
+        const clientNameUpper = client.nome.trim().toUpperCase();
+        return !EXCLUDE_CLIENT_NAMES_FOR_TOTAL_CLIENTS.some(excludedClientName =>
+          clientNameUpper === excludedClientName.toUpperCase()
+        );
+      })
+      .filter(client => { // 2. Para os restantes, exclui aqueles que SÓ têm projetos com nomes específicos
+        if (client.projetos.length === 0) return true; // Cliente sem projetos (e nome não excluído) é contado
+
+        const allProjectsAreExcludedType = client.projetos.every(p =>
+          EXCLUDE_PROJECT_NAMES_FOR_TOTAL_CLIENTS_FILTER.some(excludedProjectName =>
+              p.nome.trim().toUpperCase() === excludedProjectName.toUpperCase()
+          )
+        );
+        return !allProjectsAreExcludedType;
+      }).length;
   }, [clients]);
 
-  // 4. Top 5 clientes por número de projetos (excluindo "SITE LOGS" e "MY BROKER" da contagem de projetos)
   const clientsByProjectCount = useMemo(() => {
     return clients
-      .map(client => ({
+      .filter(client => { // 1. Exclui clientes com nomes específicos
+        const clientNameUpper = client.nome.trim().toUpperCase();
+        return !EXCLUDE_CLIENT_NAMES_FOR_TOP_CLIENTS.some(excludedClientName =>
+          clientNameUpper === excludedClientName.toUpperCase()
+        );
+      })
+      .map(client => ({ // 2. Para os restantes, conta projetos (excluindo projetos com nomes específicos)
         id: client.id,
         name: client.nome,
-        projectCount: client.projetos.filter(p => 
-            !EXCLUDE_BOTH_FOR_COUNTS_AND_TYPES.some(excluded => p.nome.trim().toUpperCase() === excluded.toUpperCase())
+        projectCount: client.projetos.filter(p =>
+            !EXCLUDE_FOR_PROJECT_COUNTS_AND_TYPES.some(excludedProjectName =>
+              p.nome.trim().toUpperCase() === excludedProjectName.toUpperCase()
+            )
         ).length,
       }))
-      .filter(client => client.projectCount > 0)
+      .filter(client => client.projectCount > 0) // 3. Mantém apenas clientes com projetos relevantes
       .sort((a, b) => b.projectCount - a.projectCount)
       .slice(0, 5);
   }, [clients]);
 
-  // 5. Top 5 projetos mais atrasados (excluindo APENAS "SITE LOGS")
   const overdueProjects = useMemo(() => {
     const today = startOfDay(new Date());
-    return rawAllProjectsWithClientName // Começa com todos os projetos brutos
-      .filter(p => // Filtra APENAS "SITE LOGS"
-        !EXCLUDE_SITE_LOGS_FOR_OVERDUE.some(excluded => p.nome.trim().toUpperCase() === excluded.toUpperCase())
+    return rawAllProjectsWithClientName
+      .filter(p =>
+        !EXCLUDE_PROJECT_NAMES_FOR_OVERDUE.some(excluded => p.nome.trim().toUpperCase() === excluded.toUpperCase())
       )
-      .filter(p => p.status !== "Projeto Concluído" && p.prazo) // Filtra não concluídos e com prazo
+      .filter(p => p.status !== "Projeto Concluído" && p.prazo)
       .map(p => {
         try {
           const deadlineDate = startOfDay(parseISO(p.prazo!));
@@ -96,7 +104,7 @@ export default function DashboardMetricsPage() {
           }
           return null;
         } catch (e) {
-          return null; 
+          return null;
         }
       })
       .filter(p => p !== null)
@@ -104,7 +112,6 @@ export default function DashboardMetricsPage() {
       .slice(0, 5);
   }, [rawAllProjectsWithClientName]);
 
-  // 6. Dados para o gráfico de pizza (baseado em generalFilteredProjects)
   const projectsByTypeChartData = useMemo(() => {
     const counts = generalFilteredProjects.reduce((acc, project) => {
       acc[project.tipo] = (acc[project.tipo] || 0) + 1;
@@ -151,7 +158,7 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeProjectsCount}</div>
-            <p className="text-xs text-muted-foreground">Total de projetos em andamento (excluindo "SITE LOGS" e "MY BROKER").</p>
+            <p className="text-xs text-muted-foreground">Total de projetos em andamento (excluindo projetos "SITE LOGS" e "MY BROKER").</p>
           </CardContent>
         </Card>
         <Card>
@@ -161,7 +168,7 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completedProjectsCount}</div>
-             <p className="text-xs text-muted-foreground">Total de projetos finalizados (excluindo "SITE LOGS" e "MY BROKER").</p>
+             <p className="text-xs text-muted-foreground">Total de projetos finalizados (excluindo projetos "SITE LOGS" e "MY BROKER").</p>
           </CardContent>
         </Card>
          <Card>
@@ -171,7 +178,7 @@ export default function DashboardMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalClientsCount}</div>
-             <p className="text-xs text-muted-foreground">Total de clientes (excluindo clientes que possuem apenas projetos "SITE LOGS").</p>
+             <p className="text-xs text-muted-foreground">Exclui clientes chamados "SITE LOGS" e aqueles que possuem apenas projetos "SITE LOGS".</p>
           </CardContent>
         </Card>
       </div>
@@ -180,7 +187,7 @@ export default function DashboardMetricsPage() {
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5 text-primary" />Top 5 Clientes por Nº de Projetos</CardTitle>
-             <CardDescription>Contagem de projetos por cliente exclui "SITE LOGS" e "MY BROKER".</CardDescription>
+             <CardDescription>Exclui clientes e projetos chamados "SITE LOGS" ou "MY BROKER".</CardDescription>
           </CardHeader>
           <CardContent>
             {clientsByProjectCount.length > 0 ? (
@@ -193,7 +200,7 @@ export default function DashboardMetricsPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhum cliente com projetos (não excluídos) para exibir.</p>
+              <p className="text-sm text-muted-foreground">Nenhum cliente (após exclusões) para exibir.</p>
             )}
           </CardContent>
         </Card>
@@ -201,7 +208,7 @@ export default function DashboardMetricsPage() {
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-destructive" />Top 5 Projetos Mais Atrasados</CardTitle>
-            <CardDescription>Apenas projetos não concluídos com prazo vencido (excluindo "SITE LOGS").</CardDescription>
+            <CardDescription>Apenas projetos não concluídos com prazo vencido (excluindo projetos "SITE LOGS").</CardDescription>
           </CardHeader>
           <CardContent>
             {overdueProjects.length > 0 ? (
@@ -217,7 +224,7 @@ export default function DashboardMetricsPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhum projeto atrasado (considerando exclusões) para exibir.</p>
+              <p className="text-sm text-muted-foreground">Nenhum projeto atrasado (após exclusões) para exibir.</p>
             )}
           </CardContent>
         </Card>
@@ -261,7 +268,7 @@ export default function DashboardMetricsPage() {
             </ChartContainer>
           ) : (
              <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-muted-foreground">Nenhum projeto (considerando exclusões) para exibir no gráfico.</p>
+                <p className="text-sm text-muted-foreground">Nenhum projeto (após exclusões) para exibir no gráfico.</p>
             </div>
           )}
         </CardContent>
@@ -269,3 +276,5 @@ export default function DashboardMetricsPage() {
     </div>
   );
 }
+
+    
