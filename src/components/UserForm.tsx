@@ -32,38 +32,31 @@ const usernameSchema = z.string().trim().min(3, {
 const roleSchema = z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." });
 
 // Schema for ADDING a new user
-const userFormSchemaAdd = z.object({
+const userFormSchemaForAdd = z.object({
   username: usernameSchema,
-  email: z.string()
-    .trim()
-    .min(1, { message: "Email é obrigatório." }) 
-    .email({ message: "Email inválido." }),
+  email: z.string().trim().nonempty({ message: "Email é obrigatório." }).email({ message: "Email inválido." }),
   role: roleSchema,
-  password: z.string()
-    .trim()
-    .min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
-  confirmPassword: z.string()
-    .trim()
-    .min(6, { message: "Confirmação de senha deve ter pelo menos 6 caracteres." }),
+  password: z.string().trim().nonempty("Senha é obrigatória.").min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
+  confirmPassword: z.string().trim().nonempty("Confirmação de senha é obrigatória.").min(6, { message: "Confirmação de senha deve ter pelo menos 6 caracteres." }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "As senhas não coincidem.",
   path: ["confirmPassword"],
 });
 
 // Schema for EDITING an existing user
-const userFormSchemaEdit = z.object({
+const userFormSchemaForEdit = z.object({
   username: usernameSchema,
-  email: z.string().trim().email({ message: "Email inválido." }).optional().or(z.literal("")),
+  email: z.string().trim().email({ message: "Email inválido." }).optional().or(z.literal("")), // Allow empty string or undefined for "no change"
   role: roleSchema,
 });
 
 // Comprehensive type for form values
 export type UserFormValues = {
   username: string;
-  email: string; 
+  email: string;
   role: 'admin' | 'user';
-  password?: string; 
-  confirmPassword?: string; 
+  password: string; // Now string, not string?
+  confirmPassword: string; // Now string, not string?
 };
 
 interface UserFormProps {
@@ -79,13 +72,13 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
   const isEditingFfAdmin = user?.username === 'ff.admin';
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(isEditing ? userFormSchemaEdit : userFormSchemaAdd),
+    resolver: zodResolver(isEditing ? userFormSchemaForEdit : userFormSchemaForAdd),
     defaultValues: {
       username: user?.username || "",
-      email: user?.email || "",
+      email: user?.email || "", // Ensure email is string
       role: user?.role || "user",
-      password: "", 
-      confirmPassword: "",
+      password: "", // Default to empty string
+      confirmPassword: "", // Default to empty string
     },
   });
   
@@ -102,6 +95,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
 
 
   const handleSubmit = async (data: UserFormValues) => {
+    console.log('UserForm handleSubmit data before calling onSubmit prop:', JSON.stringify(data)); // DEBUG LOG
     if (isEditingFfAdmin) {
       if (data.username !== 'ff.admin') {
         form.setError("username", { message: "O nome de usuário 'ff.admin' não pode ser alterado."});
@@ -112,8 +106,9 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         return;
       }
     }
-    await onSubmit(data);
-    if (!isEditing) { // Reset form only on successful ADD
+    await onSubmit(data); // This calls handleAddUserSubmit or handleEditUserSubmit
+    // Reset form only on successful ADD and if not editing
+    if (!isEditing) { 
         form.reset({ 
             username: "", 
             email: "", 
@@ -225,10 +220,9 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => {
                 onClose();
-                // Explicitly reset to initial/empty state when cancelling "add" or "edit"
                 form.reset({
-                    username: user?.username || "", // if editing, reset to original user data
-                    email: user?.email || "",    // otherwise, reset to empty
+                    username: user?.username || "",
+                    email: user?.email || "",
                     role: user?.role || "user",
                     password: "",
                     confirmPassword: ""
@@ -245,6 +239,3 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
     </Form>
   );
 }
-
-
-    
