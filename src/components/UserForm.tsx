@@ -19,7 +19,7 @@ import { DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose
 import type { User } from "@/types";
 import { useEffect } from "react";
 
-// Esquema base para campos comuns que podem ter requisitos diferentes
+// Esquema base para campos comuns
 const usernameSchema = z.string().min(3, {
   message: "O nome de usuário deve ter pelo menos 3 caracteres.",
 }).max(20, {
@@ -33,10 +33,10 @@ const roleSchema = z.enum(['admin', 'user'], { required_error: "Selecione um pap
 // Esquema para ADICIONAR um novo usuário
 const userFormSchemaAdd = z.object({
   username: usernameSchema,
-  email: z.string().email({ message: "Email inválido." }).min(1, { message: "Email é obrigatório." }), // Email obrigatório e não vazio
+  email: z.string().email({ message: "Email inválido." }).min(1, { message: "Email é obrigatório." }),
   role: roleSchema,
   password: z.string().min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
-  confirmPassword: z.string(),
+  confirmPassword: z.string().min(6, { message: "Confirmação de senha é obrigatória e deve ter pelo menos 6 caracteres." }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "As senhas não coincidem.",
   path: ["confirmPassword"],
@@ -44,14 +44,11 @@ const userFormSchemaAdd = z.object({
 
 // Esquema para EDITAR um usuário existente
 const userFormSchemaEdit = z.object({
-  username: usernameSchema, // Username ainda validado, mas pode ser desabilitado para edição exceto ff.admin
+  username: usernameSchema,
   email: z.string().email({ message: "Email inválido." }).optional().or(z.literal("")), // Email opcional na edição
   role: roleSchema,
-  // Campos de senha não estão presentes para edição neste formulário
 });
 
-// Tipo para os valores do formulário, englobando todos os campos possíveis.
-// A validação Zod específica (Add ou Edit) cuidará dos requisitos.
 export type UserFormValues = {
   username: string;
   email?: string;
@@ -92,7 +89,7 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         confirmPassword: "",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, form.reset]);
+  }, [user]);
 
 
   const handleSubmit = async (data: UserFormValues) => {
