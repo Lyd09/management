@@ -4,16 +4,16 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, History, LayoutDashboard, Menu, Home, CalendarDays } from 'lucide-react'; // Added CalendarDays
+import { LogOut, History, LayoutDashboard, Menu, Home, CalendarDays, Users as UsersIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import React from 'react';
 
 export function Header() {
-  const { isLoggedIn, logout, loadingAuth } = useAuth();
+  const { isLoggedIn, logout, loadingAuth, currentUser } = useAuth();
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
 
   if (loadingAuth || !isLoggedIn) {
-    return null;
+    return null; // Se estiver carregando ou não logado, não renderiza o header
   }
 
   return (
@@ -61,6 +61,18 @@ export function Header() {
                   </Button>
                 </Link>
               </SheetClose>
+              
+              {currentUser && currentUser.role === 'admin' && (
+                <SheetClose asChild>
+                  <Link href="/admin/users" passHref>
+                    <Button variant="ghost" className="group w-full justify-start text-base py-3">
+                      <UsersIcon className="mr-2 h-5 w-5 text-primary group-hover:text-accent-foreground" />
+                      Usuários
+                    </Button>
+                  </Link>
+                </SheetClose>
+              )}
+
               <SheetClose asChild>
                 <Link href="/updates" passHref>
                   <Button variant="ghost" className="group w-full justify-start text-base py-3">
@@ -70,6 +82,7 @@ export function Header() {
                 </Link>
               </SheetClose>
             </nav>
+            
             <div className="mt-auto">
                 <SheetClose asChild>
                     <Button variant="outline" onClick={() => { logout(); setIsSheetOpen(false); }} className="w-full text-base py-3">
@@ -88,5 +101,3 @@ export function Header() {
     </header>
   );
 }
-
-    
