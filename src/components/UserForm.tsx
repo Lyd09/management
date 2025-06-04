@@ -19,7 +19,7 @@ import { DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose
 import type { User } from "@/types";
 import { useEffect } from "react";
 
-// Esquema base para campos comuns
+// Base Zod schema for username (reusable)
 const usernameSchema = z.string().min(3, {
   message: "O nome de usuário deve ter pelo menos 3 caracteres.",
 }).max(20, {
@@ -28,33 +28,36 @@ const usernameSchema = z.string().min(3, {
   message: "Nome de usuário pode conter apenas letras, números, '.', '_' ou '-'.",
 });
 
+// Base Zod schema for role (reusable)
 const roleSchema = z.enum(['admin', 'user'], { required_error: "Selecione um papel para o usuário." });
 
-// Esquema para ADICIONAR um novo usuário
+// Schema for ADDING a new user
 const userFormSchemaAdd = z.object({
   username: usernameSchema,
-  email: z.string().email({ message: "Email inválido." }).min(1, { message: "Email é obrigatório." }),
+  email: z.string().trim().min(1, { message: "Email é obrigatório." }).email({ message: "Email inválido." }),
   role: roleSchema,
   password: z.string().min(6, { message: "A senha deve ter pelo menos 6 caracteres." }),
   confirmPassword: z.string().min(6, { message: "Confirmação de senha é obrigatória e deve ter pelo menos 6 caracteres." }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "As senhas não coincidem.",
-  path: ["confirmPassword"],
+  path: ["confirmPassword"], // Apply error to confirmPassword field
 });
 
-// Esquema para EDITAR um usuário existente
+// Schema for EDITING an existing user
 const userFormSchemaEdit = z.object({
   username: usernameSchema,
-  email: z.string().email({ message: "Email inválido." }).optional().or(z.literal("")), // Email opcional na edição
+  email: z.string().trim().email({ message: "Email inválido." }).optional().or(z.literal("")), // Email can be empty (to signify no change) or a valid email
   role: roleSchema,
+  // Password fields are not included for editing in this form
 });
 
+// Comprehensive type for form values
 export type UserFormValues = {
   username: string;
-  email?: string;
+  email: string; // Will be validated by Zod (required for add, optional/empty for edit)
   role: 'admin' | 'user';
-  password?: string;
-  confirmPassword?: string;
+  password?: string; // Only relevant and validated for 'add'
+  confirmPassword?: string; // Only relevant and validated for 'add'
 };
 
 interface UserFormProps {
@@ -73,10 +76,10 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
     resolver: zodResolver(isEditing ? userFormSchemaEdit : userFormSchemaAdd),
     defaultValues: {
       username: user?.username || "",
-      email: user?.email || "",
+      email: user?.email || "", // Email defaults to empty, Zod validation handles requirement for add
       role: user?.role || "user",
-      password: "",
-      confirmPassword: "",
+      password: "", // Always default to empty
+      confirmPassword: "", // Always default to empty
     },
   });
   
@@ -103,6 +106,9 @@ export function UserForm({ user, onSubmit, onClose, currentUserIsAdmin, editingS
         return;
       }
     }
+    // For "add" (isEditing is false), password will be present in data due to userFormSchemaAdd
+    // For "edit" (isEditing is true), password fields are not in userFormSchemaEdit, so data.password will be from defaultValues (empty string) or undefined
+    // The onSubmit prop function (handleAddUserSubmit or handleEditUserSubmit) will decide what to do with the password field
     await onSubmit(data);
   };
 
