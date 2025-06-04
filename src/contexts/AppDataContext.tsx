@@ -20,7 +20,7 @@ import {
   serverTimestamp,
   Timestamp,
   setDoc,
-  where // Importar where
+  where
 } from 'firebase/firestore';
 import { 
     createUserWithEmailAndPassword, 
@@ -128,12 +128,12 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
 
     setLoading(true);
-    const clientsCollectionRef = collection(db, 'clients');
+    const clientsCollectionRef = collection(db, 'clientes'); // MODIFICADO AQUI
     
     // Filter clients by creatorUserId
     const q = query(
       clientsCollectionRef, 
-      where('creatorUserId', '==', loggedInUserFromAuthContext.id), // <--- FILTRO APLICADO
+      where('creatorUserId', '==', loggedInUserFromAuthContext.id), 
       orderBy('createdAt', 'desc')
     );
 
@@ -150,7 +150,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
           projetos: [],
         };
 
-        const projectsCollectionRef = collection(db, 'clients', clientDoc.id, 'projects');
+        const projectsCollectionRef = collection(db, 'clientes', clientDoc.id, 'projects'); // MODIFICADO AQUI
         const projectsSnapshot = await getDocs(projectsCollectionRef);
         
         client.projetos = projectsSnapshot.docs.map(projectDoc => {
@@ -172,7 +172,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
 
     return () => unsubscribeClients();
-  }, [loggedInUserFromAuthContext, toast]); // Add loggedInUserFromAuthContext to dependencies
+  }, [loggedInUserFromAuthContext, toast]); 
 
   const addClient = useCallback(async (nome: string, prioridade?: PriorityType) => {
     if (!loggedInUserFromAuthContext) {
@@ -181,7 +181,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         return;
     }
     try {
-      await addDoc(collection(db, 'clients'), {
+      await addDoc(collection(db, 'clientes'), { // MODIFICADO AQUI
         nome,
         prioridade: prioridade || "Média",
         creatorUserId: loggedInUserFromAuthContext.id,
@@ -195,13 +195,11 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const updateClient = useCallback(async (clientId: string, nome: string, prioridade?: PriorityType) => {
     try {
-      const clientDocRef = doc(db, 'clients', clientId);
+      const clientDocRef = doc(db, 'clientes', clientId); // MODIFICADO AQUI
       const updateData: Partial<FirebaseClientDoc> = { nome };
       if (prioridade) {
         updateData.prioridade = prioridade;
       }
-      // Ensure creatorUserId is not accidentally changed
-      // delete (updateData as any).creatorUserId; 
       await updateDoc(clientDocRef, updateData as any);
     } catch (error) {
       console.error("Error updating client in Firestore:", error);
@@ -211,13 +209,13 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const deleteClient = useCallback(async (clientId: string) => {
     try {
-      const clientDocRef = doc(db, 'clients', clientId);
-      const projectsCollectionRef = collection(db, 'clients', clientId, 'projects');
+      const clientDocRef = doc(db, 'clientes', clientId); // MODIFICADO AQUI
+      const projectsCollectionRef = collection(db, 'clientes', clientId, 'projects'); // MODIFICADO AQUI
       const projectsSnapshot = await getDocs(projectsCollectionRef);
 
       const batch = writeBatch(db);
       projectsSnapshot.docs.forEach(projectDoc => {
-        batch.delete(doc(db, 'clients', clientId, 'projects', projectDoc.id));
+        batch.delete(doc(db, 'clientes', clientId, 'projects', projectDoc.id)); // MODIFICADO AQUI
       });
       batch.delete(clientDocRef);
       await batch.commit();
@@ -238,7 +236,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         return;
     }
     try {
-      const projectsCollectionRef = collection(db, 'clients', clientId, 'projects');
+      const projectsCollectionRef = collection(db, 'clientes', clientId, 'projects'); // MODIFICADO AQUI
       const newProjectData: Omit<FirebaseProjectDoc, 'createdAt' | 'assignedUserId'> = {
         nome: projectData.nome,
         tipo: projectData.tipo,
@@ -264,9 +262,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const updateProject = useCallback(async (clientId: string, projectId: string, projectData: Partial<Omit<Project, 'creatorUserId'>>) => {
     try {
-      const projectDocRef = doc(db, 'clients', clientId, 'projects', projectId);
+      const projectDocRef = doc(db, 'clientes', clientId, 'projects', projectId); // MODIFICADO AQUI
       const dataToUpdate = {...projectData} as any;
-      // Ensure creatorUserId is not accidentally changed
       delete dataToUpdate.creatorUserId;
 
       if (dataToUpdate.checklist) {
@@ -290,7 +287,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const deleteProject = useCallback(async (clientId: string, projectId: string) => {
     try {
-      const projectDocRef = doc(db, 'clients', clientId, 'projects', projectId);
+      const projectDocRef = doc(db, 'clientes', clientId, 'projects', projectId); // MODIFICADO AQUI
       await deleteDoc(projectDocRef);
     } catch (error) {
       console.error("Error deleting project from Firestore:", error);
@@ -319,20 +316,18 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const duplicatedProjectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number } = {
       nome: `${originalProject.nome} (Cópia)`,
       tipo: originalProject.tipo,
-      status: originalProject.status, // Consider resetting status to an initial one
+      status: originalProject.status, 
       descricao: originalProject.descricao,
-      prazo: originalProject.prazo, // Consider clearing or adjusting the deadline
-      dataConclusao: undefined, // Duplicates should not start as completed
+      prazo: originalProject.prazo, 
+      dataConclusao: undefined, 
       notas: originalProject.notas,
       prioridade: originalProject.prioridade,
       valor: originalProject.valor,
-      // Ensure checklist items get new IDs
       checklist: originalProject.checklist.map(item => ({
         id: uuidv4(),
         item: item.item,
-        feito: false, // Reset checklist item status
+        feito: false, 
       })),
-      // creatorUserId will be set by addProject
     };
 
     try {
@@ -355,11 +350,10 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [clients, users, toast]);
 
   const addUser = useCallback(async (userData: Omit<User, 'id' | 'createdAt'> & { password?: string }) => {
-    // console.log('AppDataContext addUser received userData.password:', userData.password);
+    console.log('AppDataContext addUser received userData.password:', userData.password);
     const email = userData.email || ""; 
     const password = userData.password || ""; 
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _passwordVal, ...firestoreData } = userData; 
 
     try {
@@ -530,6 +524,5 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     </AppDataContext.Provider>
   );
 };
-
 
     
