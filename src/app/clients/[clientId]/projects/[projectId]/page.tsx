@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import type { Project, ProjectType, PriorityType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 export default function ProjectEditPage() {
   const params = useParams();
@@ -17,7 +18,7 @@ export default function ProjectEditPage() {
   const clientId = typeof params.clientId === 'string' ? params.clientId : '';
   const projectId = typeof params.projectId === 'string' ? params.projectId : '';
 
-  const { getProjectById, updateProject, loading, getClientById } = useAppData(); // Added getClientById
+  const { getProjectById, updateProject, loading, getClientById } = useAppData();
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [clientName, setClientName] = useState<string>('');
@@ -38,22 +39,35 @@ export default function ProjectEditPage() {
     }
   }, [clientId, projectId, getProjectById, getClientById, loading, router, toast]);
 
-  const handleUpdateProject = (data: ProjectFormValues) => {
+  const handleUpdateProject = (data: ProjectFormValues) => { // data.prazo e data.dataConclusao aqui são Date | undefined
     if (!project || !clientId) return;
     
+    // ProjectFormValues tem prazo e dataConclusao como Date | undefined.
+    // ProjectForm.handleSubmitLogic formata para string "yyyy-MM-dd" ou undefined antes de chamar este onSubmit.
+    // Então, o 'data' recebido aqui já tem as datas formatadas como string ou undefined.
+
     const updatedProjectData: Partial<Project> = {
       nome: data.nome,
       tipo: data.tipo as ProjectType,
       status: data.status,
       prioridade: data.prioridade as PriorityType, 
       descricao: data.descricao,
-      prazo: data.prazo as (string | undefined), 
-      valor: data.valor, // Adicionado valor
+      prazo: data.prazo, // Já é string "yyyy-MM-dd" ou undefined
+      valor: data.valor,
       notas: data.notas,
       checklist: data.checklist || [],
+      dataConclusao: data.dataConclusao, // Já é string "yyyy-MM-dd" ou undefined
     };
     
-    updateProject(clientId, project.id, updatedProjectData);
+    // Remover campos que são undefined para evitar problemas com o Firestore
+    const cleanUpdateData: Partial<Project> = {};
+    for (const key in updatedProjectData) {
+      if (updatedProjectData[key as keyof Partial<Project>] !== undefined) {
+        (cleanUpdateData as any)[key] = updatedProjectData[key as keyof Partial<Project>];
+      }
+    }
+    
+    updateProject(clientId, project.id, cleanUpdateData);
     toast({ title: "Projeto Atualizado", description: `O projeto ${data.nome} foi atualizado com sucesso.` });
     router.push(`/clients/${clientId}`);
   };
