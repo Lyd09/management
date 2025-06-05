@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -21,27 +20,53 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import type { Client, User } from '@/types';
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { Client, User, Project } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
 interface DelegateClientDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   client: Client;
-  users: User[]; // Lista de usuários para quem delegar (excluindo o admin atual)
-  onConfirm: (targetUserId: string, newClientName?: string) => Promise<boolean>;
+  projects: Project[]; // Lista de projetos do cliente original
+  users: User[]; // Lista de usuários para quem delegar
+  onConfirm: (targetUserId: string, selectedProjectIds: string[], newClientName?: string) => Promise<boolean>;
 }
 
 export function DelegateClientDialog({
   isOpen,
   onOpenChange,
   client,
+  projects,
   users,
   onConfirm,
 }: DelegateClientDialogProps) {
   const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [newClientName, setNewClientName] = useState<string>(client.nome); // Pré-popula com o nome original
+  const [newClientName, setNewClientName] = useState<string>('');
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (isOpen) {
+      setNewClientName(client.nome); // Pré-popula com o nome original ao abrir
+      // Inicializa todos os projetos como não selecionados
+      const initialSelectedProjects: Record<string, boolean> = {};
+      projects.forEach(p => initialSelectedProjects[p.id] = false);
+      setSelectedProjectIds(initialSelectedProjects);
+      setSelectedUserId(''); // Reseta o usuário selecionado
+    }
+  }, [isOpen, client.nome, projects]);
+
+  const handleProjectSelectionChange = (projectId: string, checked: boolean) => {
+    setSelectedProjectIds(prev => ({ ...prev, [projectId]: checked }));
+  };
+
+  const getFinalSelectedProjectIds = (): string[] => {
+    return Object.entries(selectedProjectIds)
+      .filter(([, isSelected]) => isSelected)
+      .map(([projectId]) => projectId);
+  };
 
   const handleConfirm = async () => {
     if (!selectedUserId) {
@@ -53,32 +78,35 @@ export function DelegateClientDialog({
         return;
     }
 
-    const success = await onConfirm(selectedUserId, newClientName.trim());
+    const finalProjectIdsToDelegate = getFinalSelectedProjectIds();
+    // Opcional: Adicionar um toast se nenhum projeto for selecionado, mas ainda prosseguir
+    if (finalProjectIdsToDelegate.length === 0) {
+        toast({ title: "Aviso", description: `Nenhum projeto selecionado. Apenas o cliente "${newClientName.trim()}" será delegado.`, duration: 4000 });
+    }
+
+    const success = await onConfirm(selectedUserId, finalProjectIdsToDelegate, newClientName.trim());
     if (success) {
-      onOpenChange(false); // Fecha o diálogo em caso de sucesso
-      setSelectedUserId(''); // Reset
-      setNewClientName(client.nome); // Reset
+      onOpenChange(false); 
     }
   };
 
   const handleCancel = () => {
     onOpenChange(false);
-    setSelectedUserId('');
-    setNewClientName(client.nome);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Delegar Cópia do Cliente: {client.nome}</DialogTitle>
           <DialogDescription>
-            Selecione um usuário para receber uma cópia deste cliente e seus projetos.
-            Campos como descrição, valor e notas gerais dos projetos não serão incluídos na cópia.
-            O checklist dos projetos será resetado (todos os itens como não feitos) e o status será o inicial.
+            Selecione um usuário, os projetos a serem copiados (opcional) e um nome para o cliente delegado.
+            Campos como descrição, valor e notas gerais dos projetos não serão incluídos.
+            O checklist dos projetos copiados será resetado e o status será o inicial.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        
+        <div className="space-y-4 py-2 flex-grow overflow-y-auto pr-2">
           <div className="space-y-2">
             <Label htmlFor="targetUser">Usuário de Destino</Label>
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
@@ -109,12 +137,42 @@ export function DelegateClientDialog({
                 placeholder="Nome do cliente para o usuário destino"
             />
           </div>
+
+          {projects.length > 0 && (
+            <div className="space-y-2">
+              <Label>Selecionar Projetos para Delegar (Opcional)</Label>
+              <ScrollArea className="h-[200px] w-full rounded-md border p-3">
+                <div className="space-y-2">
+                  {projects.map((project) => (
+                    <div key={project.id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded-md">
+                      <Checkbox
+                        id={`project-select-${project.id}`}
+                        checked={selectedProjectIds[project.id] || false}
+                        onCheckedChange={(checked) => handleProjectSelectionChange(project.id, !!checked)}
+                      />
+                      <Label htmlFor={`project-select-${project.id}`} className="font-normal cursor-pointer flex-grow">
+                        {project.nome} <span className="text-xs text-muted-foreground">({project.tipo})</span>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+          {projects.length === 0 && (
+            <p className="text-sm text-muted-foreground">Este cliente não possui projetos para delegar.</p>
+          )}
         </div>
-        <DialogFooter>
+
+        <DialogFooter className="mt-auto pt-4 border-t">
           <Button type="button" variant="outline" onClick={handleCancel}>
             Cancelar
           </Button>
-          <Button type="button" onClick={handleConfirm} disabled={!selectedUserId || users.length === 0 || !newClientName.trim()}>
+          <Button 
+            type="button" 
+            onClick={handleConfirm} 
+            disabled={!selectedUserId || users.length === 0 || !newClientName.trim()}
+          >
             Confirmar Delegação
           </Button>
         </DialogFooter>

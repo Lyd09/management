@@ -298,16 +298,16 @@ export default function ClientDetailPage() {
     }
   };
 
-  const handleDelegateClient = async (targetUserId: string, newClientName?: string) => {
+  const handleDelegateClient = async (targetUserId: string, selectedProjectIds: string[], newClientName?: string) => {
     if (!client || !currentUser || currentUser.role !== 'admin') {
       toast({ variant: "destructive", title: "Ação não permitida" });
-      return;
+      return false;
     }
-    const success = await assignClientCopyToUser(client.id, targetUserId, newClientName);
+    const success = await assignClientCopyToUser(client.id, targetUserId, selectedProjectIds, newClientName);
     if (success) {
       setIsDelegateDialogOpen(false);
-      // Não redireciona, o admin pode querer continuar na página ou delegar para outro.
     }
+    return success;
   };
 
 
@@ -331,7 +331,7 @@ export default function ClientDetailPage() {
       const priorityMatch = priorityFilter === "Todos" || project.prioridade === priorityFilter;
       const deadlineMatch = deadlineFilter === "Todos" || categorizeDeadline(project.prazo) === deadlineFilter;
       return typeMatch && statusMatch && priorityMatch && deadlineMatch;
-    }).sort((a, b) => { // Ordenar projetos aqui
+    }).sort((a, b) => { 
         const priorityOrder: Record<PriorityType, number> = { "Alta": 1, "Média": 2, "Baixa": 3 };
         const aPriority = priorityOrder[a.prioridade || "Baixa"] || 3;
         const bPriority = priorityOrder[b.prioridade || "Baixa"] || 3;
@@ -340,8 +340,8 @@ export default function ClientDetailPage() {
         const aDeadline = a.prazo ? parseISO(a.prazo) : null;
         const bDeadline = b.prazo ? parseISO(b.prazo) : null;
         if (aDeadline && bDeadline) return differenceInDays(aDeadline, bDeadline);
-        if (aDeadline) return -1; // Projetos com prazo primeiro
-        if (bDeadline) return 1;  // Projetos com prazo primeiro
+        if (aDeadline) return -1; 
+        if (bDeadline) return 1;  
         return 0;
     });
   }, [client, typeFilter, statusFilter, priorityFilter, deadlineFilter]);
@@ -599,7 +599,8 @@ export default function ClientDetailPage() {
           isOpen={isDelegateDialogOpen}
           onOpenChange={setIsDelegateDialogOpen}
           client={client}
-          users={users.filter(u => u.id !== currentUser.id)} // Pass only other users
+          projects={client.projetos} // Passar os projetos do cliente aqui
+          users={users.filter(u => u.id !== currentUser.id)}
           onConfirm={handleDelegateClient}
         />
       )}

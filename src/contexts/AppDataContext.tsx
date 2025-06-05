@@ -84,7 +84,7 @@ interface AppDataContextType {
   updateUser: (userId: string, userData: Partial<Omit<User, 'id' | 'createdAt'>> & { newPassword?: string }) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   fetchUsers: () => void;
-  assignClientCopyToUser: (originalClientId: string, targetUserId: string, newClientName?: string) => Promise<boolean>;
+  assignClientCopyToUser: (originalClientId: string, targetUserId: string, selectedProjectIds: string[], newClientName?: string) => Promise<boolean>;
 }
 
 export const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -117,10 +117,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
 
   useEffect(() => {
-    // console.log(`[AppDataContext] loggedInUserFromAuthContext updated in AppDataContext:`, loggedInUserFromAuthContext);
-
     if (!loggedInUserFromAuthContext || !loggedInUserFromAuthContext.id) {
-      // console.log('[AppDataContext] No logged in user or no user ID, clearing clients and setting loading to false.');
       setClients([]);
       setLoading(false);
       return;
@@ -128,27 +125,16 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     setLoading(true);
     const userIdToQuery = loggedInUserFromAuthContext.id;
-    // console.log(`[AppDataContext] Preparing to query. User ID from context: ${userIdToQuery}.`);
-
     const clientesCollectionRef = collection(db, COLLECTION_NAME);
-    // console.log(`[AppDataContext] Querying collection path: ${clientesCollectionRef.path}`);
-
+    
     const q = query(
       clientesCollectionRef,
       where('creatorUserId', '==', userIdToQuery),
       orderBy('createdAt', 'desc')
     );
-    // console.log(`[AppDataContext] Current query: where('creatorUserId', '==', '${userIdToQuery}') and ordered by 'createdAt' desc for collection '${COLLECTION_NAME}'.`);
-
-
+    
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
-      // console.log(`[AppDataContext] Raw querySnapshot docs for ${COLLECTION_NAME} (where creatorUserId == ${userIdToQuery}): ${querySnapshot.docs.length} docs found.`);
-
       const clientsData: Client[] = [];
-      // if (querySnapshot.docs.length > 0) {
-      //   querySnapshot.docs.forEach(doc => console.log(`[AppDataContext] Client doc data from ${COLLECTION_NAME}:`, doc.id, doc.data()));
-      // }
-
       for (const clientDoc of querySnapshot.docs) {
         const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
 
@@ -165,7 +151,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         const projectsQuery = query(projectsCollectionRef, orderBy('createdAt', 'desc'));
         const projectsSnapshot = await getDocs(projectsQuery);
 
-
         client.projetos = projectsSnapshot.docs.map(projectDoc => {
           const projectFirebaseData = projectDoc.data() as FirebaseProjectDoc;
           return {
@@ -175,7 +160,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         });
         clientsData.push(client);
       }
-      // console.log(`[AppDataContext] Processed ${COLLECTION_NAME}Data to be set for ${COLLECTION_NAME}:`, clientsData);
       setClients(clientsData);
       setLoading(false);
     }, (error) => {
@@ -190,7 +174,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const addClient = useCallback(async (nome: string, prioridade?: PriorityType) => {
     if (!loggedInUserFromAuthContext) {
-        console.error("Não é possível adicionar cliente: usuário não logado.");
         toast({ variant: "destructive", title: "Erro de Autenticação", description: "Você precisa estar logado para adicionar clientes." });
         return;
     }
@@ -202,7 +185,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         createdAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error(`Error adding client to ${COLLECTION_NAME} in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Adicionar Cliente", description: "Não foi possível adicionar o cliente." });
     }
   }, [loggedInUserFromAuthContext, toast]);
@@ -216,7 +198,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
       await updateDoc(clientDocRef, updateData as any);
     } catch (error) {
-      console.error(`Error updating client in ${COLLECTION_NAME} in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Atualizar Cliente", description: "Não foi possível atualizar o cliente." });
     }
   }, [toast]);
@@ -234,7 +215,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       batch.delete(clientDocRef);
       await batch.commit();
     } catch (error) {
-      console.error(`Error deleting client and their projects from ${COLLECTION_NAME} in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Excluir Cliente", description: "Não foi possível excluir o cliente e seus projetos." });
     }
   }, [toast]);
@@ -245,7 +225,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const addProject = useCallback(async (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number }) => {
     if (!loggedInUserFromAuthContext) {
-        console.error("Não é possível adicionar projeto: usuário não logado.");
         toast({ variant: "destructive", title: "Erro de Autenticação", description: "Você precisa estar logado para adicionar projetos." });
         return;
     }
@@ -269,7 +248,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         createdAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error(`Error adding project to ${COLLECTION_NAME}/${clientId}/projects in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Adicionar Projeto", description: "Não foi possível adicionar o projeto." });
     }
   }, [loggedInUserFromAuthContext, toast]);
@@ -294,7 +272,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       await updateDoc(projectDocRef, dataToUpdate);
     } catch (error) {
-      console.error(`Error updating project in ${COLLECTION_NAME}/${clientId}/projects in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Atualizar Projeto", description: "Não foi possível atualizar o projeto." });
     }
   }, [toast]);
@@ -304,7 +281,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       const projectDocRef = doc(db, COLLECTION_NAME, clientId, 'projects', projectId);
       await deleteDoc(projectDocRef);
     } catch (error) {
-      console.error(`Error deleting project from ${COLLECTION_NAME}/${clientId}/projects in Firestore:`, error);
       toast({ variant: "destructive", title: "Erro ao Excluir Projeto", description: "Não foi possível excluir o projeto." });
     }
   }, [toast]);
@@ -316,13 +292,11 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const duplicateProject = useCallback(async (clientId: string, projectIdToDuplicate: string) => {
     if (!loggedInUserFromAuthContext) {
-        console.error("Não é possível duplicar projeto: usuário não logado.");
         toast({ variant: "destructive", title: "Erro de Autenticação", description: "Você precisa estar logado para duplicar projetos." });
         return;
     }
     const originalProject = getProjectById(clientId, projectIdToDuplicate);
     if (!originalProject) {
-      console.error("Projeto original não encontrado para duplicação.");
       toast({ variant: "destructive", title: "Erro ao Duplicar", description: "Projeto original não encontrado." });
       return;
     }
@@ -352,7 +326,12 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [addProject, getProjectById, loggedInUserFromAuthContext, toast]);
 
 
-  const assignClientCopyToUser = useCallback(async (originalClientId: string, targetUserId: string, newClientName?: string): Promise<boolean> => {
+  const assignClientCopyToUser = useCallback(async (
+    originalClientId: string, 
+    targetUserId: string, 
+    selectedProjectIds: string[], 
+    newClientName?: string
+  ): Promise<boolean> => {
     if (!loggedInUserFromAuthContext || loggedInUserFromAuthContext.role !== 'admin') {
       toast({ variant: "destructive", title: "Não Autorizado", description: "Apenas administradores podem delegar clientes." });
       return false;
@@ -378,50 +357,55 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       };
       batch.set(newClientDocRef, clientDataForNewUser);
 
-      const originalProjectsColRef = collection(db, COLLECTION_NAME, originalClientId, 'projects');
-      const originalProjectsSnapshot = await getDocs(originalProjectsColRef);
+      if (selectedProjectIds && selectedProjectIds.length > 0) {
+        const originalProjectsColRef = collection(db, COLLECTION_NAME, originalClientId, 'projects');
+        const originalProjectsSnapshot = await getDocs(query(originalProjectsColRef, where(document.getId(), 'in', selectedProjectIds)));
 
-      originalProjectsSnapshot.forEach(projectDoc => {
-        const originalProjectData = projectDoc.data() as FirebaseProjectDoc;
-        const newProjectDocRef = doc(collection(db, COLLECTION_NAME, newClientDocRef.id, 'projects'));
 
-        const defaultPriority: PriorityType = "Média";
-        let projectPriorityToSet: PriorityType;
-
-        if (originalProjectData.prioridade && PRIORITIES.includes(originalProjectData.prioridade)) {
-          projectPriorityToSet = originalProjectData.prioridade;
-        } else {
-          projectPriorityToSet = defaultPriority;
-        }
-        
-        const projectDataForBatch: Partial<FirebaseProjectDoc> = {
-            nome: originalProjectData.nome,
-            tipo: originalProjectData.tipo,
-            status: INITIAL_PROJECT_STATUS(originalProjectData.tipo),
-            checklist: originalProjectData.checklist.map(item => ({ ...item, id: uuidv4(), feito: false })),
-            creatorUserId: targetUserId,
-            prioridade: projectPriorityToSet,
-            createdAt: serverTimestamp() as Timestamp,
-            // descricao, valor, notas, dataConclusao, assignedUserId are intentionally omitted
-        };
-
-        if (originalProjectData.prazo !== undefined) {
-            projectDataForBatch.prazo = originalProjectData.prazo;
-        }
-        
-        // Defensive step: Ensure no undefined values are in projectDataForBatch before setting
-        // Firestore should strip top-level undefined fields, but this makes it explicit for nested or other cases.
-        (Object.keys(projectDataForBatch) as Array<keyof Partial<FirebaseProjectDoc>>).forEach(key => {
-          if (projectDataForBatch[key] === undefined) {
-            delete projectDataForBatch[key];
+        originalProjectsSnapshot.docs.forEach(projectDoc => {
+          // Verifique se o ID do projeto está na lista de selecionados (redundante se a query 'in' funcionar perfeitamente, mas seguro)
+           if (!selectedProjectIds.includes(projectDoc.id)) {
+            return; 
           }
-        });
 
-        batch.set(newProjectDocRef, projectDataForBatch);
-      });
+          const originalProjectData = projectDoc.data() as FirebaseProjectDoc;
+          const newProjectDocRef = doc(collection(db, COLLECTION_NAME, newClientDocRef.id, 'projects'));
+
+          const defaultPriority: PriorityType = "Média";
+          let projectPriorityToSet: PriorityType;
+
+          if (originalProjectData.prioridade && PRIORITIES.includes(originalProjectData.prioridade)) {
+            projectPriorityToSet = originalProjectData.prioridade;
+          } else {
+            projectPriorityToSet = defaultPriority;
+          }
+          
+          const projectDataForBatch: Partial<FirebaseProjectDoc> = {
+              nome: originalProjectData.nome,
+              tipo: originalProjectData.tipo,
+              status: INITIAL_PROJECT_STATUS(originalProjectData.tipo),
+              checklist: originalProjectData.checklist.map(item => ({ ...item, id: uuidv4(), feito: false })),
+              creatorUserId: targetUserId,
+              prioridade: projectPriorityToSet,
+              createdAt: serverTimestamp() as Timestamp,
+          };
+          if (originalProjectData.prazo !== undefined) {
+              projectDataForBatch.prazo = originalProjectData.prazo;
+          }
+          
+          // Remover quaisquer campos undefined antes de enviar para o batch
+          (Object.keys(projectDataForBatch) as Array<keyof Partial<FirebaseProjectDoc>>).forEach(key => {
+            if (projectDataForBatch[key] === undefined) {
+              delete projectDataForBatch[key];
+            }
+          });
+
+          batch.set(newProjectDocRef, projectDataForBatch);
+        });
+      }
 
       await batch.commit();
-      toast({ title: "Cliente Delegado", description: `Cópia de "${clientDataForNewUser.nome}" enviada para o usuário selecionado.` });
+      toast({ title: "Cliente Delegado", description: `Cópia de "${clientDataForNewUser.nome}" ${selectedProjectIds.length > 0 ? `com ${selectedProjectIds.length} projeto(s) selecionado(s)` : ''} enviada para o usuário selecionado.` });
       return true;
     } catch (error: any) {
       console.error("Error delegating client copy:", error);
@@ -586,7 +570,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [users, toast]);
 
   const fetchUsers = useCallback(() => {
-    // console.log("fetchUsers called - onSnapshot provides live updates.");
   }, []);
 
 
@@ -618,5 +601,3 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     </AppDataContext.Provider>
   );
 };
-
-    
