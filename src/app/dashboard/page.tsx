@@ -5,10 +5,10 @@ import React, { useMemo } from 'react';
 import { useAppData } from '@/hooks/useAppData';
 import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon } from "lucide-react";
+import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon, DollarSign } from "lucide-react";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
-import { differenceInDays, parseISO, startOfDay, isBefore, getYear, getMonth } from 'date-fns';
+import { differenceInDays, parseISO, startOfDay, isBefore, getYear, getMonth, isValid } from 'date-fns';
 import type { Project, ProjectType } from '@/types';
 import { PROJECT_TYPES } from '@/lib/constants';
 
@@ -32,9 +32,9 @@ export default function DashboardMetricsPage() {
 
   const rawAllProjectsWithClientName = useMemo(() => {
     return clients.reduce((acc, client) => {
-      const clientProjects = client.projetos.map(p => ({ ...p, clientName: client.nome }));
+      const clientProjects = client.projetos.map(p => ({ ...p, clientName: client.nome, clientId: client.id }));
       return acc.concat(clientProjects);
-    }, [] as (Project & { clientName: string })[]);
+    }, [] as (Project & { clientName: string, clientId: string })[]);
   }, [clients]);
 
   const generalFilteredProjects = useMemo(() => {
@@ -154,6 +154,29 @@ export default function DashboardMetricsPage() {
     return config;
   }, []);
 
+  const totalValorMesCorrente = useMemo(() => {
+    const now = new Date();
+    const currentYear = getYear(now);
+    const currentMonth = getMonth(now); // 0-indexed
+
+    return generalFilteredProjects.reduce((sum, project) => {
+      if (
+        project.status === "Projeto Concluído" &&
+        project.valor &&
+        typeof project.valor === 'number' &&
+        project.valor > 0 &&
+        project.dataConclusao &&
+        isValid(parseISO(project.dataConclusao))
+      ) {
+        const conclusaoDate = parseISO(project.dataConclusao);
+        if (getYear(conclusaoDate) === currentYear && getMonth(conclusaoDate) === currentMonth) {
+          return sum + project.valor;
+        }
+      }
+      return sum;
+    }, 0);
+  }, [generalFilteredProjects]);
+
 
   if (loading) {
     return (
@@ -168,7 +191,7 @@ export default function DashboardMetricsPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-primary">Dashboard de Métricas</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> {/* Adjusted lg:grid-cols-4 to lg:grid-cols-3 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Projetos Ativos</CardTitle>
@@ -205,7 +228,21 @@ export default function DashboardMetricsPage() {
             )}
           </CardContent>
         </Card>
-        {/* Card de Valor Total do Mês foi removido daqui */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total do Mês R$</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValorMesCorrente)}
+            </div>
+            <p className="text-xs text-muted-foreground">Soma de projetos concluídos este mês</p>
+             {currentUser?.role === 'admin' && (
+              <p className="text-xs text-muted-foreground mt-1">SITE LOGS e MY BROKER não inclusos</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -305,3 +342,6 @@ export default function DashboardMetricsPage() {
     </div>
   );
 }
+
+
+    
