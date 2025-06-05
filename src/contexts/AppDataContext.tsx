@@ -32,7 +32,7 @@ import {
 } from 'firebase/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { INITIAL_PROJECT_STATUS } from '@/lib/constants';
+import { INITIAL_PROJECT_STATUS, PRIORITIES } from '@/lib/constants';
 
 interface FirebaseClientDoc {
   nome: string;
@@ -89,7 +89,7 @@ interface AppDataContextType {
 
 export const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
-const COLLECTION_NAME = 'clients';
+const COLLECTION_NAME = 'clients'; // Use 'clients' as per user's request
 
 export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -162,7 +162,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         };
 
         const projectsCollectionRef = collection(db, COLLECTION_NAME, clientDoc.id, 'projects');
-        const projectsQuery = query(projectsCollectionRef, orderBy('createdAt', 'desc')); // Order projects as well
+        const projectsQuery = query(projectsCollectionRef, orderBy('createdAt', 'desc'));
         const projectsSnapshot = await getDocs(projectsQuery);
 
 
@@ -330,17 +330,17 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const duplicatedProjectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number } = {
       nome: `${originalProject.nome} (Cópia)`,
       tipo: originalProject.tipo,
-      status: originalProject.status, // Manter o status, mas sem data de conclusão
+      status: originalProject.status, 
       descricao: originalProject.descricao,
       prazo: originalProject.prazo,
-      dataConclusao: undefined, // Certificar que a data de conclusão não seja copiada
+      dataConclusao: undefined, 
       notas: originalProject.notas,
       prioridade: originalProject.prioridade,
       valor: originalProject.valor,
       checklist: originalProject.checklist.map(item => ({
         id: uuidv4(),
         item: item.item,
-        feito: false, // Resetar o checklist
+        feito: false, 
       })),
     };
 
@@ -369,35 +369,40 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const batch = writeBatch(db);
 
-      // 1. Create new client for target user
-      const newClientDocRef = doc(collection(db, COLLECTION_NAME)); // Auto-generate ID
+      const newClientDocRef = doc(collection(db, COLLECTION_NAME)); 
       const clientDataForNewUser: FirebaseClientDoc = {
-        nome: newClientName || originalClientData.nome, // Use new name if provided, else original
+        nome: newClientName || originalClientData.nome, 
         creatorUserId: targetUserId,
-        prioridade: originalClientData.prioridade,
-        createdAt: serverTimestamp() as Timestamp, // Cast for type safety
+        prioridade: originalClientData.prioridade || "Média", 
+        createdAt: serverTimestamp() as Timestamp, 
       };
       batch.set(newClientDocRef, clientDataForNewUser);
 
-      // 2. Get original projects
       const originalProjectsColRef = collection(db, COLLECTION_NAME, originalClientId, 'projects');
       const originalProjectsSnapshot = await getDocs(originalProjectsColRef);
 
-      // 3. Create cleaned copies of projects under the new client
       originalProjectsSnapshot.forEach(projectDoc => {
         const originalProjectData = projectDoc.data() as FirebaseProjectDoc;
-        const newProjectDocRef = doc(collection(db, COLLECTION_NAME, newClientDocRef.id, 'projects')); // Auto-generate ID
+        const newProjectDocRef = doc(collection(db, COLLECTION_NAME, newClientDocRef.id, 'projects'));
+
+        const defaultPriority: PriorityType = "Média";
+        let projectPriorityToSet: PriorityType;
+
+        if (originalProjectData.prioridade && PRIORITIES.includes(originalProjectData.prioridade)) {
+          projectPriorityToSet = originalProjectData.prioridade;
+        } else {
+          projectPriorityToSet = defaultPriority;
+        }
 
         const cleanedProjectData: Omit<FirebaseProjectDoc, 'descricao' | 'valor' | 'notas' | 'dataConclusao' | 'createdAt'> & {createdAt: any} = {
           nome: originalProjectData.nome,
           tipo: originalProjectData.tipo,
-          status: INITIAL_PROJECT_STATUS(originalProjectData.tipo), // Reset status
+          status: INITIAL_PROJECT_STATUS(originalProjectData.tipo), 
           prazo: originalProjectData.prazo,
-          prioridade: originalProjectData.prioridade,
-          checklist: originalProjectData.checklist.map(item => ({ ...item, id: uuidv4(), feito: false })), // Reset checklist items
-          creatorUserId: targetUserId, // Assign to target user
-          assignedUserId: undefined, // Clear assigned user
-          // Omitted: descricao, valor, notas, dataConclusao
+          prioridade: projectPriorityToSet, // Explicitly ensure a valid PriorityType
+          checklist: originalProjectData.checklist.map(item => ({ ...item, id: uuidv4(), feito: false })), 
+          creatorUserId: targetUserId, 
+          assignedUserId: undefined, 
           createdAt: serverTimestamp(),
         };
         batch.set(newProjectDocRef, cleanedProjectData);
@@ -601,3 +606,5 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     </AppDataContext.Provider>
   );
 };
+
+
