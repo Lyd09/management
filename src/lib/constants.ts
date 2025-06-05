@@ -226,15 +226,15 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
   {
     date: "2024-06-04",
     version: "1.5.0",
-    description: "Novos Tipos de Projeto, Filtros Avançados e Melhorias de Admin",
+    description: "Expansão de Funcionalidades, Calendário e Melhorias de Admin",
     details: [
-      "Adicionados novos tipos de projeto: 'Gravação', 'Edição' e 'Instagram', cada um com seus próprios status e checklists padrão.",
-      "Implementado filtro por proximidade de prazos no painel de clientes.",
-      "Adicionada funcionalidade para carregar checklists pré-definidos em projetos com base no tipo selecionado.",
-      "Administradores agora podem delegar clientes e selecionar projetos específicos para cópia (com dados sensíveis omitidos e checklists resetados).",
-      "Incluído link 'Orçamentos/Contratos' (Netlify) no menu lateral, visível apenas para administradores.",
-      "Removido o card 'Valor Total do Mês' da página de Métricas.",
-      "Adicionada sugestão inteligente de prioridade 'Alta' ao definir prazos muito próximos ou vencidos para novos projetos.",
+      "Adicionados novos tipos de projeto: 'Gravação', 'Edição' e 'Instagram', cada um com seus próprios status e checklists padrão, otimizando o fluxo de trabalho.",
+      "Introduzida página de 'Calendário de Projetos' para visualização clara dos prazos dos projetos em andamento.",
+      "Implementado filtro por proximidade de prazos no painel de clientes, ajudando a identificar demandas urgentes.",
+      "Adicionada funcionalidade para carregar checklists pré-definidos em projetos com base no tipo selecionado, agilizando a configuração.",
+      "Administradores agora podem delegar cópias de clientes para outros usuários, com a opção de selecionar projetos específicos (dados sensíveis são omitidos e checklists resetados).",
+      "Incluído link 'Orçamentos/Contratos' no menu lateral, visível apenas para administradores, para acesso rápido à plataforma de orçamentos.",
+      "Sistema agora sugere prioridade 'Alta' para novos projetos com prazos muito próximos ou vencidos.",
     ],
   },
    {
@@ -296,7 +296,3 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     ],
   },
 ];
-
-
-
-
