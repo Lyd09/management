@@ -89,7 +89,7 @@ interface AppDataContextType {
 
 export const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
-const COLLECTION_NAME = 'clients'; // Use 'clients' as per user's request
+const COLLECTION_NAME = 'clients'; 
 
 export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -393,19 +393,31 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         } else {
           projectPriorityToSet = defaultPriority;
         }
-
-        const cleanedProjectData: Omit<FirebaseProjectDoc, 'descricao' | 'valor' | 'notas' | 'dataConclusao' | 'createdAt'> & {createdAt: any} = {
-          nome: originalProjectData.nome,
-          tipo: originalProjectData.tipo,
-          status: INITIAL_PROJECT_STATUS(originalProjectData.tipo), 
-          prazo: originalProjectData.prazo,
-          prioridade: projectPriorityToSet, // Explicitly ensure a valid PriorityType
-          checklist: originalProjectData.checklist.map(item => ({ ...item, id: uuidv4(), feito: false })), 
-          creatorUserId: targetUserId, 
-          assignedUserId: undefined, 
-          createdAt: serverTimestamp(),
+        
+        const projectDataForBatch: Partial<FirebaseProjectDoc> = {
+            nome: originalProjectData.nome,
+            tipo: originalProjectData.tipo,
+            status: INITIAL_PROJECT_STATUS(originalProjectData.tipo),
+            checklist: originalProjectData.checklist.map(item => ({ ...item, id: uuidv4(), feito: false })),
+            creatorUserId: targetUserId,
+            prioridade: projectPriorityToSet,
+            createdAt: serverTimestamp() as Timestamp,
+            // descricao, valor, notas, dataConclusao, assignedUserId are intentionally omitted
         };
-        batch.set(newProjectDocRef, cleanedProjectData);
+
+        if (originalProjectData.prazo !== undefined) {
+            projectDataForBatch.prazo = originalProjectData.prazo;
+        }
+        
+        // Defensive step: Ensure no undefined values are in projectDataForBatch before setting
+        // Firestore should strip top-level undefined fields, but this makes it explicit for nested or other cases.
+        (Object.keys(projectDataForBatch) as Array<keyof Partial<FirebaseProjectDoc>>).forEach(key => {
+          if (projectDataForBatch[key] === undefined) {
+            delete projectDataForBatch[key];
+          }
+        });
+
+        batch.set(newProjectDocRef, projectDataForBatch);
       });
 
       await batch.commit();
@@ -607,4 +619,4 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   );
 };
 
-
+    
