@@ -1,16 +1,17 @@
 
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react'; // Adicionado useState
 import { useAppData } from '@/hooks/useAppData';
-import { useAuth } from '@/hooks/useAuth'; // Import useAuth
+import { useAuth } from '@/hooks/useAuth'; 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon, DollarSign } from "lucide-react";
+import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon, DollarSign, Eye, EyeOff } from "lucide-react"; // Adicionado Eye, EyeOff
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
 import { differenceInDays, parseISO, startOfDay, isBefore, getYear, getMonth, isValid } from 'date-fns';
 import type { Project, ProjectType } from '@/types';
 import { PROJECT_TYPES } from '@/lib/constants';
+import { Button } from '@/components/ui/button'; // Adicionado Button
 
 const COLORS_PIE = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
@@ -28,7 +29,8 @@ const EXCLUDE_PROJECT_NAMES_FOR_OVERDUE = ["SITE LOGS"];
 
 export default function DashboardMetricsPage() {
   const { clients, loading } = useAppData();
-  const { currentUser } = useAuth(); // Get current user for role check
+  const { currentUser } = useAuth(); 
+  const [isTotalValorVisible, setIsTotalValorVisible] = useState(false); // Estado para visibilidade
 
   const rawAllProjectsWithClientName = useMemo(() => {
     return clients.reduce((acc, client) => {
@@ -230,12 +232,26 @@ export default function DashboardMetricsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total do Mês R$</CardTitle>
+            <div className="flex items-center">
+              <CardTitle className="text-sm font-medium">Total do Mês R$</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsTotalValorVisible(!isTotalValorVisible)}
+                className="h-6 w-6 ml-1"
+                aria-label={isTotalValorVisible ? "Ocultar valor" : "Mostrar valor"}
+              >
+                {isTotalValorVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValorMesCorrente)}
+              {isTotalValorVisible
+                ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValorMesCorrente)
+                : "R$ ••••••"
+              }
             </div>
             <p className="text-xs text-muted-foreground">Soma de projetos concluídos este mês</p>
              {currentUser?.role === 'admin' && (
@@ -342,6 +358,4 @@ export default function DashboardMetricsPage() {
     </div>
   );
 }
-
-
     
