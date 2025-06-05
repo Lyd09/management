@@ -22,7 +22,8 @@ import {
   setDoc,
   where,
   getDoc,
-  documentId
+  documentId,
+  FieldPath
 } from 'firebase/firestore';
 import {
     createUserWithEmailAndPassword,
@@ -118,7 +119,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
 
   useEffect(() => {
-    console.log('[AppDataContext] loggedInUserFromAuthContext updated in AppDataContext:', loggedInUserFromAuthContext);
     if (!loggedInUserFromAuthContext || !loggedInUserFromAuthContext.id) {
       setClients([]);
       setLoading(false);
@@ -128,18 +128,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     setLoading(true);
     const userIdToQuery = loggedInUserFromAuthContext.id;
     const clientesCollectionRef = collection(db, COLLECTION_NAME);
-    console.log(`[AppDataContext] Preparing to query. User ID from context: ${userIdToQuery}.`);
-    console.log(`[AppDataContext] Querying collection path: ${clientesCollectionRef.path}`);
     
     const q = query(
       clientesCollectionRef,
       where('creatorUserId', '==', userIdToQuery),
       orderBy('createdAt', 'desc')
     );
-    console.log(`[AppDataContext] Current query: where('creatorUserId', '==', '${userIdToQuery}') and ordered by 'createdAt' desc for collection '${COLLECTION_NAME}'.`);
     
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
-      console.log(`[AppDataContext] Raw querySnapshot docs for ${COLLECTION_NAME} (where creatorUserId == ${userIdToQuery}): ${querySnapshot.docs.length} docs found.`);
       const clientsData: Client[] = [];
       for (const clientDoc of querySnapshot.docs) {
         const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
@@ -167,7 +163,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         clientsData.push(client);
       }
       setClients(clientsData);
-      console.log('[AppDataContext] Processed clientsData to be set:', clientsData);
       setLoading(false);
     }, (error) => {
       console.error(`Error fetching ${COLLECTION_NAME} from Firestore:`, error);
@@ -332,7 +327,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       return success;
     } catch (error) {
       console.error("Erro ao duplicar projeto no Firestore:", error);
-      // O toast de erro já deve ter sido mostrado por addProject
       return false;
     }
   }, [addProject, getProjectById, loggedInUserFromAuthContext, toast]);
@@ -395,14 +389,11 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
               creatorUserId: targetUserId,
               prioridade: projectPriorityToSet,
               createdAt: serverTimestamp() as Timestamp,
-              // assignedUserId é omitido intencionalmente, para não copiar
-              // dataConclusao é omitido intencionalmente, pois é um novo projeto
           };
           if (originalProjectData.prazo !== undefined) {
               projectDataForBatch.prazo = originalProjectData.prazo;
           }
           
-          // Explicitly remove any keys with undefined values before sending to batch
           const cleanedProjectData: Partial<FirebaseProjectDoc> = {};
           for (const key in projectDataForBatch) {
             if (projectDataForBatch[key as keyof Partial<FirebaseProjectDoc>] !== undefined) {

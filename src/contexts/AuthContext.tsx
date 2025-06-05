@@ -50,7 +50,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const finalUserData = { ...appUserData, id: firebaseUser.uid };
           setCurrentUser(finalUserData);
           setIsLoggedIn(true);
-          console.log('[AuthContext] User logged in. Firebase UID:', firebaseUser.uid, 'Firestore User Data:', finalUserData);
           if (pathname === '/login') {
             router.push('/');
           }

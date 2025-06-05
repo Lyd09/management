@@ -43,7 +43,6 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 
 // Mock function for AI status suggestions
 const mockSuggestProjectStatus = async (projectType: ProjectType): Promise<string[]> => {
-  console.log(`AI Suggestion: Called for ${projectType}`);
   await new Promise(resolve => setTimeout(resolve, 1000));
   const genericSuggestions = ["Aguardando Início", "Em Pausa", "Bloqueado"];
   return [...new Set([...genericSuggestions, ...PROJECT_STATUS_OPTIONS[projectType]])].sort();
@@ -545,7 +544,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                     mode="single"
                     selected={field.value}
                     onSelect={field.onChange}
-                    // disabled={(date) => date > new Date() || date < new Date("1900-01-01")} // Opcional: restringir datas
                     initialFocus
                     locale={ptBR}
                   />
@@ -590,7 +588,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                       if (val === "" || val === null) {
                         field.onChange(undefined);
                       } else {
-                        // Let Zod handle conversion from string if needed
                         field.onChange(e.target.valueAsNumber !== undefined && !isNaN(e.target.valueAsNumber) ? e.target.valueAsNumber : e.target.value);
                       }
                     }}
