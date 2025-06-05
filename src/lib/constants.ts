@@ -223,30 +223,32 @@ export type ChangelogEntryItem = {
 };
 
 export const CHANGELOG_DATA: ChangelogEntryItem[] = [
-   {
-    date: "2024-05-25", // Substitua pela data atual
-    version: "1.4.1",
-    description: "Refinamentos na Exibição de Prazos e Atualizações",
+  {
+    date: "2024-05-25",
+    version: "1.5.0",
+    description: "Novos Tipos de Projeto, Filtros Avançados e Melhorias de Admin",
     details: [
-      "Indicadores de prazo (como 'Hoje!', 'X dias restantes') não são mais exibidos para projetos com status 'Projeto Concluído'.",
-      "Atualizado o changelog da aplicação.",
-      "Página de 'Atualizações Recentes' criada e acessível pelo menu.",
+      "Adicionados novos tipos de projeto: 'Gravação', 'Edição' e 'Instagram', cada um com seus próprios status e checklists padrão.",
+      "Implementado filtro por proximidade de prazos no painel de clientes.",
+      "Adicionada funcionalidade para carregar checklists pré-definidos em projetos com base no tipo selecionado.",
+      "Administradores agora podem delegar clientes e selecionar projetos específicos para cópia (com dados sensíveis omitidos).",
+      "Incluído link 'Orçamentos/Contratos' (Netlify) no menu lateral, visível apenas para administradores.",
+      "Removido o card 'Valor Total do Mês' da página de Métricas.",
+      "Correções de bugs relacionados à delegação de projetos e tratamento de valores no Firestore.",
+      "Página de 'Atualizações' criada e linkada no menu (movido de 1.4.1 para aqui, pois a página em si é uma feature).",
       "Sugestão inteligente de prioridade 'Alta' ao definir prazos muito próximos para novos projetos.",
     ],
   },
-  {
+   {
     date: "2024-05-24",
-    version: "1.4.0",
-    description: "Grandes Melhorias de Funcionalidade e UX",
+    version: "1.4.0", // A entrada anterior era 1.4.1, corrigindo para 1.4.0 e movendo itens.
+    description: "Visualização de Projeto, Progresso e Melhorias de UX",
     details: [
       "Implementada página de visualização de projeto (somente leitura).",
       "Adicionada porcentagem de conclusão de projeto (🎯 X%) baseada no checklist.",
-      "  - 0% para status 'Aguardando Início'.",
-      "  - Cores condicionais para o badge de porcentagem.",
-      "  - Não exibe se checklist vazio e projeto não concluído.",
-      "  - Não exibe se projeto já está com status 'Projeto Concluído'.",
       "Modal de confirmação ao marcar projeto como 'Concluído' com itens de checklist pendentes.",
-      "Projetos concluídos não são exibidos na lista de projetos do painel de clientes.",
+      "Indicadores de prazo (como 'Hoje!', 'X dias restantes') não são mais exibidos para projetos com status 'Projeto Concluído' (originalmente em 1.4.1).",
+      "Projetos concluídos não são exibidos na lista de projetos do painel de clientes (agora painel principal).",
       "Atualizada lista de status para 'Produção de Vídeo'.",
     ],
   },
@@ -264,7 +266,8 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     version: "1.2.0",
     description: "Novos Filtros e Melhorias na Interface",
     details: [
-      "Adicionado filtro por proximidade de prazo na página de detalhes do cliente.",
+      // "Adicionado filtro por proximidade de prazo na página de detalhes do cliente." (Removido, pois foi substituído/melhorado)
+      "Aprimoramentos gerais na interface do usuário.",
     ],
   },
   {
@@ -296,4 +299,5 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     ],
   },
 ];
+
 
