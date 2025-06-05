@@ -243,7 +243,7 @@ export default function ClientDetailPage() {
     }
   }, [clientId, getClientById, loading, router, toast]);
 
-  const handleAddProject = (data: ProjectFormValues) => {
+  const handleAddProject = async (data: ProjectFormValues) => {
     if (!client) return;
     
     let submissionData: Partial<Project> & { nome: string, tipo: ProjectType, status: string, dataConclusao?: string } = {
@@ -269,9 +269,11 @@ export default function ClientDetailPage() {
         submissionData.dataConclusao = undefined;
     }
 
-    addProject(client.id, submissionData as Omit<Project, 'id' | 'clientId' | 'creatorUserId' | 'checklist'> & { checklist?: Partial<Project['checklist']>, dataConclusao?: string });
-    setIsAddProjectDialogOpen(false);
-    toast({ title: "Projeto Adicionado", description: `O projeto ${data.nome} foi adicionado.` });
+    const success = await addProject(client.id, submissionData as Omit<Project, 'id' | 'clientId' | 'creatorUserId' | 'checklist'> & { checklist?: Partial<Project['checklist']>, dataConclusao?: string });
+    if (success) {
+      setIsAddProjectDialogOpen(false);
+      toast({ title: "Projeto Adicionado", description: `O projeto ${data.nome} foi adicionado.` });
+    }
   };
 
   const confirmDeleteProject = (projectId: string) => {
@@ -293,8 +295,11 @@ export default function ClientDetailPage() {
     if (!client) return;
     const projectToDuplicate = client.projetos.find(p => p.id === projectId);
     if (projectToDuplicate) {
-      await duplicateProject(client.id, projectId);
-      toast({ title: "Projeto Duplicado", description: `O projeto "${projectToDuplicate.nome}" foi duplicado com sucesso.` });
+      const success = await duplicateProject(client.id, projectId);
+      if (success) {
+        toast({ title: "Projeto Duplicado", description: `O projeto "${projectToDuplicate.nome}" foi duplicado com sucesso.` });
+      }
+      // O toast de erro já é tratado dentro de duplicateProject/addProject
     }
   };
 
@@ -599,7 +604,7 @@ export default function ClientDetailPage() {
           isOpen={isDelegateDialogOpen}
           onOpenChange={setIsDelegateDialogOpen}
           client={client}
-          projects={client.projetos} // Passar os projetos do cliente aqui
+          projects={client.projetos} 
           users={users.filter(u => u.id !== currentUser.id)}
           onConfirm={handleDelegateClient}
         />
@@ -607,3 +612,4 @@ export default function ClientDetailPage() {
     </div>
   );
 }
+

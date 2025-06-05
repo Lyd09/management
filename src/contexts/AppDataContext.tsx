@@ -22,8 +22,7 @@ import {
   setDoc,
   where,
   getDoc,
-  FieldPath, // Manter FieldPath se usado em outros lugares, mas para documentId() usaremos a função direta
-  documentId // Adicionar a importação direta de documentId
+  documentId
 } from 'firebase/firestore';
 import {
     createUserWithEmailAndPassword,
@@ -75,11 +74,11 @@ interface AppDataContextType {
   updateClient: (clientId: string, nome: string, prioridade?: PriorityType) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   getClientById: (clientId: string) => Client | undefined;
-  addProject: (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number }) => Promise<void>;
+  addProject: (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number }) => Promise<boolean>;
   updateProject: (clientId: string, projectId: string, projectData: Partial<Omit<Project, 'creatorUserId'>>) => Promise<void>;
   deleteProject: (clientId: string, projectId: string) => Promise<void>;
   getProjectById: (clientId: string, projectId: string) => Project | undefined;
-  duplicateProject: (clientId: string, projectIdToDuplicate: string) => Promise<void>;
+  duplicateProject: (clientId: string, projectIdToDuplicate: string) => Promise<boolean>;
   importData: (jsonData: AppData) => boolean;
   exportData: () => AppData;
   addUser: (userData: Omit<User, 'id' | 'createdAt'> & { password?: string }) => Promise<void>;
@@ -231,10 +230,10 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     return clients.find(c => c.id === clientId);
   }, [clients]);
 
-  const addProject = useCallback(async (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number }) => {
+  const addProject = useCallback(async (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number }): Promise<boolean> => {
     if (!loggedInUserFromAuthContext) {
         toast({ variant: "destructive", title: "Erro de Autenticação", description: "Você precisa estar logado para adicionar projetos." });
-        return;
+        return false;
     }
     try {
       const projectsCollectionRef = collection(db, COLLECTION_NAME, clientId, 'projects');
@@ -255,8 +254,10 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         ...newProjectData,
         createdAt: serverTimestamp(),
       });
+      return true;
     } catch (error) {
       toast({ variant: "destructive", title: "Erro ao Adicionar Projeto", description: "Não foi possível adicionar o projeto." });
+      return false;
     }
   }, [loggedInUserFromAuthContext, toast]);
 
@@ -298,21 +299,21 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     return client?.projetos.find(p => p.id === projectId);
   }, [clients]);
 
-  const duplicateProject = useCallback(async (clientId: string, projectIdToDuplicate: string) => {
+  const duplicateProject = useCallback(async (clientId: string, projectIdToDuplicate: string): Promise<boolean> => {
     if (!loggedInUserFromAuthContext) {
         toast({ variant: "destructive", title: "Erro de Autenticação", description: "Você precisa estar logado para duplicar projetos." });
-        return;
+        return false;
     }
     const originalProject = getProjectById(clientId, projectIdToDuplicate);
     if (!originalProject) {
       toast({ variant: "destructive", title: "Erro ao Duplicar", description: "Projeto original não encontrado." });
-      return;
+      return false;
     }
 
     const duplicatedProjectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number } = {
       nome: `${originalProject.nome} (Cópia)`,
       tipo: originalProject.tipo,
-      status: originalProject.status, 
+      status: INITIAL_PROJECT_STATUS(originalProject.tipo), 
       descricao: originalProject.descricao,
       prazo: originalProject.prazo,
       dataConclusao: undefined, 
@@ -327,9 +328,12 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     try {
-      await addProject(clientId, duplicatedProjectData);
+      const success = await addProject(clientId, duplicatedProjectData);
+      return success;
     } catch (error) {
       console.error("Erro ao duplicar projeto no Firestore:", error);
+      // O toast de erro já deve ter sido mostrado por addProject
+      return false;
     }
   }, [addProject, getProjectById, loggedInUserFromAuthContext, toast]);
 
@@ -367,7 +371,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (selectedProjectIds && selectedProjectIds.length > 0) {
         const originalProjectsColRef = collection(db, COLLECTION_NAME, originalClientId, 'projects');
-        // Query projects whose IDs are in selectedProjectIds
         const projectsQuery = query(originalProjectsColRef, where(documentId(), 'in', selectedProjectIds));
         const originalProjectsSnapshot = await getDocs(projectsQuery);
 
@@ -392,19 +395,21 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
               creatorUserId: targetUserId,
               prioridade: projectPriorityToSet,
               createdAt: serverTimestamp() as Timestamp,
+              // assignedUserId é omitido intencionalmente, para não copiar
+              // dataConclusao é omitido intencionalmente, pois é um novo projeto
           };
           if (originalProjectData.prazo !== undefined) {
               projectDataForBatch.prazo = originalProjectData.prazo;
           }
           
           // Explicitly remove any keys with undefined values before sending to batch
-          (Object.keys(projectDataForBatch) as Array<keyof Partial<FirebaseProjectDoc>>).forEach(key => {
-            if (projectDataForBatch[key] === undefined) {
-              delete projectDataForBatch[key];
+          const cleanedProjectData: Partial<FirebaseProjectDoc> = {};
+          for (const key in projectDataForBatch) {
+            if (projectDataForBatch[key as keyof Partial<FirebaseProjectDoc>] !== undefined) {
+                (cleanedProjectData as any)[key] = projectDataForBatch[key as keyof Partial<FirebaseProjectDoc>];
             }
-          });
-
-          batch.set(newProjectDocRef, projectDataForBatch);
+          }
+          batch.set(newProjectDocRef, cleanedProjectData);
         });
       }
 
