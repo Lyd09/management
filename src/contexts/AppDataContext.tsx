@@ -22,7 +22,8 @@ import {
   setDoc,
   where,
   getDoc,
-  FieldPath // Import FieldPath
+  FieldPath, // Manter FieldPath se usado em outros lugares, mas para documentId() usaremos a função direta
+  documentId // Adicionar a importação direta de documentId
 } from 'firebase/firestore';
 import {
     createUserWithEmailAndPassword,
@@ -129,13 +130,13 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const userIdToQuery = loggedInUserFromAuthContext.id;
     const clientesCollectionRef = collection(db, COLLECTION_NAME);
     console.log(`[AppDataContext] Preparing to query. User ID from context: ${userIdToQuery}.`);
+    console.log(`[AppDataContext] Querying collection path: ${clientesCollectionRef.path}`);
     
     const q = query(
       clientesCollectionRef,
       where('creatorUserId', '==', userIdToQuery),
       orderBy('createdAt', 'desc')
     );
-    console.log(`[AppDataContext] Querying collection path: ${clientesCollectionRef.path}`);
     console.log(`[AppDataContext] Current query: where('creatorUserId', '==', '${userIdToQuery}') and ordered by 'createdAt' desc for collection '${COLLECTION_NAME}'.`);
     
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
@@ -367,7 +368,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (selectedProjectIds && selectedProjectIds.length > 0) {
         const originalProjectsColRef = collection(db, COLLECTION_NAME, originalClientId, 'projects');
         // Query projects whose IDs are in selectedProjectIds
-        const projectsQuery = query(originalProjectsColRef, where(FieldPath.documentId(), 'in', selectedProjectIds));
+        const projectsQuery = query(originalProjectsColRef, where(documentId(), 'in', selectedProjectIds));
         const originalProjectsSnapshot = await getDocs(projectsQuery);
 
         originalProjectsSnapshot.docs.forEach(projectDoc => {
@@ -604,3 +605,4 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     </AppDataContext.Provider>
   );
 };
+
