@@ -1,3 +1,4 @@
+
 import type { ProjectType, PriorityType } from '@/types';
 
 export const PROJECT_TYPES: ProjectType[] = ["Produção de Vídeo", "Programação", "Animação de Logomarca", "Gravação", "Edição", "Instagram", "Fotos Profissionais"];
@@ -255,7 +256,8 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
       "Administradores agora podem delegar cópias de clientes para outros usuários, com a opção de selecionar projetos específicos (dados sensíveis são omitidos e checklists resetados).",
       "Incluído link 'Orçamentos/Contratos' no menu lateral, visível apenas para administradores, para acesso rápido à plataforma de orçamentos.",
       "Sistema agora sugere prioridade 'Alta' para novos projetos com prazos muito próximos ou vencidos.",
-      "Adicionado widget 'Total do Mês R$' na página de Métricas, com opção de ocultar/mostrar valor e exclusão do cliente 'BALCÃO 360' da contagem.",
+      "Novo widget 'Total do Mês R$' na página de Métricas, exibindo a soma dos valores de projetos concluídos no mês corrente, com opção de ocultar/mostrar o valor e exclusão do cliente 'BALCÃO 360' da contagem.",
+      "Melhorias na funcionalidade de duplicar projetos, proporcionando feedback mais claro em caso de sucesso ou falha na operação.",
     ],
   },
    {
@@ -317,3 +319,4 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     ],
   },
 ];
+
