@@ -21,7 +21,8 @@ import {
   Timestamp,
   setDoc,
   where,
-  getDoc
+  getDoc,
+  FieldPath // Import FieldPath
 } from 'firebase/firestore';
 import {
     createUserWithEmailAndPassword,
@@ -117,6 +118,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
 
   useEffect(() => {
+    console.log('[AppDataContext] loggedInUserFromAuthContext updated in AppDataContext:', loggedInUserFromAuthContext);
     if (!loggedInUserFromAuthContext || !loggedInUserFromAuthContext.id) {
       setClients([]);
       setLoading(false);
@@ -126,14 +128,18 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     setLoading(true);
     const userIdToQuery = loggedInUserFromAuthContext.id;
     const clientesCollectionRef = collection(db, COLLECTION_NAME);
+    console.log(`[AppDataContext] Preparing to query. User ID from context: ${userIdToQuery}.`);
     
     const q = query(
       clientesCollectionRef,
       where('creatorUserId', '==', userIdToQuery),
       orderBy('createdAt', 'desc')
     );
+    console.log(`[AppDataContext] Querying collection path: ${clientesCollectionRef.path}`);
+    console.log(`[AppDataContext] Current query: where('creatorUserId', '==', '${userIdToQuery}') and ordered by 'createdAt' desc for collection '${COLLECTION_NAME}'.`);
     
     const unsubscribeClients = onSnapshot(q, async (querySnapshot) => {
+      console.log(`[AppDataContext] Raw querySnapshot docs for ${COLLECTION_NAME} (where creatorUserId == ${userIdToQuery}): ${querySnapshot.docs.length} docs found.`);
       const clientsData: Client[] = [];
       for (const clientDoc of querySnapshot.docs) {
         const clientFirebaseData = clientDoc.data() as FirebaseClientDoc;
@@ -161,6 +167,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         clientsData.push(client);
       }
       setClients(clientsData);
+      console.log('[AppDataContext] Processed clientsData to be set:', clientsData);
       setLoading(false);
     }, (error) => {
       console.error(`Error fetching ${COLLECTION_NAME} from Firestore:`, error);
@@ -359,15 +366,11 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (selectedProjectIds && selectedProjectIds.length > 0) {
         const originalProjectsColRef = collection(db, COLLECTION_NAME, originalClientId, 'projects');
-        const originalProjectsSnapshot = await getDocs(query(originalProjectsColRef, where(document.getId(), 'in', selectedProjectIds)));
-
+        // Query projects whose IDs are in selectedProjectIds
+        const projectsQuery = query(originalProjectsColRef, where(FieldPath.documentId(), 'in', selectedProjectIds));
+        const originalProjectsSnapshot = await getDocs(projectsQuery);
 
         originalProjectsSnapshot.docs.forEach(projectDoc => {
-          // Verifique se o ID do projeto está na lista de selecionados (redundante se a query 'in' funcionar perfeitamente, mas seguro)
-           if (!selectedProjectIds.includes(projectDoc.id)) {
-            return; 
-          }
-
           const originalProjectData = projectDoc.data() as FirebaseProjectDoc;
           const newProjectDocRef = doc(collection(db, COLLECTION_NAME, newClientDocRef.id, 'projects'));
 
@@ -393,7 +396,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
               projectDataForBatch.prazo = originalProjectData.prazo;
           }
           
-          // Remover quaisquer campos undefined antes de enviar para o batch
+          // Explicitly remove any keys with undefined values before sending to batch
           (Object.keys(projectDataForBatch) as Array<keyof Partial<FirebaseProjectDoc>>).forEach(key => {
             if (projectDataForBatch[key] === undefined) {
               delete projectDataForBatch[key];
