@@ -5,7 +5,7 @@ import React, { useMemo } from 'react';
 import { useAppData } from '@/hooks/useAppData';
 import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon, DollarSign } from "lucide-react";
+import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon } from "lucide-react";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
 import { differenceInDays, parseISO, startOfDay, isBefore, getYear, getMonth } from 'date-fns';
@@ -154,25 +154,6 @@ export default function DashboardMetricsPage() {
     return config;
   }, []);
 
-  const monthlyCompletedValue = useMemo(() => {
-    const currentMonth = getMonth(new Date());
-    const currentYear = getYear(new Date());
-
-    return generalFilteredProjects.reduce((sum, project) => {
-      if (project.status === "Projeto Concluído" && project.dataConclusao && project.valor) {
-        try {
-          const conclusionDate = parseISO(project.dataConclusao);
-          if (isValid(conclusionDate) && getMonth(conclusionDate) === currentMonth && getYear(conclusionDate) === currentYear) {
-            return sum + project.valor;
-          }
-        } catch (e) {
-          // Ignore projects with invalid date format for dataConclusao
-        }
-      }
-      return sum;
-    }, 0);
-  }, [generalFilteredProjects]);
-
 
   if (loading) {
     return (
@@ -187,7 +168,7 @@ export default function DashboardMetricsPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-primary">Dashboard de Métricas</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> {/* Adjusted lg:grid-cols-4 to lg:grid-cols-3 */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Projetos Ativos</CardTitle>
@@ -224,20 +205,7 @@ export default function DashboardMetricsPage() {
             )}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valor Total do Mês</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyCompletedValue)}
-            </div>
-            {currentUser?.role === 'admin' && (
-              <CardDescription className="text-xs text-muted-foreground">SITE LOGS e MY BROKER não inclusos</CardDescription>
-            )}
-          </CardContent>
-        </Card>
+        {/* Card de Valor Total do Mês foi removido daqui */}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
