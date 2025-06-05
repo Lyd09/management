@@ -22,8 +22,7 @@ import {
   setDoc,
   where,
   getDoc,
-  documentId,
-  FieldPath
+  documentId
 } from 'firebase/firestore';
 import {
     createUserWithEmailAndPassword,
@@ -48,7 +47,7 @@ interface FirebaseProjectDoc {
   tipo: ProjectType;
   status: string;
   descricao?: string;
-  prazo?: string;
+  prazo?: string; // ISO date string: "YYYY-MM-DD"
   notas?: string;
   checklist: ChecklistItem[];
   createdAt: Timestamp;
@@ -56,7 +55,7 @@ interface FirebaseProjectDoc {
   valor?: number;
   creatorUserId: string;
   assignedUserId?: string;
-  dataConclusao?: string;
+  dataConclusao?: string; // ISO date string: "YYYY-MM-DD"
 }
 
 interface FirebaseUserDoc {
@@ -75,7 +74,7 @@ interface AppDataContextType {
   updateClient: (clientId: string, nome: string, prioridade?: PriorityType) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   getClientById: (clientId: string) => Client | undefined;
-  addProject: (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number }) => Promise<boolean>;
+  addProject: (clientId: string, projectData: Omit<Project, 'id' | 'clientId' | 'creatorUserId'>) => Promise<boolean>;
   updateProject: (clientId: string, projectId: string, projectData: Partial<Omit<Project, 'creatorUserId'>>) => Promise<void>;
   deleteProject: (clientId: string, projectId: string) => Promise<void>;
   getProjectById: (clientId: string, projectId: string) => Project | undefined;
@@ -111,7 +110,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       }));
       setUsers(usersData);
     }, (error) => {
-      console.error("Error fetching users from Firestore:", error);
       setUsers([]);
     });
     return () => unsubscribeUsers();
@@ -165,7 +163,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       setClients(clientsData);
       setLoading(false);
     }, (error) => {
-      console.error(`Error fetching ${COLLECTION_NAME} from Firestore:`, error);
       toast({ variant: "destructive", title: `Erro ao Carregar ${COLLECTION_NAME}`, description: `Não foi possível buscar os dados. Detalhe: ${error.message}` });
       setClients([]);
       setLoading(false);
@@ -225,14 +222,15 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     return clients.find(c => c.id === clientId);
   }, [clients]);
 
-  const addProject = useCallback(async (clientId: string, projectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number }): Promise<boolean> => {
+  const addProject = useCallback(async (clientId: string, projectData: Omit<Project, 'id' | 'clientId' | 'creatorUserId'>): Promise<boolean> => {
     if (!loggedInUserFromAuthContext) {
         toast({ variant: "destructive", title: "Erro de Autenticação", description: "Você precisa estar logado para adicionar projetos." });
         return false;
     }
     try {
       const projectsCollectionRef = collection(db, COLLECTION_NAME, clientId, 'projects');
-      const newProjectData: Omit<FirebaseProjectDoc, 'createdAt' | 'assignedUserId'> = {
+      
+      const newProjectDataForFirebase: Omit<FirebaseProjectDoc, 'createdAt' | 'assignedUserId'> = {
         nome: projectData.nome,
         tipo: projectData.tipo,
         status: projectData.status,
@@ -241,17 +239,26 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         dataConclusao: projectData.dataConclusao,
         notas: projectData.notas,
         prioridade: projectData.prioridade || "Média",
-        valor: projectData.valor,
-        creatorUserId: loggedInUserFromAuthContext.id,
-        checklist: (projectData.checklist || []).map(item => ({...item, id: item.id || uuidv4()})) as ChecklistItem[],
+        valor: projectData.valor, // Já deve ser number ou undefined
+        creatorUserId: loggedInUserFromAuthContext!.id,
+        checklist: (projectData.checklist || []).map(item => ({
+          ...item, 
+          id: item.id || uuidv4() 
+        })) as ChecklistItem[],
       };
-      await addDoc(projectsCollectionRef, {
-        ...newProjectData,
-        createdAt: serverTimestamp(),
-      });
+
+      const cleanDataForFirestore: Partial<FirebaseProjectDoc> = {};
+      for (const key in newProjectDataForFirebase) {
+          if (newProjectDataForFirebase[key as keyof typeof newProjectDataForFirebase] !== undefined) {
+              (cleanDataForFirestore as any)[key] = newProjectDataForFirebase[key as keyof typeof newProjectDataForFirebase];
+          }
+      }
+      (cleanDataForFirestore as any).createdAt = serverTimestamp();
+
+      await addDoc(projectsCollectionRef, cleanDataForFirestore);
       return true;
-    } catch (error) {
-      toast({ variant: "destructive", title: "Erro ao Adicionar Projeto", description: "Não foi possível adicionar o projeto." });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro ao Adicionar Projeto", description: `Não foi possível adicionar o projeto. Detalhe: ${error.message || "Erro desconhecido"}` });
       return false;
     }
   }, [loggedInUserFromAuthContext, toast]);
@@ -305,20 +312,24 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       return false;
     }
 
-    const duplicatedProjectData: Omit<Project, 'id' | 'checklist' | 'clientId' | 'creatorUserId'> & { checklist?: Partial<Project['checklist']>, prioridade?: PriorityType, valor?: number } = {
+    const projectPriority: PriorityType = (originalProject.prioridade && PRIORITIES.includes(originalProject.prioridade))
+        ? originalProject.prioridade
+        : "Média";
+
+    const duplicatedProjectData: Omit<Project, 'id' | 'clientId' | 'creatorUserId'> = {
       nome: `${originalProject.nome} (Cópia)`,
       tipo: originalProject.tipo,
-      status: INITIAL_PROJECT_STATUS(originalProject.tipo), 
-      descricao: originalProject.descricao,
-      prazo: originalProject.prazo,
-      dataConclusao: undefined, 
-      notas: originalProject.notas,
-      prioridade: originalProject.prioridade,
-      valor: originalProject.valor,
-      checklist: originalProject.checklist.map(item => ({
+      status: INITIAL_PROJECT_STATUS(originalProject.tipo),
+      descricao: originalProject.descricao, 
+      prazo: originalProject.prazo,        
+      notas: originalProject.notas,          
+      prioridade: projectPriority,
+      valor: originalProject.valor,          
+      dataConclusao: undefined,             
+      checklist: (originalProject.checklist || []).map(item => ({
         id: uuidv4(),
         item: item.item,
-        feito: false, 
+        feito: false,
       })),
     };
 
@@ -326,7 +337,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       const success = await addProject(clientId, duplicatedProjectData);
       return success;
     } catch (error) {
-      console.error("Erro ao duplicar projeto no Firestore:", error);
+      toast({ variant: "destructive", title: "Erro Interno ao Duplicar", description: "Falha ao processar a duplicação." });
       return false;
     }
   }, [addProject, getProjectById, loggedInUserFromAuthContext, toast]);
@@ -408,7 +419,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       toast({ title: "Cliente Delegado", description: `Cópia de "${clientDataForNewUser.nome}" ${selectedProjectIds.length > 0 ? `com ${selectedProjectIds.length} projeto(s) selecionado(s)` : ''} enviada para o usuário selecionado.` });
       return true;
     } catch (error: any) {
-      console.error("Error delegating client copy:", error);
       toast({ variant: "destructive", title: "Erro ao Delegar", description: error.message || "Não foi possível delegar a cópia do cliente." });
       return false;
     }
@@ -416,13 +426,11 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
 
   const importData = useCallback((jsonData: AppData): boolean => {
-    console.warn("Data import from JSON is deprecated. Data is now managed in Firestore.");
     toast({ title: "Funcionalidade Descontinuada", description: "A importação de dados via JSON foi descontinuada."});
     return false;
   }, [toast]);
 
   const exportData = useCallback((): AppData => {
-    console.warn("Data export to JSON is deprecated. Data is now managed in Firestore.");
     toast({ title: "Funcionalidade Descontinuada", description: "A exportação de dados via JSON foi descontinuada."});
     return { clientes: clients, users: users };
   }, [clients, users, toast]);
@@ -444,7 +452,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         createdAt: serverTimestamp(),
       });
     } catch (error: any) {
-      console.error("Error adding user to Firebase Auth or Firestore:", error);
       if (error.code === 'auth/email-already-in-use') {
         throw new Error("Este email já está em uso por outra conta.");
       } else if (error.code === 'auth/weak-password') {
@@ -505,7 +512,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
                  }
             }
          } else {
-             console.warn(`Admin is changing email for user ${userId}. This only updates Firestore. Firebase Auth email must be updated separately (e.g., via Admin SDK or Firebase console).`);
              toast({ title: "Email no Firestore Atualizado", description: `O email de ${userToUpdate.username} foi atualizado nos registros. A alteração do email de login deve ser feita no console do Firebase.`});
          }
       }
@@ -516,7 +522,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
             await firebaseUpdatePassword(auth.currentUser, newPassword);
             toast({ title: "Senha Atualizada", description: "Sua senha foi alterada com sucesso." });
           } catch (authError: any) {
-            console.error("Error updating password in Firebase Auth for current user:", authError);
             if (authError.code === 'auth/requires-recent-login') {
               toast({ variant: "destructive", title: "Reautenticação Necessária", description: "Para alterar sua senha, por favor, faça logout e login novamente, depois tente de novo." });
             } else {
@@ -524,7 +529,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
             }
           }
         } else {
-          console.warn(`Attempt to change password for user ${userId} by another user/admin (${auth.currentUser?.uid}). This action is not directly supported by client SDKs for other users and should have been prevented by UI.`);
           toast({
             variant: "destructive",
             title: "Ação de Senha Não Permitida",
@@ -535,7 +539,6 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
     } catch (error: any) {
-      console.error("Error updating user in Firestore/Auth:", error);
       throw error;
     }
   }, [users, toast]);
@@ -555,16 +558,13 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
           await firebaseDeleteUser(auth.currentUser);
           toast({ title: "Usuário Removido da Autenticação", description: "Sua conta foi removida do sistema de autenticação."});
         } catch (authError: any) {
-          console.error(`Error deleting user ${userId} from Firebase Authentication:`, authError);
           throw new Error(`Usuário removido do banco de dados, mas falha ao remover da autenticação: ${authError.message}. Pode ser necessário remover manualmente no console do Firebase.`);
         }
       } else {
-        console.warn(`User ${userId} deleted from Firestore. Manual deletion from Firebase Authentication console is required for full removal if this user was not the currently logged-in user.`);
         toast({ title: "Usuário Removido do Firestore", description: "Para remoção completa do sistema de autenticação, acesse o console do Firebase."});
       }
 
     } catch (error:any) {
-      console.error("Error deleting user from Firestore:", error);
       throw error;
     }
   }, [users, toast]);
