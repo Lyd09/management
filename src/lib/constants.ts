@@ -234,10 +234,7 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
       "Administradores agora podem delegar clientes e selecionar projetos específicos para cópia (com dados sensíveis omitidos e checklists resetados).",
       "Incluído link 'Orçamentos/Contratos' (Netlify) no menu lateral, visível apenas para administradores.",
       "Removido o card 'Valor Total do Mês' da página de Métricas.",
-      "Correções de bugs relacionados à delegação de projetos e tratamento de valores no Firestore.",
-      "Página de 'Atualizações' criada e linkada no menu.",
-      "Sugestão inteligente de prioridade 'Alta' ao definir prazos muito próximos para novos projetos.",
-      "Correções em erros de console relacionados a 'FieldPath.documentId' e 'document.getId'.",
+      "Adicionada sugestão inteligente de prioridade 'Alta' ao definir prazos muito próximos ou vencidos para novos projetos.",
     ],
   },
    {
@@ -299,6 +296,7 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     ],
   },
 ];
+
 
 
 
