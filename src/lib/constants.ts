@@ -1,7 +1,6 @@
-
 import type { ProjectType, PriorityType } from '@/types';
 
-export const PROJECT_TYPES: ProjectType[] = ["Produção de Vídeo", "Programação", "Animação de Logomarca", "Gravação", "Edição", "Instagram"];
+export const PROJECT_TYPES: ProjectType[] = ["Produção de Vídeo", "Programação", "Animação de Logomarca", "Gravação", "Edição", "Instagram", "Fotos Profissionais"];
 
 export const PRIORITIES: PriorityType[] = ["Baixa", "Média", "Alta"];
 
@@ -76,6 +75,14 @@ export const PROJECT_STATUS_OPTIONS: Record<ProjectType, string[]> = {
     "Análise de Métricas e Relatório de Performance",
     "Ciclo de Conteúdo Concluído",
   ],
+  "Fotos Profissionais": [
+    "Aguardando Agendamento",
+    "Sessão Agendada",
+    "Sessão Realizada",
+    "Fotos em Tratamento",
+    "Fotos Entregues",
+    "Projeto Concluído",
+  ],
 };
 
 export const INITIAL_PROJECT_STATUS = (type: ProjectType): string => {
@@ -91,6 +98,9 @@ export const INITIAL_PROJECT_STATUS = (type: ProjectType): string => {
     }
      if (type === "Instagram" && statuses.includes("Planejamento Estratégico Mensal/Semanal")) {
       return "Planejamento Estratégico Mensal/Semanal";
+    }
+    if (type === "Fotos Profissionais" && statuses.includes("Aguardando Agendamento")) {
+      return "Aguardando Agendamento";
     }
     return statuses.length > 0 ? statuses[0] : "";
 }
@@ -211,6 +221,16 @@ export const PREDEFINED_CHECKLISTS: Record<ProjectType, string[]> = {
     "Elaboração do relatório de performance com insights e recomendações",
     "Apresentação ou envio do relatório ao cliente",
   ],
+  "Fotos Profissionais": [
+    "Alinhamento de expectativas e briefing com o cliente.",
+    "Definição e agendamento da data, horário e local da sessão.",
+    "Confirmação da sessão com o cliente.",
+    "Realização da sessão fotográfica.",
+    "Backup das fotos e seleção das melhores imagens.",
+    "Tratamento básico das fotos selecionadas (ajustes de cor, luz, contraste, enquadramento).",
+    "Envio do link ou galeria com as fotos tratadas para o cliente.",
+    "Confirmação de recebimento e aprovação pelo cliente.",
+  ],
 };
 
 
@@ -223,18 +243,19 @@ export type ChangelogEntryItem = {
 };
 
 export const CHANGELOG_DATA: ChangelogEntryItem[] = [
-  {
+   {
     date: "2024-06-04",
     version: "1.5.0",
     description: "Expansão de Funcionalidades, Calendário e Melhorias de Admin",
     details: [
-      "Adicionados novos tipos de projeto: 'Gravação', 'Edição' e 'Instagram', cada um com seus próprios status e checklists padrão, otimizando o fluxo de trabalho.",
+      "Adicionados novos tipos de projeto: 'Gravação', 'Edição', 'Instagram' e 'Fotos Profissionais', cada um com seus próprios status e checklists padrão, otimizando o fluxo de trabalho.",
       "Introduzida página de 'Calendário de Projetos' para visualização clara dos prazos dos projetos em andamento.",
       "Implementado filtro por proximidade de prazos no painel de clientes, ajudando a identificar demandas urgentes.",
       "Adicionada funcionalidade para carregar checklists pré-definidos em projetos com base no tipo selecionado, agilizando a configuração.",
       "Administradores agora podem delegar cópias de clientes para outros usuários, com a opção de selecionar projetos específicos (dados sensíveis são omitidos e checklists resetados).",
       "Incluído link 'Orçamentos/Contratos' no menu lateral, visível apenas para administradores, para acesso rápido à plataforma de orçamentos.",
       "Sistema agora sugere prioridade 'Alta' para novos projetos com prazos muito próximos ou vencidos.",
+      "Adicionado widget 'Total do Mês R$' na página de Métricas, com opção de ocultar/mostrar valor e exclusão do cliente 'BALCÃO 360' da contagem.",
     ],
   },
    {

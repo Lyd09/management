@@ -1,4 +1,3 @@
-
 export type PriorityType = "Baixa" | "Média" | "Alta";
 
 export interface ChecklistItem {
@@ -7,7 +6,7 @@ export interface ChecklistItem {
   feito: boolean;
 }
 
-export type ProjectType = "Produção de Vídeo" | "Programação" | "Animação de Logomarca";
+export type ProjectType = "Produção de Vídeo" | "Programação" | "Animação de Logomarca" | "Gravação" | "Edição" | "Instagram" | "Fotos Profissionais";
 
 export interface Project {
   id: string;
