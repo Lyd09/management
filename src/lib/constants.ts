@@ -1,7 +1,7 @@
 
 import type { ProjectType, PriorityType } from '@/types';
 
-export const PROJECT_TYPES: ProjectType[] = ["Produção de Vídeo", "Programação", "Animação de Logomarca"];
+export const PROJECT_TYPES: ProjectType[] = ["Produção de Vídeo", "Programação", "Animação de Logomarca", "Gravação", "Edição", "Instagram"];
 
 export const PRIORITIES: PriorityType[] = ["Baixa", "Média", "Alta"];
 
@@ -34,12 +34,63 @@ export const PROJECT_STATUS_OPTIONS: Record<ProjectType, string[]> = {
     "Entrega do Arquivo Final",
     "Projeto Concluído",
   ],
+  "Gravação": [
+    "Aguardando Agendamento",
+    "Pré-produção e Planejamento",
+    "Gravação Agendada",
+    "Em Gravação",
+    "Gravação Concluída",
+    "Material Bruto Entregue",
+    "Revisão de Material",
+    "Refação Agendada",
+    "Projeto Concluído",
+  ],
+  "Edição": [
+    "Aguardando Material Bruto",
+    "Material Recebido e Organizado",
+    "Decupagem e Seleção de Takes",
+    "Primeira Montagem (Rough Cut)",
+    "Edição Detalhada (Fine Cut)",
+    "Aplicação de Efeitos Visuais e Transições",
+    "Tratamento de Cor (Color Grading/Correction)",
+    "Mixagem de Áudio e Sound Design",
+    "Adição de Trilha Sonora e Efeitos Sonoros (SFX)",
+    "Criação e Inserção de Legendas/Gráficos",
+    "Versão para Revisão Interna",
+    "Versão para Revisão do Cliente",
+    "Ajustes Finais Pós-Revisão",
+    "Exportação Final (Masterização)",
+    "Projeto Concluído",
+  ],
+  "Instagram": [
+    "Planejamento Estratégico Mensal/Semanal",
+    "Criação de Pauta de Conteúdo",
+    "Design de Criativos Estáticos (Posts, Stories)",
+    "Roteirização de Vídeos (Reels, Stories)",
+    "Captação/Produção de Vídeos",
+    "Edição de Vídeos para Instagram",
+    "Redação de Legendas (Copywriting) e Pesquisa de Hashtags",
+    "Agendamento de Publicações",
+    "Publicação Realizada",
+    "Monitoramento de Engajamento e Interação",
+    "Análise de Métricas e Relatório de Performance",
+    "Ciclo de Conteúdo Concluído",
+  ],
 };
 
 export const INITIAL_PROJECT_STATUS = (type: ProjectType): string => {
     const statuses = PROJECT_STATUS_OPTIONS[type];
     if (statuses.includes("Aguardando Início")) {
       return "Aguardando Início";
+    }
+    if (type === "Gravação" && statuses.includes("Aguardando Agendamento")) {
+      return "Aguardando Agendamento";
+    }
+    if (type === "Edição" && statuses.includes("Aguardando Material Bruto")) {
+      return "Aguardando Material Bruto";
+    }
+     if (type === "Instagram" && statuses.includes("Planejamento Estratégico Mensal/Semanal")) {
+      return "Planejamento Estratégico Mensal/Semanal";
     }
     return statuses.length > 0 ? statuses[0] : "";
 }
@@ -94,6 +145,71 @@ export const PREDEFINED_CHECKLISTS: Record<ProjectType, string[]> = {
     "Ajustes pós-revisão interna/cliente",
     "Renderização final em alta qualidade",
     "Entrega dos arquivos nos formatos solicitados",
+  ],
+  "Gravação": [
+    "Briefing e roteiro/shotlist recebidos e analisados",
+    "Locações definidas, vistoriadas e liberadas",
+    "Equipamentos de gravação (câmeras, lentes, áudio, iluminação) checados e preparados",
+    "Equipe técnica (cinegrafista, assistente, técnico de som) confirmada",
+    "Talentos, atores ou apresentadores confirmados e alinhados",
+    "Agendamento de diárias de gravação e cronograma detalhado",
+    "Transporte e logística de equipamentos e equipe organizados",
+    "Permissões de gravação e autorizações de imagem obtidas (se necessário)",
+    "Captação de todas as cenas, takes e ângulos planejados",
+    "Captação de áudio de alta qualidade (ambiente, entrevistas, etc.)",
+    "Realização de backups do material bruto em diferentes mídias",
+    "Organização inicial e nomeação dos arquivos de mídia",
+    "Envio ou entrega física do material bruto para a equipe de edição ou cliente",
+  ],
+  "Edição": [
+    "Recebimento completo do material bruto (vídeo, áudio, fotos) e assets (logos, fontes)",
+    "Briefing de edição compreendido (referências, estilo, objetivos)",
+    "Organização do projeto de edição (pastas, sequências, proxies se necessário)",
+    "Sincronização de áudio e vídeo (se gravados separadamente)",
+    "Decupagem e seleção dos melhores takes e momentos",
+    "Montagem da estrutura principal da narrativa (rough cut)",
+    "Refinamento de cortes, ritmo, timing e continuidade (fine cut)",
+    "Aplicação de correções de cor primárias e secundárias (color grading)",
+    "Tratamento de áudio (limpeza, equalização, normalização de níveis)",
+    "Design de som (adição de efeitos sonoros, ambientação)",
+    "Inclusão e sincronização de trilha sonora licenciada/aprovada",
+    "Criação e inserção de letterings, legendas, lower thirds e outros gráficos",
+    "Renderização da primeira versão para revisão (baixa resolução, se necessário)",
+    "Coleta e organização do feedback do cliente/diretor",
+    "Implementação precisa das revisões solicitadas",
+    "Checagem final de qualidade (áudio, vídeo, sincronia, legendas)",
+    "Exportação nos formatos e especificações finais solicitados",
+    "Entrega dos arquivos finalizados e do projeto de edição (se acordado)",
+  ],
+  "Instagram": [
+    "Definição de objetivos para o período (ex: aumento de seguidores, engajamento, vendas)",
+    "Análise do público-alvo e persona",
+    "Pesquisa de temas, tendências e concorrentes",
+    "Criação do calendário editorial (datas, horários, formatos, temas, pilares de conteúdo)",
+    "Aprovação do calendário editorial pelo cliente",
+    "Brainstorm de ideias para posts estáticos (imagens únicas, carrosséis, quotes)",
+    "Criação ou seleção de imagens/vídeos de banco (se aplicável)",
+    "Design dos criativos utilizando identidade visual do cliente",
+    "Redação das legendas para posts estáticos, CTAs (Call to Action) e hashtags relevantes",
+    "Revisão interna de design e texto (estático)",
+    "Aprovação dos posts estáticos pelo cliente",
+    "Brainstorm e roteirização dos vídeos (Reels/Stories)",
+    "Planejamento de cenas para vídeos, áudios em alta e efeitos",
+    "Captação/Gravação do material bruto para vídeos",
+    "Edição dos vídeos (cortes, transições, música, texto sobreposto, legendas)",
+    "Redação das legendas para vídeos, CTAs e hashtags",
+    "Revisão interna do vídeo",
+    "Aprovação dos vídeos pelo cliente",
+    "Agendamento dos posts em ferramenta de gerenciamento ou manualmente",
+    "Verificação final de links, tags e detalhes antes da publicação",
+    "Confirmação da publicação no horário agendado",
+    "Monitorar comentários e mensagens diretas (DMs)",
+    "Responder dúvidas e interagir com a audiência de forma ágil e adequada",
+    "Fomentar a participação em enquetes, caixas de perguntas, etc.",
+    "Coleta de dados de performance (alcance, impressões, engajamento, cliques, etc.)",
+    "Análise dos resultados em relação aos objetivos definidos",
+    "Elaboração do relatório de performance com insights e recomendações",
+    "Apresentação ou envio do relatório ao cliente",
   ],
 };
 
