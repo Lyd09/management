@@ -160,9 +160,11 @@ export default function DashboardMetricsPage() {
     const now = new Date();
     const currentYear = getYear(now);
     const currentMonth = getMonth(now); // 0-indexed
+    const clientToExclude = "BALCÃO 360";
 
     return generalFilteredProjects.reduce((sum, project) => {
       if (
+        project.clientName.trim().toUpperCase() !== clientToExclude.toUpperCase() && // Exclui o cliente BALCÃO 360
         project.status === "Projeto Concluído" &&
         project.valor &&
         typeof project.valor === 'number' &&
@@ -255,7 +257,7 @@ export default function DashboardMetricsPage() {
             </div>
             <p className="text-xs text-muted-foreground">Soma de projetos concluídos este mês</p>
              {currentUser?.role === 'admin' && (
-              <p className="text-xs text-muted-foreground mt-1">SITE LOGS e MY BROKER não inclusos</p>
+              <p className="text-xs text-muted-foreground mt-1">SITE LOGS, MY BROKER e BALCÃO 360 não inclusos</p>
             )}
           </CardContent>
         </Card>
@@ -358,4 +360,6 @@ export default function DashboardMetricsPage() {
     </div>
   );
 }
+    
+
     
