@@ -8,10 +8,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon, DollarSign, Eye, EyeOff } from "lucide-react"; // Adicionado Eye, EyeOff
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
-import { differenceInDays, parseISO, startOfDay, isBefore, getYear, getMonth, isValid } from 'date-fns';
+import { differenceInDays, startOfDay, isBefore, getYear, getMonth, isValid } from 'date-fns';
 import type { Project, ProjectType } from '@/types';
 import { PROJECT_TYPES } from '@/lib/constants';
 import { Button } from '@/components/ui/button'; // Adicionado Button
+import { parseDateStringAsLocalAtMidnight } from "@/lib/utils"; // Importado de utils
 
 const COLORS_PIE = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
@@ -114,18 +115,14 @@ export default function DashboardMetricsPage() {
       )
       .filter(p => p.status !== "Projeto Concluído" && p.prazo)
       .map(p => {
-        try {
-          const deadlineDate = startOfDay(parseISO(p.prazo!));
-          if (isBefore(deadlineDate, today)) {
-            return {
-              ...p,
-              overdueDays: differenceInDays(today, deadlineDate),
-            };
-          }
-          return null;
-        } catch (e) {
-          return null;
+        const deadlineDate = parseDateStringAsLocalAtMidnight(p.prazo!);
+        if (deadlineDate && isValid(deadlineDate) && isBefore(deadlineDate, today)) {
+          return {
+            ...p,
+            overdueDays: differenceInDays(today, deadlineDate),
+          };
         }
+        return null;
       })
       .filter(p => p !== null)
       .sort((a, b) => b!.overdueDays - a!.overdueDays)
@@ -163,16 +160,16 @@ export default function DashboardMetricsPage() {
     const clientToExclude = "BALCÃO 360";
 
     return generalFilteredProjects.reduce((sum, project) => {
+      const conclusaoDate = parseDateStringAsLocalAtMidnight(project.dataConclusao);
       if (
-        project.clientName.trim().toUpperCase() !== clientToExclude.toUpperCase() && // Exclui o cliente BALCÃO 360
+        project.clientName.trim().toUpperCase() !== clientToExclude.toUpperCase() &&
         project.status === "Projeto Concluído" &&
         project.valor &&
         typeof project.valor === 'number' &&
         project.valor > 0 &&
-        project.dataConclusao &&
-        isValid(parseISO(project.dataConclusao))
+        conclusaoDate &&
+        isValid(conclusaoDate)
       ) {
-        const conclusaoDate = parseISO(project.dataConclusao);
         if (getYear(conclusaoDate) === currentYear && getMonth(conclusaoDate) === currentMonth) {
           return sum + project.valor;
         }
@@ -360,6 +357,4 @@ export default function DashboardMetricsPage() {
     </div>
   );
 }
-    
-
     

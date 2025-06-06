@@ -26,7 +26,8 @@ import type { PriorityType, Client, Project } from '@/types';
 import { PRIORITIES } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { differenceInDays, parseISO, startOfDay, isBefore, isValid } from 'date-fns';
+import { differenceInDays, startOfDay, isBefore, isValid } from 'date-fns';
+import { parseDateStringAsLocalAtMidnight } from "@/lib/utils"; // Importado de utils
 
 
 const getPriorityBadgeVariant = (priority?: PriorityType) => {
@@ -43,37 +44,33 @@ const getPriorityBadgeVariant = (priority?: PriorityType) => {
 };
 
 const getProjectDeadlineText = (prazo?: string): string | null => {
-  if (!prazo || !isValid(parseISO(prazo))) return null;
-  try {
-    const today = startOfDay(new Date());
-    const deadlineDate = startOfDay(parseISO(prazo));
-    const daysRemaining = differenceInDays(deadlineDate, today);
+  if (!prazo) return null;
+  const deadlineDate = parseDateStringAsLocalAtMidnight(prazo);
+  if (!deadlineDate || !isValid(deadlineDate)) return null;
+  
+  const today = startOfDay(new Date());
+  const daysRemaining = differenceInDays(deadlineDate, today);
 
-    if (isBefore(deadlineDate, today)) {
-      return `| Atrasado (${Math.abs(daysRemaining)}d)`;
-    }
-    if (daysRemaining === 0) {
-      return "| Hoje!";
-    }
-    if (daysRemaining > 0) {
-        return `| ${daysRemaining}d restantes`;
-    }
-    return null;
-  } catch (error) {
-    return null;
+  if (isBefore(deadlineDate, today)) {
+    return `| Atrasado (${Math.abs(daysRemaining)}d)`;
   }
+  if (daysRemaining === 0) {
+    return "| Hoje!";
+  }
+  if (daysRemaining > 0) {
+      return `| ${daysRemaining}d restantes`;
+  }
+  return null;
 };
 
 const projectHasImminentDeadline = (project: Project): boolean => {
-  if (!project.prazo || project.status === "Projeto Concluído" || !isValid(parseISO(project.prazo))) return false; 
-  try {
-    const today = startOfDay(new Date());
-    const deadlineDate = startOfDay(parseISO(project.prazo));
-    const daysRemaining = differenceInDays(deadlineDate, today);
-    return isBefore(deadlineDate, today) || daysRemaining <= 3;
-  } catch (error) {
-    return false;
-  }
+  if (!project.prazo || project.status === "Projeto Concluído") return false;
+  const deadlineDate = parseDateStringAsLocalAtMidnight(project.prazo);
+  if (!deadlineDate || !isValid(deadlineDate)) return false;
+  
+  const today = startOfDay(new Date());
+  const daysRemaining = differenceInDays(deadlineDate, today);
+  return isBefore(deadlineDate, today) || daysRemaining <= 3;
 };
 
 const clientHasImminentProject = (client: Client): boolean => {
@@ -167,17 +164,19 @@ export default function DashboardPage() {
         const nonCompletedProjects = client.projetos.filter(p => p.status !== "Projeto Concluído");
 
         if (deadlineProximityFilter === "SemPrazosAtivos") {
-          const hasActiveDeadlines = nonCompletedProjects.some(p => p.prazo && isValid(parseISO(p.prazo)));
+          const hasActiveDeadlines = nonCompletedProjects.some(p => {
+            const deadline = parseDateStringAsLocalAtMidnight(p.prazo);
+            return deadline && isValid(deadline);
+          });
           return !hasActiveDeadlines;
         }
 
-        const activeProjectsWithDeadline = nonCompletedProjects.filter(p => p.prazo && isValid(parseISO(p.prazo)));
+        const activeProjectsWithDeadline = nonCompletedProjects.filter(p => {
+            const deadline = parseDateStringAsLocalAtMidnight(p.prazo);
+            return deadline && isValid(deadline);
+        });
 
         if (activeProjectsWithDeadline.length === 0) {
-          // Se não tem projetos ativos com prazo, não pode ser "Urgente" nem "NaoUrgente"
-          // E também não seria "SemPrazosAtivos" se chegou aqui, pois esse é tratado acima.
-          // Isso significa que o cliente pode ter projetos não concluídos, mas nenhum deles tem prazo.
-          // Esse caso já é coberto por "SemPrazosAtivos".
           return false; 
         }
 
@@ -185,8 +184,10 @@ export default function DashboardPage() {
         let clientHasNonUrgentActiveDeadline = false;
 
         for (const project of activeProjectsWithDeadline) {
+          const deadlineDate = parseDateStringAsLocalAtMidnight(project.prazo!); // Sabemos que prazo existe e é válido aqui
+          if(!deadlineDate) continue;
+
           const today = startOfDay(new Date());
-          const deadlineDate = startOfDay(parseISO(project.prazo!));
           const daysRemaining = differenceInDays(deadlineDate, today);
 
           if (isBefore(deadlineDate, today) || daysRemaining <= 3) {
@@ -200,7 +201,7 @@ export default function DashboardPage() {
         if (deadlineProximityFilter === "Urgentes") return clientIsUrgent;
         if (deadlineProximityFilter === "NaoUrgentes") return !clientIsUrgent && clientHasNonUrgentActiveDeadline;
         
-        return false; // Should not be reached if filter is not "Todos"
+        return false; 
       });
     }
 

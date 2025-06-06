@@ -11,8 +11,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, ArrowLeft, CalendarDays, ExternalLink, Info } from "lucide-react";
 import type { Project } from '@/types';
-import { format, parseISO, isValid, startOfDay, isSameDay } from 'date-fns';
+import { format, isValid, startOfDay, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseDateStringAsLocalAtMidnight } from "@/lib/utils"; // Importado de utils
 
 interface ProjectWithClientInfo extends Project {
   clientId: string;
@@ -40,12 +41,18 @@ export default function ProjectCalendarPage() {
 
   const projectsWithActiveDeadlines = useMemo(() => {
     return allProjectsWithClientInfo.filter(
-      (p) => p.prazo && isValid(parseISO(p.prazo)) && p.status !== "Projeto Concluído"
+      (p) => {
+        const deadlineDate = parseDateStringAsLocalAtMidnight(p.prazo);
+        return deadlineDate && isValid(deadlineDate) && p.status !== "Projeto Concluído";
+      }
     );
   }, [allProjectsWithClientInfo]);
 
   const deadlineDays = useMemo(() => {
-    return projectsWithActiveDeadlines.map(p => startOfDay(parseISO(p.prazo!)));
+    return projectsWithActiveDeadlines.map(p => {
+      const deadlineDate = parseDateStringAsLocalAtMidnight(p.prazo!);
+      return deadlineDate ? startOfDay(deadlineDate) : new Date(0); // Fallback for invalid, should be filtered by projectsWithActiveDeadlines
+    }).filter(date => isValid(date) && date.getFullYear() !== 1970); // Filter out invalid/fallback dates
   }, [projectsWithActiveDeadlines]);
 
   const modifiers = {
@@ -58,9 +65,10 @@ export default function ProjectCalendarPage() {
 
   const projectsOnSelectedDate = useMemo(() => {
     if (!selectedDate) return [];
-    return projectsWithActiveDeadlines.filter(p =>
-      isSameDay(startOfDay(parseISO(p.prazo!)), selectedDate)
-    );
+    return projectsWithActiveDeadlines.filter(p => {
+      const deadlineDate = parseDateStringAsLocalAtMidnight(p.prazo!);
+      return deadlineDate && isValid(deadlineDate) && isSameDay(startOfDay(deadlineDate), selectedDate);
+    });
   }, [selectedDate, projectsWithActiveDeadlines]);
 
   const handleDayClick = (day: Date | undefined) => {
@@ -108,7 +116,6 @@ export default function ProjectCalendarPage() {
                 modifiersClassNames={modifiersClassNames}
                 className="rounded-md"
                 locale={ptBR}
-                // Example: disable past years and far future, can be adjusted
                 disabled={(date) => date < startOfDay(new Date(new Date().getFullYear() -1 , 0, 1)) || date > startOfDay(new Date(new Date().getFullYear() + 2, 11, 31))}
                 showOutsideDays
               />
@@ -159,5 +166,3 @@ export default function ProjectCalendarPage() {
     </div>
   );
 }
-
-    

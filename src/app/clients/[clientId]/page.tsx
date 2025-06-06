@@ -25,11 +25,11 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { Client, Project, ProjectType, PriorityType, User } from '@/types';
 import { Badge } from '@/components/ui/badge';
-import { differenceInDays, parseISO, startOfDay, isBefore, format, getYear, isValid } from 'date-fns';
+import { differenceInDays, startOfDay, isBefore, format, getYear, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PRIORITIES } from '@/lib/constants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { cn, parseDateStringAsLocalAtMidnight } from "@/lib/utils"; // Importado de utils
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { DelegateClientDialog } from '@/components/DelegateClientDialog';
@@ -60,30 +60,26 @@ const getPriorityBadgeVariant = (priority?: PriorityType) => {
 
 const getDeadlineBadgeInfo = (prazo?: string): { text: string; variant: "default" | "secondary" | "destructive" | "outline" } | null => {
     if (!prazo) return null;
-    try {
-        const deadlineDate = parseISO(prazo);
-        if (!isValid(deadlineDate)) return null;
-        const today = startOfDay(new Date());
-        const deadlineDay = startOfDay(deadlineDate);
-        const daysRemaining = differenceInDays(deadlineDay, today);
+    const deadlineDate = parseDateStringAsLocalAtMidnight(prazo);
+    if (!deadlineDate || !isValid(deadlineDate)) return null;
+    
+    const today = startOfDay(new Date());
+    const deadlineDay = startOfDay(deadlineDate);
+    const daysRemaining = differenceInDays(deadlineDay, today);
 
-        if (isBefore(deadlineDay, today)) {
-            return { text: `Atrasado (${Math.abs(daysRemaining)}d)`, variant: "destructive" };
-        }
-        if (daysRemaining === 0) {
-            return { text: "Hoje!", variant: "destructive" };
-        }
-        if (daysRemaining <= 3) {
-            return { text: `${daysRemaining}d restantes`, variant: "destructive" };
-        }
-        if (daysRemaining <= 7) {
-            return { text: `${daysRemaining}d restantes`, variant: "secondary" };
-        }
-        return null; 
-    } catch (error) {
-        console.error("Error parsing prazo for deadline badge:", error);
-        return null;
+    if (isBefore(deadlineDay, today)) {
+        return { text: `Atrasado (${Math.abs(daysRemaining)}d)`, variant: "destructive" };
     }
+    if (daysRemaining === 0) {
+        return { text: "Hoje!", variant: "destructive" };
+    }
+    if (daysRemaining <= 3) {
+        return { text: `${daysRemaining}d restantes`, variant: "destructive" };
+    }
+    if (daysRemaining <= 7) {
+        return { text: `${daysRemaining}d restantes`, variant: "secondary" };
+    }
+    return null; 
 };
 
 const formatProjectDateForCard = (
@@ -99,93 +95,80 @@ const formatProjectDateForCard = (
   icon: LucideIcon | null;
   iconColorClass: string;
 } | null => {
-  try {
-    if (status === "Projeto Concluído") {
-      if (dataConclusao && typeof dataConclusao === 'string' && dataConclusao.match(/^\d{4}-\d{2}-\d{2}$/) && isValid(parseISO(dataConclusao))) {
-        const conclusionDate = parseISO(dataConclusao);
-        const currentYear = getYear(new Date());
-        const conclusionYear = getYear(conclusionDate);
-        const dateFormatString = conclusionYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
-        return {
-          prefix: "Concluído em:",
-          formattedDate: format(conclusionDate, dateFormatString, { locale: ptBR }),
-          remainingText: null,
-          isConclusion: true,
-          variant: "default", 
-          icon: CheckCircle2,
-          iconColorClass: 'text-green-500',
-        };
-      }
-      return null; 
+  if (status === "Projeto Concluído") {
+    const conclusionDate = parseDateStringAsLocalAtMidnight(dataConclusao);
+    if (conclusionDate && isValid(conclusionDate)) {
+      const currentYear = getYear(new Date());
+      const conclusionYear = getYear(conclusionDate);
+      const dateFormatString = conclusionYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
+      return {
+        prefix: "Concluído em:",
+        formattedDate: format(conclusionDate, dateFormatString, { locale: ptBR }),
+        remainingText: null,
+        isConclusion: true,
+        variant: "default", 
+        icon: CheckCircle2,
+        iconColorClass: 'text-green-500',
+      };
     }
-
-    if (!prazo || typeof prazo !== 'string' || !prazo.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return null;
-    }
-
-    const deadlineDate = parseISO(prazo);
-    if (!isValid(deadlineDate)) return null;
-
-    const today = startOfDay(new Date());
-    const deadlineDay = startOfDay(deadlineDate);
-    const currentYear = getYear(today);
-    const deadlineYear = getYear(deadlineDay);
-
-    const dateFormatString = deadlineYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
-    const formattedDate = format(deadlineDay, dateFormatString, { locale: ptBR });
-
-    const daysRemaining = differenceInDays(deadlineDay, today);
-    let remainingText: string | null = null;
-    let variantForBadge: "default" | "secondary" | "destructive" | "outline" | null = "default";
-
-    if (isBefore(deadlineDay, today)) {
-      remainingText = `Atrasado (${Math.abs(daysRemaining)}d)`;
-      variantForBadge = "destructive";
-    } else if (daysRemaining === 0) {
-      remainingText = "Hoje!";
-      variantForBadge = "destructive";
-    } else {
-      remainingText = `${daysRemaining}d restantes`;
-      if (daysRemaining <= 3) variantForBadge = "destructive";
-      else if (daysRemaining <= 7) variantForBadge = "secondary";
-    }
-
-    return {
-      prefix: "Prazo:",
-      formattedDate,
-      remainingText,
-      isConclusion: false,
-      variant: variantForBadge, 
-      icon: CalendarClock,
-      iconColorClass: 'text-destructive', 
-    };
-  } catch (error) {
-    console.error("Error formatting project date for card:", error);
-    return null;
+    return null; 
   }
+
+  const deadlineDate = parseDateStringAsLocalAtMidnight(prazo);
+  if (!deadlineDate || !isValid(deadlineDate)) return null;
+
+  const today = startOfDay(new Date());
+  const deadlineDay = startOfDay(deadlineDate);
+  const currentYear = getYear(today);
+  const deadlineYear = getYear(deadlineDay);
+
+  const dateFormatString = deadlineYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
+  const formattedDate = format(deadlineDay, dateFormatString, { locale: ptBR });
+
+  const daysRemaining = differenceInDays(deadlineDay, today);
+  let remainingText: string | null = null;
+  let variantForBadge: "default" | "secondary" | "destructive" | "outline" | null = "default";
+
+  if (isBefore(deadlineDay, today)) {
+    remainingText = `Atrasado (${Math.abs(daysRemaining)}d)`;
+    variantForBadge = "destructive";
+  } else if (daysRemaining === 0) {
+    remainingText = "Hoje!";
+    variantForBadge = "destructive";
+  } else {
+    remainingText = `${daysRemaining}d restantes`;
+    if (daysRemaining <= 3) variantForBadge = "destructive";
+    else if (daysRemaining <= 7) variantForBadge = "secondary";
+  }
+
+  return {
+    prefix: "Prazo:",
+    formattedDate,
+    remainingText,
+    isConclusion: false,
+    variant: variantForBadge, 
+    icon: CalendarClock,
+    iconColorClass: 'text-destructive', 
+  };
 };
 
 
 const categorizeDeadline = (prazo?: string): DeadlineFilterCategory => {
   if (!prazo) return "Sem Prazo";
-  try {
-    const deadlineDate = parseISO(prazo);
-    if (!isValid(deadlineDate)) return "Sem Prazo";
+  const deadlineDate = parseDateStringAsLocalAtMidnight(prazo);
+  if (!deadlineDate || !isValid(deadlineDate)) return "Sem Prazo";
 
-    const today = startOfDay(new Date());
-    const deadlineDay = startOfDay(deadlineDate);
-    const daysRemaining = differenceInDays(deadlineDay, today);
+  const today = startOfDay(new Date());
+  const deadlineDay = startOfDay(deadlineDate);
+  const daysRemaining = differenceInDays(deadlineDay, today);
 
-    if (isBefore(deadlineDay, today) || daysRemaining <= 3) {
-      return "Muito Próximos/Atrasados";
-    }
-    if (daysRemaining <= 7) {
-      return "Próximos";
-    }
-    return "Distantes";
-  } catch (error) {
-    return "Sem Prazo";
+  if (isBefore(deadlineDay, today) || daysRemaining <= 3) {
+    return "Muito Próximos/Atrasados";
   }
+  if (daysRemaining <= 7) {
+    return "Próximos";
+  }
+  return "Distantes";
 };
 
 const getProjectCompletionPercentage = (project: Project): number | null => {
@@ -299,7 +282,6 @@ export default function ClientDetailPage() {
       if (success) {
         toast({ title: "Projeto Duplicado", description: `O projeto "${projectToDuplicate.nome}" foi duplicado com sucesso.` });
       }
-      // O toast de erro já é tratado dentro de duplicateProject/addProject
     }
   };
 
@@ -342,11 +324,11 @@ export default function ClientDetailPage() {
         const bPriority = priorityOrder[b.prioridade || "Baixa"] || 3;
         if (aPriority !== bPriority) return aPriority - bPriority;
 
-        const aDeadline = a.prazo ? parseISO(a.prazo) : null;
-        const bDeadline = b.prazo ? parseISO(b.prazo) : null;
-        if (aDeadline && bDeadline) return differenceInDays(aDeadline, bDeadline);
-        if (aDeadline) return -1; 
-        if (bDeadline) return 1;  
+        const aDeadline = a.prazo ? parseDateStringAsLocalAtMidnight(a.prazo) : null;
+        const bDeadline = b.prazo ? parseDateStringAsLocalAtMidnight(b.prazo) : null;
+        if (aDeadline && bDeadline && isValid(aDeadline) && isValid(bDeadline)) return differenceInDays(aDeadline, bDeadline);
+        if (aDeadline && isValid(aDeadline)) return -1; 
+        if (bDeadline && isValid(bDeadline)) return 1;  
         return 0;
     });
   }, [client, typeFilter, statusFilter, priorityFilter, deadlineFilter]);
@@ -612,4 +594,3 @@ export default function ClientDetailPage() {
     </div>
   );
 }
-

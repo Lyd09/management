@@ -31,8 +31,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { CalendarIcon, PlusCircle, Loader2, DollarSign, Eye, EyeOff, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { format, parseISO, isValid, differenceInDays, isBefore, startOfDay } from "date-fns";
+import { cn, parseDateStringAsLocalAtMidnight } from "@/lib/utils"; // Importado de utils
+import { format, isValid, differenceInDays, isBefore, startOfDay } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import type { Project, ChecklistItem, ProjectType, PriorityType } from "@/types";
 import { PROJECT_TYPES, PROJECT_STATUS_OPTIONS, INITIAL_PROJECT_STATUS, PRIORITIES, PREDEFINED_CHECKLISTS } from "@/lib/constants";
@@ -47,33 +47,6 @@ const mockSuggestProjectStatus = async (projectType: ProjectType): Promise<strin
   const genericSuggestions = ["Aguardando Início", "Em Pausa", "Bloqueado"];
   return [...new Set([...genericSuggestions, ...PROJECT_STATUS_OPTIONS[projectType]])].sort();
 };
-
-// Helper function to parse "yyyy-MM-dd" string as local date at midnight
-const parseDateStringAsLocalAtMidnight = (dateString?: string): Date | undefined => {
-  if (!dateString) return undefined;
-  // Regex to ensure YYYY-MM-DD format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    // console.warn(`Invalid date string format for parseDateStringAsLocalAtMidnight: ${dateString}`);
-    return undefined;
-  }
-  
-  const parts = dateString.split('-');
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in JS Date
-  const day = parseInt(parts[2], 10);
-
-  // Create a new Date object. This will be in the local timezone by default for year, month, day.
-  const date = new Date(year, month, day, 0, 0, 0, 0); 
-
-  // Basic validation: check if the date parts set match the parts read
-  // This helps catch invalid dates like February 30th
-  if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
-    // console.warn(`Constructed date does not match input string for parseDateStringAsLocalAtMidnight: ${dateString}`);
-    return undefined; 
-  }
-  return date;
-};
-
 
 const projectFormSchema = z.object({
   nome: z.string().min(2, "O nome do projeto é obrigatório."),
@@ -191,7 +164,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       setStatusOptions(prev => [...new Set([...suggestions, ...PROJECT_STATUS_OPTIONS[projectType]])].sort());
       toast({ title: "Sugestões de Status Carregadas", description: "Novas opções de status foram sugeridas pela IA."});
     } catch (error) {
-      // console.error("Error fetching AI status suggestions:", error);
       toast({ variant: "destructive", title: "Erro IA", description: "Não foi possível carregar sugestões de status." });
       setStatusOptions(PROJECT_STATUS_OPTIONS[projectType] || []);
     } finally {
@@ -823,4 +795,3 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     </Form>
   );
 }
-
