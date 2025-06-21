@@ -226,10 +226,13 @@ export default function ClientDetailPage() {
     }
   }, [clientId, getClientById, loading, router, toast]);
 
-  const handleAddProject = async (data: ProjectFormValues) => {
+  const handleAddProject = async (data: any) => {
     if (!client) return;
     
-    let submissionData: Partial<Project> & { nome: string, tipo: ProjectType, status: string, dataConclusao?: string } = {
+    // The data object comes from ProjectForm's handleSubmitLogic,
+    // where date fields have already been formatted into "yyyy-MM-dd" strings.
+    // We just need to pass them along.
+    const submissionData = {
       nome: data.nome,
       tipo: data.tipo,
       status: data.status,
@@ -238,21 +241,11 @@ export default function ClientDetailPage() {
       notas: data.notas,
       checklist: data.checklist || [],
       valor: data.valor,
+      prazo: data.prazo,
+      dataConclusao: data.dataConclusao,
     };
 
-    if (data.prazo) {
-      submissionData.prazo = format(data.prazo, "yyyy-MM-dd");
-    } else {
-      submissionData.prazo = undefined;
-    }
-    
-    if (data.status === "Projeto Concluído" && data.dataConclusao instanceof Date && isValid(data.dataConclusao)) {
-        submissionData.dataConclusao = format(data.dataConclusao, "yyyy-MM-dd");
-    } else {
-        submissionData.dataConclusao = undefined;
-    }
-
-    const success = await addProject(client.id, submissionData as Omit<Project, 'id' | 'clientId' | 'creatorUserId' | 'checklist'> & { checklist?: Partial<Project['checklist']>, dataConclusao?: string });
+    const success = await addProject(client.id, submissionData as Omit<Project, 'id' | 'clientId' | 'creatorUserId'>);
     if (success) {
       setIsAddProjectDialogOpen(false);
       toast({ title: "Projeto Adicionado", description: `O projeto ${data.nome} foi adicionado.` });

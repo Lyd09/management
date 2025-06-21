@@ -39,24 +39,22 @@ export default function ProjectEditPage() {
     }
   }, [clientId, projectId, getProjectById, getClientById, loading, router, toast]);
 
-  const handleUpdateProject = (data: ProjectFormValues) => { // data.prazo e data.dataConclusao aqui são Date | undefined
+  const handleUpdateProject = (data: any) => {
     if (!project || !clientId) return;
     
-    // ProjectFormValues tem prazo e dataConclusao como Date | undefined.
-    // ProjectForm.handleSubmitLogic formata para string "yyyy-MM-dd" ou undefined antes de chamar este onSubmit.
-    // Então, o 'data' recebido aqui já tem as datas formatadas como string ou undefined.
-
+    // The `data` object comes from ProjectForm's handleSubmitLogic,
+    // where date fields have already been formatted into "yyyy-MM-dd" strings.
     const updatedProjectData: Partial<Project> = {
       nome: data.nome,
       tipo: data.tipo as ProjectType,
       status: data.status,
       prioridade: data.prioridade as PriorityType, 
       descricao: data.descricao,
-      prazo: data.prazo, // Já é string "yyyy-MM-dd" ou undefined
+      prazo: data.prazo, // Pass string directly
       valor: data.valor,
       notas: data.notas,
       checklist: data.checklist || [],
-      dataConclusao: data.dataConclusao, // Já é string "yyyy-MM-dd" ou undefined
+      dataConclusao: data.dataConclusao, // Pass string directly
     };
     
     // Remover campos que são undefined para evitar problemas com o Firestore
