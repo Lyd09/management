@@ -10,8 +10,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2 } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2, Search } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +30,7 @@ import { differenceInDays, startOfDay, isBefore, format, getYear, isValid } from
 import { ptBR } from 'date-fns/locale';
 import { PRIORITIES } from '@/lib/constants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn, parseDateStringAsLocalAtMidnight } from "@/lib/utils"; // Importado de utils
+import { cn, parseDateStringAsLocalAtMidnight } from "@/lib/utils";
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { DelegateClientDialog } from '@/components/DelegateClientDialog';
@@ -208,6 +209,7 @@ export default function ClientDetailPage() {
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
   const [isDelegateDialogOpen, setIsDelegateDialogOpen] = useState(false);
 
+  const [projectSearchTerm, setProjectSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<ProjectType | "Todos">("Todos");
   const [statusFilter, setStatusFilter] = useState<string | "Todos">("Todos");
   const [priorityFilter, setPriorityFilter] = useState<PriorityType | "Todos">("Todos");
@@ -306,11 +308,12 @@ export default function ClientDetailPage() {
   const filteredProjects = useMemo(() => {
     if (!client) return [];
     return client.projetos.filter(project => {
+      const searchTermMatch = !projectSearchTerm || project.nome.toLowerCase().includes(projectSearchTerm.toLowerCase());
       const typeMatch = typeFilter === "Todos" || project.tipo === typeFilter;
       const statusMatch = statusFilter === "Todos" || project.status === statusFilter;
       const priorityMatch = priorityFilter === "Todos" || project.prioridade === priorityFilter;
       const deadlineMatch = deadlineFilter === "Todos" || categorizeDeadline(project.prazo) === deadlineFilter;
-      return typeMatch && statusMatch && priorityMatch && deadlineMatch;
+      return searchTermMatch && typeMatch && statusMatch && priorityMatch && deadlineMatch;
     }).sort((a, b) => { 
         const priorityOrder: Record<PriorityType, number> = { "Alta": 1, "Média": 2, "Baixa": 3 };
         const aPriority = priorityOrder[a.prioridade || "Baixa"] || 3;
@@ -324,7 +327,7 @@ export default function ClientDetailPage() {
         if (bDeadline && isValid(bDeadline)) return 1;  
         return 0;
     });
-  }, [client, typeFilter, statusFilter, priorityFilter, deadlineFilter]);
+  }, [client, projectSearchTerm, typeFilter, statusFilter, priorityFilter, deadlineFilter]);
 
 
   if (loading || !client) {
@@ -369,11 +372,25 @@ export default function ClientDetailPage() {
       {client.projetos.length > 0 && (
          <Card className="p-4">
             <CardContent className="p-0">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="sm:col-span-2 lg:col-span-4">
+                        <Label htmlFor="projectSearch">Buscar Projeto por Nome</Label>
+                        <div className="relative mt-1">
+                            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                id="projectSearch"
+                                type="search"
+                                placeholder="Filtrar projetos por nome..."
+                                className="w-full pl-10"
+                                value={projectSearchTerm}
+                                onChange={(e) => setProjectSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
                     <div>
                         <Label htmlFor="typeFilter">Filtrar por Tipo</Label>
                         <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as ProjectType | "Todos")}>
-                            <SelectTrigger id="typeFilter">
+                            <SelectTrigger id="typeFilter" className="mt-1">
                                 <SelectValue placeholder="Tipo" />
                             </SelectTrigger>
                             <SelectContent>
@@ -387,7 +404,7 @@ export default function ClientDetailPage() {
                     <div>
                         <Label htmlFor="statusFilter">Filtrar por Status</Label>
                         <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as string | "Todos")}>
-                            <SelectTrigger id="statusFilter">
+                            <SelectTrigger id="statusFilter" className="mt-1">
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -401,7 +418,7 @@ export default function ClientDetailPage() {
                     <div>
                         <Label htmlFor="priorityFilter">Filtrar por Prioridade</Label>
                         <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as PriorityType | "Todos")}>
-                            <SelectTrigger id="priorityFilter">
+                            <SelectTrigger id="priorityFilter" className="mt-1">
                                 <SelectValue placeholder="Prioridade" />
                             </SelectTrigger>
                             <SelectContent>
@@ -415,7 +432,7 @@ export default function ClientDetailPage() {
                      <div>
                         <Label htmlFor="deadlineFilter">Filtrar por Prazo</Label>
                         <Select value={deadlineFilter} onValueChange={(value) => setDeadlineFilter(value as DeadlineFilterCategory)}>
-                            <SelectTrigger id="deadlineFilter">
+                            <SelectTrigger id="deadlineFilter" className="mt-1">
                                 <SelectValue placeholder="Prazo" />
                             </SelectTrigger>
                             <SelectContent>
