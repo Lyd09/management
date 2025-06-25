@@ -255,7 +255,7 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
       "Pequenos ajustes na interface para melhorar a experiência do usuário.",
     ],
   },
-   {
+  {
     date: "2024-06-04",
     version: "1.5.0",
     description: "Expansão de Funcionalidades, Calendário e Melhorias de Admin",
