@@ -244,6 +244,17 @@ export type ChangelogEntryItem = {
 };
 
 export const CHANGELOG_DATA: ChangelogEntryItem[] = [
+  {
+    date: "2024-06-25",
+    version: "1.6.0",
+    description: "Correções de Bugs Críticos, Melhorias de UI e Estabilidade",
+    details: [
+      "Resolvidos conflitos críticos de dependência que impediam a implantação da aplicação, estabilizando as versões do Next.js, React e Genkit.",
+      "Corrigido um bug de fuso horário que fazia com que as datas de prazo dos projetos fossem exibidas como o dia anterior ao selecionado.",
+      "Adicionada uma barra de pesquisa na página de detalhes do cliente, permitindo filtrar projetos por nome para melhor organização.",
+      "Pequenos ajustes na interface para melhorar a experiência do usuário.",
+    ],
+  },
    {
     date: "2024-06-04",
     version: "1.5.0",
@@ -319,4 +330,3 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     ],
   },
 ];
-
