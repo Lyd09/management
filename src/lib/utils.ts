@@ -7,21 +7,31 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Parses a date string in "YYYY-MM-DD" format into a Date object representing
- * midnight in the local timezone, correctly avoiding UTC conversion issues.
- * @param dateString The date string to parse (e.g., "2024-07-10").
- * @returns A Date object, or undefined if the string is invalid or null.
+ * Parses a date string in "YYYY-MM-DD" format or accepts a Date object,
+ * returning a Date object representing midnight in the local timezone.
+ * @param dateInput The date string or Date object to parse.
+ * @returns A Date object, or undefined if the input is invalid or null.
  */
-export const parseDateStringAsLocalAtMidnight = (dateString?: string): Date | undefined => {
-  if (!dateString) {
+export const parseDateStringAsLocalAtMidnight = (dateInput?: string | Date): Date | undefined => {
+  if (!dateInput) {
+    return undefined;
+  }
+
+  // If the input is already a Date object, return it directly.
+  if (dateInput instanceof Date) {
+    return dateInput;
+  }
+
+  // If it's not a string, we can't process it.
+  if (typeof dateInput !== 'string') {
     return undefined;
   }
 
   // Expects dateString to be in "YYYY-MM-DD" format.
   // Using a regex to be more robust against partial inputs.
-  const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const match = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) {
-    // console.warn(`Invalid date string format provided: "${dateString}". Expected "YYYY-MM-DD".`);
+    // console.warn(`Invalid date string format provided: "${dateInput}". Expected "YYYY-MM-DD".`);
     return undefined;
   }
 
