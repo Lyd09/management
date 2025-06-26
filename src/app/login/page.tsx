@@ -67,7 +67,7 @@ export default function LoginPage() {
             <LogIn className="h-8 w-8" />
           </div>
           <CardTitle className="text-3xl font-bold text-primary">Bem-vindo!</CardTitle>
-          <CardDescription className="text-muted-foreground">Acesse sua conta para gerenciar clientes e projetos.</CardDescription>
+          <CardDescription className="text-muted-foreground">Acesse sua conta para gerenciar clientes e projetos. Novos usuários devem solicitar seu cadastro.</CardDescription>
         </CardHeader>
         <CardContent className="p-6 sm:p-8">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -123,7 +123,7 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="justify-center text-center text-sm text-muted-foreground p-4 bg-card-foreground/5">
-          <p>&copy; {new Date().getFullYear()} Projetex</p>
+          <p>&copy; {new Date().getFullYear()} Projetex | FastFilms</p>
         </CardFooter>
       </Card>
     </div>
