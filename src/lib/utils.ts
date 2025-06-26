@@ -8,14 +8,20 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Parses a date string in "YYYY-MM-DD" or other common formats, or accepts a Date object,
+ * Parses a date string in "YYYY-MM-DD", a Date object, or a Firestore Timestamp-like object,
  * returning a Date object representing midnight in the local timezone.
- * @param dateInput The date string or Date object to parse.
+ * @param dateInput The date string, Date object, or Firestore Timestamp-like object to parse.
  * @returns A Date object, or undefined if the input is invalid or null.
  */
-export const parseDateStringAsLocalAtMidnight = (dateInput?: string | Date): Date | undefined => {
+export const parseDateStringAsLocalAtMidnight = (dateInput?: string | Date | { toDate: () => Date }): Date | undefined => {
   if (!dateInput) {
     return undefined;
+  }
+
+  // Handle Firestore Timestamp-like objects (which have a toDate method)
+  if (typeof dateInput === 'object' && dateInput !== null && 'toDate' in dateInput && typeof (dateInput as any).toDate === 'function') {
+      const convertedDate = (dateInput as { toDate: () => Date }).toDate();
+      return isValid(convertedDate) ? convertedDate : undefined;
   }
 
   // If the input is already a Date object, check its validity and return it.
@@ -57,3 +63,5 @@ export const parseDateStringAsLocalAtMidnight = (dateInput?: string | Date): Dat
   const genericDate = new Date(dateInput);
   return isValid(genericDate) ? genericDate : undefined;
 };
+
+    
