@@ -31,7 +31,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { CalendarIcon, PlusCircle, Loader2, DollarSign, Eye, EyeOff, Sparkles } from "lucide-react";
-import { cn, parseDateStringAsLocalAtMidnight } from "@/lib/utils"; // Importado de utils
+import { cn, parseDateStringAsLocalAtMidnight } from "@/lib/utils";
 import { format, isValid, differenceInDays, isBefore, startOfDay } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import type { Project, ChecklistItem, ProjectType, PriorityType } from "@/types";
@@ -240,12 +240,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   };
 
   const handleSubmitLogic = (data: ProjectFormValues) => {
-    onSubmit({
-      ...data,
-      prazo: data.prazo ? format(data.prazo, "yyyy-MM-dd") : undefined,
-      dataConclusao: data.dataConclusao ? format(data.dataConclusao, "yyyy-MM-dd") : undefined,
-      valor: data.valor
-    } as any);
+    onSubmit(data); 
     if (!isPage && onClose) {
       form.reset({
         nome: "",
