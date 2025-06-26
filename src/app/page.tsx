@@ -112,7 +112,7 @@ export default function DashboardPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [clientToDelete, setClientToDelete] = useState<string | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<PriorityType | "Todas">("Todas");
   const [deadlineProximityFilter, setDeadlineProximityFilter] = useState<DeadlineProximityFilterType>("Todos");
 
@@ -137,16 +137,15 @@ export default function DashboardPage() {
     setIsEditClientDialogOpen(true);
   };
 
-  const confirmDeleteClient = (clientId: string) => {
-    setClientToDelete(clientId);
+  const confirmDeleteClient = (client: Client) => {
+    setClientToDelete(client);
     setShowDeleteConfirm(true);
   };
 
   const handleDeleteClient = () => {
     if (clientToDelete) {
-      const client = clients.find(c => c.id === clientToDelete);
-      deleteClient(clientToDelete);
-      toast({ title: "Cliente Excluído", description: `Cliente ${client?.nome} foi excluído.`});
+      deleteClient(clientToDelete.id);
+      toast({ title: "Cliente Excluído", description: `Cliente ${clientToDelete.nome} foi excluído.`});
       setClientToDelete(null);
     }
     setShowDeleteConfirm(false);
@@ -402,7 +401,7 @@ export default function DashboardPage() {
               <Button variant="outline" size="sm" onClick={() => openEditDialog(client)}>
                 <Edit2 className="mr-1 h-3 w-3" /> Editar
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => confirmDeleteClient(client.id)}>
+              <Button variant="destructive" size="sm" onClick={() => confirmDeleteClient(client)}>
                 <Trash2 className="mr-1 h-3 w-3" /> Excluir
               </Button>
             </CardFooter>
@@ -424,7 +423,7 @@ export default function DashboardPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir este cliente e todos os seus projetos? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir o cliente <span className="font-semibold text-foreground">{clientToDelete?.nome}</span> e todos os seus projetos? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -436,3 +435,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

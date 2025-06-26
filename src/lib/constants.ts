@@ -245,6 +245,16 @@ export type ChangelogEntryItem = {
 
 export const CHANGELOG_DATA: ChangelogEntryItem[] = [
   {
+    date: "2024-06-26",
+    version: "1.7.0",
+    description: "Melhorias de Usabilidade e Correções",
+    details: [
+      "Melhoria na confirmação de exclusão: agora o nome do cliente ou projeto é exibido na caixa de diálogo para maior segurança.",
+      "Correção de bugs relacionados à exibição de datas de prazo dos projetos, garantindo consistência.",
+      "Ajustes de dependências para resolver conflitos de instalação e garantir builds estáveis.",
+    ],
+  },
+  {
     date: "2024-06-25",
     version: "1.6.0",
     description: "Correções de Bugs Críticos, Melhorias de UI e Estabilidade",
@@ -330,3 +340,5 @@ export const CHANGELOG_DATA: ChangelogEntryItem[] = [
     ],
   },
 ];
+
+    

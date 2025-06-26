@@ -206,7 +206,7 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<Client | null>(null);
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDelegateDialogOpen, setIsDelegateDialogOpen] = useState(false);
 
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
@@ -251,16 +251,15 @@ export default function ClientDetailPage() {
     }
   };
 
-  const confirmDeleteProject = (projectId: string) => {
-    setProjectToDelete(projectId);
+  const confirmDeleteProject = (project: Project) => {
+    setProjectToDelete(project);
     setShowDeleteConfirm(true);
   };
 
   const handleDeleteProject = () => {
     if (projectToDelete && client) {
-      const project = client.projetos.find(p => p.id === projectToDelete);
-      deleteProject(client.id, projectToDelete);
-      toast({ title: "Projeto Excluído", description: `Projeto ${project?.nome} foi excluído.`});
+      deleteProject(client.id, projectToDelete.id);
+      toast({ title: "Projeto Excluído", description: `Projeto ${projectToDelete.nome} foi excluído.`});
       setProjectToDelete(null);
     }
     setShowDeleteConfirm(false);
@@ -566,7 +565,7 @@ export default function ClientDetailPage() {
                     <Edit2 className="mr-1 h-3 w-3" /> Editar
                   </Button>
                 </Link>
-                <Button variant="destructive" size="sm" onClick={() => confirmDeleteProject(project.id)}>
+                <Button variant="destructive" size="sm" onClick={() => confirmDeleteProject(project)}>
                   <Trash2 className="mr-1 h-3 w-3" /> Excluir
                 </Button>
               </CardFooter>
@@ -580,7 +579,7 @@ export default function ClientDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão de Projeto</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir este projeto? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir o projeto <span className="font-semibold text-foreground">{projectToDelete?.nome}</span>? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -603,5 +602,7 @@ export default function ClientDetailPage() {
     </div>
   );
 }
+
+    
 
     
