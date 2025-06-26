@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2 } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2, Search } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -33,6 +33,7 @@ import { cn, parseDateStringAsLocalAtMidnight } from "@/lib/utils"; // Importado
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { DelegateClientDialog } from '@/components/DelegateClientDialog';
+import { Input } from '@/components/ui/input';
 
 
 type DeadlineFilterCategory = "Todos" | "Muito Próximos/Atrasados" | "Próximos" | "Distantes" | "Sem Prazo";
@@ -120,7 +121,7 @@ const formatProjectDateForCard = (
   const today = startOfDay(new Date());
   const deadlineDay = startOfDay(deadlineDate);
   const currentYear = getYear(today);
-  const deadlineYear = getYear(deadlineDay);
+  const deadlineYear = getYear(deadlineDate);
 
   const dateFormatString = deadlineYear === currentYear ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
   const formattedDate = format(deadlineDay, dateFormatString, { locale: ptBR });
@@ -212,6 +213,7 @@ export default function ClientDetailPage() {
   const [statusFilter, setStatusFilter] = useState<string | "Todos">("Todos");
   const [priorityFilter, setPriorityFilter] = useState<PriorityType | "Todos">("Todos");
   const [deadlineFilter, setDeadlineFilter] = useState<DeadlineFilterCategory>("Todos");
+  const [projectSearchTerm, setProjectSearchTerm] = useState("");
 
 
   useEffect(() => {
@@ -313,11 +315,12 @@ export default function ClientDetailPage() {
   const filteredProjects = useMemo(() => {
     if (!client) return [];
     return client.projetos.filter(project => {
+      const searchMatch = projectSearchTerm.trim() === "" || project.nome.toLowerCase().includes(projectSearchTerm.toLowerCase());
       const typeMatch = typeFilter === "Todos" || project.tipo === typeFilter;
       const statusMatch = statusFilter === "Todos" || project.status === statusFilter;
       const priorityMatch = priorityFilter === "Todos" || project.prioridade === priorityFilter;
       const deadlineMatch = deadlineFilter === "Todos" || categorizeDeadline(project.prazo) === deadlineFilter;
-      return typeMatch && statusMatch && priorityMatch && deadlineMatch;
+      return typeMatch && statusMatch && priorityMatch && deadlineMatch && searchMatch;
     }).sort((a, b) => { 
         const priorityOrder: Record<PriorityType, number> = { "Alta": 1, "Média": 2, "Baixa": 3 };
         const aPriority = priorityOrder[a.prioridade || "Baixa"] || 3;
@@ -331,7 +334,7 @@ export default function ClientDetailPage() {
         if (bDeadline && isValid(bDeadline)) return 1;  
         return 0;
     });
-  }, [client, typeFilter, statusFilter, priorityFilter, deadlineFilter]);
+  }, [client, typeFilter, statusFilter, priorityFilter, deadlineFilter, projectSearchTerm]);
 
 
   if (loading || !client) {
@@ -376,6 +379,21 @@ export default function ClientDetailPage() {
       {client.projetos.length > 0 && (
          <Card className="p-4">
             <CardContent className="p-0">
+              <div className="flex flex-col gap-4">
+                <div>
+                    <Label htmlFor="projectSearch">Buscar Projeto por Nome</Label>
+                    <div className="relative">
+                        <Input
+                            id="projectSearch"
+                            type="search"
+                            placeholder="Digite o nome do projeto..."
+                            className="pl-10 w-full"
+                            value={projectSearchTerm}
+                            onChange={(e) => setProjectSearchTerm(e.target.value)}
+                        />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <Label htmlFor="typeFilter">Filtrar por Tipo</Label>
@@ -433,6 +451,7 @@ export default function ClientDetailPage() {
                         </Select>
                     </div>
                 </div>
+              </div>
             </CardContent>
          </Card>
       )}
@@ -594,3 +613,5 @@ export default function ClientDetailPage() {
     </div>
   );
 }
+
+    
