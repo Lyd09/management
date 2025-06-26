@@ -136,6 +136,12 @@ body {
   .calendar-deadline-day:not([aria-selected="true"]):hover > .rdp-day_button::after {
      @apply bg-accent;
   }
+
+  /* Hide default browser password reveal icon */
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
+  }
 }
 
     
