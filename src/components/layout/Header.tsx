@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, History, LayoutDashboard, Menu, Home, CalendarDays, Users as UsersIcon, Briefcase } from 'lucide-react';
+import { LogOut, LayoutDashboard, Menu, Home, CalendarDays, Users as UsersIcon, Briefcase } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import React from 'react';
 
@@ -84,14 +84,6 @@ export function Header() {
                   </>
                 )}
 
-                <SheetClose asChild>
-                  <Link href="/updates" passHref>
-                    <Button variant="ghost" className="group w-full justify-start text-base py-3">
-                      <History className="mr-2 h-5 w-5 text-primary group-hover:text-accent-foreground" />
-                      Atualizações
-                    </Button>
-                  </Link>
-                </SheetClose>
               </nav>
               
               <div className="mt-auto">
