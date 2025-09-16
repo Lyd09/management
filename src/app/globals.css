@@ -46,7 +46,7 @@ body {
     --chart-5: 0 72% 30%; /* Darker Red */
     
     /* Sidebar variables, can be adjusted if a distinct sidebar theme is needed */
-    --sidebar-background: 210 8% 12%; /* Slightly darker than main background */
+    --sidebar-background: 210 11% 11%; /* #191c1f */
     --sidebar-foreground: 0 0% 90%;
     --sidebar-primary: 0 72% 51%; /* Red */
     --sidebar-primary-foreground: 0 0% 100%;
@@ -84,7 +84,7 @@ body {
     --chart-4: 0 0% 70%;
     --chart-5: 0 72% 30%; /* Darker Red */
     
-    --sidebar-background: 210 8% 12%;
+    --sidebar-background: 210 11% 11%; /* #191c1f */
     --sidebar-foreground: 0 0% 90%;
     --sidebar-primary: 0 72% 51%; /* Red */
     --sidebar-primary-foreground: 0 0% 100%;
