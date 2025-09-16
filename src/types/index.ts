@@ -22,6 +22,7 @@ export interface Project {
   creatorUserId: string; // ID do usuário que criou o projeto
   assignedUserId?: string; // ID do usuário designado para o projeto
   dataConclusao?: string; // ISO date string: "YYYY-MM-DD"
+  googleCalendarEventId?: string; // ID do evento no Google Calendar
 }
 
 export interface Client {
