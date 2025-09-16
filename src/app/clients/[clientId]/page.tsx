@@ -353,7 +353,7 @@ export default function ClientDetailPage() {
 
 
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="text-3xl font-bold text-primary flex items-center gap-3"><Building /> {client.nome}</h1>
+        <h1 className="text-3xl font-bold text-primary flex items-center gap-3"><Building className="h-8 w-8" /> {client.nome}</h1>
         <Dialog open={isAddProjectDialogOpen} onOpenChange={setIsAddProjectDialogOpen}>
           <DialogTrigger asChild>
             <Button>
