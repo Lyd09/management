@@ -396,7 +396,7 @@ export default function ClientDetailPage() {
                         <Mail className="w-5 h-5 text-muted-foreground" />
                         <div>
                           <Label className="text-sm font-normal text-muted-foreground">Email:</Label>
-                          <a href={`mailto:${client.contato.email}`} className="font-semibold text-primary hover:underline">{client.contato.email}</a>
+                          <a href={`mailto:${client.contato.email}`} className="font-semibold text-primary hover:underline block">{client.contato.email}</a>
                         </div>
                       </div>
                     )}
