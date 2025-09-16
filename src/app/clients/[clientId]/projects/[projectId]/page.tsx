@@ -54,6 +54,7 @@ export default function ProjectEditPage() {
       notas: data.notas,
       checklist: data.checklist || [],
       dataConclusao: data.dataConclusao ? format(data.dataConclusao, "yyyy-MM-dd") : undefined,
+      tags: data.tags,
     };
     
     const cleanUpdateData: Partial<Project> = {};

@@ -242,6 +242,7 @@ export default function ClientDetailPage() {
       valor: data.valor,
       prazo: data.prazo ? format(data.prazo, "yyyy-MM-dd") : undefined,
       dataConclusao: data.dataConclusao ? format(data.dataConclusao, "yyyy-MM-dd") : undefined,
+      tags: data.tags,
     };
 
     const success = await addProject(client.id, submissionData as Omit<Project, 'id' | 'clientId' | 'creatorUserId'>);

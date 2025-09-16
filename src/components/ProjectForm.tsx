@@ -74,6 +74,7 @@ const projectFormSchema = z.object({
     })
   ).optional(),
   dataConclusao: z.date().optional(),
+  tags: z.array(z.string()).optional(),
 });
 
 export type ProjectFormValues = z.infer<typeof projectFormSchema>;
@@ -119,6 +120,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       notas: project?.notas || "",
       checklist: project?.checklist || [],
       dataConclusao: parseDateStringAsLocalAtMidnight(project?.dataConclusao),
+      tags: project?.tags || [],
     },
   });
 
@@ -141,6 +143,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       notas: project?.notas || "",
       checklist: project?.checklist || [],
       dataConclusao: parseDateStringAsLocalAtMidnight(project?.dataConclusao),
+      tags: project?.tags || [],
     });
     if(project?.tipo) {
         setSelectedProjectType(project.tipo);
@@ -253,6 +256,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
         notas: "",
         checklist: [],
         dataConclusao: undefined,
+        tags: [],
       });
       setSelectedProjectType(undefined);
       setStatusOptions([]);
@@ -734,6 +738,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                         notas: "",
                         checklist: [],
                         dataConclusao: undefined,
+                        tags: [],
                       });
                       setSelectedProjectType(undefined);
                       setStatusOptions([]);

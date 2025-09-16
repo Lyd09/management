@@ -354,6 +354,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         item: item.item,
         feito: false,
       })),
+      tags: originalProject.tags
     };
 
     try {
