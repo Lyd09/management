@@ -405,7 +405,7 @@ export default function ClientDetailPage() {
                         <Phone className="w-5 h-5 text-muted-foreground" />
                         <div>
                           <Label className="text-sm font-normal text-muted-foreground">WhatsApp</Label>
-                           <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">{client.contato.whatsapp}</a>
+                           <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline block">{client.contato.whatsapp}</a>
                         </div>
                       </div>
                     )}
@@ -713,5 +713,7 @@ export default function ClientDetailPage() {
     </div>
   );
 }
+
+    
 
     
