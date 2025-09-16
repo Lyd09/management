@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/ClientForm";
 import type { ClientFormValues } from "@/components/ClientForm";
-import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Percent, CalendarClock, Building } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, Search, Filter, ExternalLink, Loader2, Users, FolderKanban, Percent, CalendarClock } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -337,8 +337,7 @@ export default function DashboardPage() {
           <Card key={client.id} className="flex flex-col hover:shadow-primary/20 hover:shadow-md transition-shadow duration-300">
             <CardHeader>
               <div className="flex justify-between items-start">
-                <CardTitle className="text-xl flex items-center gap-2">
-                    <Building className="h-6 w-6 text-primary/80" />
+                <CardTitle className="text-xl">
                     {client.nome}
                 </CardTitle>
                 <div className="flex items-center gap-1">

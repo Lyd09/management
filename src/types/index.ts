@@ -38,8 +38,10 @@ export interface Client {
   responsavel?: string; // Responsável principal
   contato?: {
     email?: string;
-    telefone?: string;
+    whatsapp?: string;
     social?: string;
+    local?: string;
+    cidade?: string;
   };
   documento?: string; // CNPJ ou CPF
   segmento?: string; // Categoria do negócio

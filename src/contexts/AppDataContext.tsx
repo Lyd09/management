@@ -43,8 +43,10 @@ interface FirebaseClientDoc {
   responsavel?: string;
   contato?: {
     email?: string;
-    telefone?: string;
+    whatsapp?: string;
     social?: string;
+    local?: string;
+    cidade?: string;
   };
   documento?: string;
   segmento?: string;

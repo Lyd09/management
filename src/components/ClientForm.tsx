@@ -29,8 +29,10 @@ const clientFormSchema = z.object({
   responsavel: z.string().optional(),
   contato: z.object({
     email: z.string().email({ message: "Por favor, insira um email válido." }).optional().or(z.literal('')),
-    telefone: z.string().optional(),
+    whatsapp: z.string().optional(),
     social: z.string().optional(),
+    local: z.string().optional(),
+    cidade: z.string().optional(),
   }).optional(),
   documento: z.string().optional(),
   segmento: z.string().optional(),
@@ -54,8 +56,10 @@ export function ClientForm({ client, onSubmit, onClose }: ClientFormProps) {
       responsavel: client?.responsavel || "",
       contato: {
         email: client?.contato?.email || "",
-        telefone: client?.contato?.telefone || "",
+        whatsapp: client?.contato?.whatsapp || "",
         social: client?.contato?.social || "",
+        local: client?.contato?.local || "",
+        cidade: client?.contato?.cidade || "",
       },
       documento: client?.documento || "",
       segmento: client?.segmento || "",
@@ -154,10 +158,10 @@ export function ClientForm({ client, onSubmit, onClose }: ClientFormProps) {
                 />
                  <FormField
                   control={form.control}
-                  name="contato.telefone"
+                  name="contato.whatsapp"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Telefone</FormLabel>
+                      <FormLabel>WhatsApp</FormLabel>
                       <FormControl>
                         <Input placeholder="(XX) XXXXX-XXXX" {...field} />
                       </FormControl>
@@ -173,6 +177,32 @@ export function ClientForm({ client, onSubmit, onClose }: ClientFormProps) {
                       <FormLabel>Rede Social (Link)</FormLabel>
                       <FormControl>
                         <Input placeholder="Link do Instagram, LinkedIn, etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contato.local"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Local (Endereço)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Rua, Número, Bairro..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contato.cidade"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cidade</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Cidade, Estado" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2, Search, User, Mail, Phone, Link2, FileText, Briefcase, StickyNote, Building } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2, Search, User, Mail, Phone, Link2, FileText, Briefcase, StickyNote, Building, MapPin } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -336,7 +336,7 @@ export default function ClientDetailPage() {
     );
   }
 
-  const clientHasProfileData = client.responsavel || client.contato?.email || client.contato?.telefone || client.contato?.social || client.documento || client.segmento || client.observacoes;
+  const clientHasProfileData = client.responsavel || client.contato?.email || client.contato?.whatsapp || client.contato?.social || client.contato?.local || client.contato?.cidade || client.documento || client.segmento || client.observacoes;
 
   return (
     <div className="space-y-6">
@@ -386,17 +386,17 @@ export default function ClientDetailPage() {
                 <div className="flex items-center gap-2">
                   <Mail className="w-5 h-5 text-muted-foreground" />
                   <div>
-                    <Label className="text-sm font-normal text-muted-foreground">Email</Label>
+                    <Label className="text-sm font-normal text-muted-foreground">Email:</Label>
                     <a href={`mailto:${client.contato.email}`} className="font-semibold text-primary hover:underline">{client.contato.email}</a>
                   </div>
                 </div>
               )}
-              {client.contato?.telefone && (
+              {client.contato?.whatsapp && (
                 <div className="flex items-center gap-2">
                   <Phone className="w-5 h-5 text-muted-foreground" />
                   <div>
-                    <Label className="text-sm font-normal text-muted-foreground">Telefone</Label>
-                    <p className="font-semibold">{client.contato.telefone}</p>
+                    <Label className="text-sm font-normal text-muted-foreground">WhatsApp</Label>
+                    <p className="font-semibold">{client.contato.whatsapp}</p>
                   </div>
                 </div>
               )}
@@ -406,6 +406,24 @@ export default function ClientDetailPage() {
                   <div>
                     <Label className="text-sm font-normal text-muted-foreground">Rede Social</Label>
                     <a href={client.contato.social} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline line-clamp-1">{client.contato.social}</a>
+                  </div>
+                </div>
+              )}
+              {client.contato?.local && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-normal text-muted-foreground">Local</Label>
+                    <p className="font-semibold">{client.contato.local}</p>
+                  </div>
+                </div>
+              )}
+              {client.contato?.cidade && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-normal text-muted-foreground">Cidade</Label>
+                    <p className="font-semibold">{client.contato.cidade}</p>
                   </div>
                 </div>
               )}
