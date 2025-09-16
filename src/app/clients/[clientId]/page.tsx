@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -370,7 +371,7 @@ export default function ClientDetailPage() {
         </Dialog>
       </div>
 
-      {clientHasProfileData && (
+      {currentUser?.role === 'admin' && clientHasProfileData && (
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="client-profile">
             <Card>
@@ -395,7 +396,7 @@ export default function ClientDetailPage() {
                       <div className="flex items-center gap-2">
                         <Mail className="w-5 h-5 text-muted-foreground" />
                         <div>
-                          <Label className="text-sm font-normal text-muted-foreground">Email:</Label>
+                          <Label className="text-sm font-normal text-muted-foreground">Email</Label>
                           <a href={`mailto:${client.contato.email}`} className="font-semibold text-primary hover:underline block">{client.contato.email}</a>
                         </div>
                       </div>
@@ -717,3 +718,4 @@ export default function ClientDetailPage() {
     
 
     
+
