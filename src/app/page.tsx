@@ -118,14 +118,14 @@ export default function DashboardPage() {
 
 
   const handleAddClient = (data: ClientFormValues) => {
-    addClient(data.nome, data.prioridade);
+    addClient(data);
     setIsAddClientDialogOpen(false);
     toast({ title: "Cliente Adicionado", description: `O cliente ${data.nome} foi adicionado com sucesso.` });
   };
 
   const handleEditClient = (data: ClientFormValues) => {
     if (editingClient) {
-      updateClient(editingClient.id, data.nome, data.prioridade);
+      updateClient(editingClient.id, data);
       setIsEditClientDialogOpen(false);
       setEditingClient(null);
       toast({ title: "Cliente Atualizado", description: `O cliente ${data.nome} foi atualizado.` });
@@ -251,7 +251,7 @@ export default function DashboardPage() {
               <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Cliente
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
             <ClientForm onSubmit={handleAddClient} onClose={() => setIsAddClientDialogOpen(false)} />
           </DialogContent>
         </Dialog>
@@ -318,7 +318,7 @@ export default function DashboardPage() {
                     <PlusCircle className="mr-2 h-5 w-5" /> Adicionar seu primeiro cliente
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
                     <ClientForm onSubmit={handleAddClient} onClose={() => setIsAddClientDialogOpen(false)} />
                 </DialogContent>
                 </Dialog>
@@ -412,7 +412,7 @@ export default function DashboardPage() {
 
       {editingClient && (
         <Dialog open={isEditClientDialogOpen} onOpenChange={setIsEditClientDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
             <ClientForm client={editingClient} onSubmit={handleEditClient} onClose={() => { setIsEditClientDialogOpen(false); setEditingClient(null); }} />
           </DialogContent>
         </Dialog>
@@ -435,5 +435,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

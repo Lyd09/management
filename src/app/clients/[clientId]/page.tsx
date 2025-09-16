@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2, Search } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2, Search, User, Mail, Phone, Link2, FileText, Briefcase, StickyNote, Building } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
-import type { Client, Project, ProjectType, PriorityType, User } from '@/types';
+import type { Client, Project, ProjectType, PriorityType, User as AppUser } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { differenceInDays, startOfDay, isBefore, format, getYear, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -335,6 +335,8 @@ export default function ClientDetailPage() {
     );
   }
 
+  const clientHasProfileData = client.responsavel || client.contato?.email || client.contato?.telefone || client.contato?.social || client.documento || client.segmento || client.observacoes;
+
   return (
     <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -350,7 +352,7 @@ export default function ClientDetailPage() {
 
 
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="text-3xl font-bold text-primary">{client.nome}</h1>
+        <h1 className="text-3xl font-bold text-primary flex items-center gap-3"><Building /> {client.nome}</h1>
         <Dialog open={isAddProjectDialogOpen} onOpenChange={setIsAddProjectDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -363,7 +365,85 @@ export default function ClientDetailPage() {
         </Dialog>
       </div>
 
-      <h2 className="text-2xl font-semibold">Projetos</h2>
+      {clientHasProfileData && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><User className="text-primary"/> Perfil do Cliente</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {client.responsavel && (
+                <div className="flex items-center gap-2">
+                  <User className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-normal text-muted-foreground">Responsável</Label>
+                    <p className="font-semibold">{client.responsavel}</p>
+                  </div>
+                </div>
+              )}
+              {client.contato?.email && (
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-normal text-muted-foreground">Email</Label>
+                    <a href={`mailto:${client.contato.email}`} className="font-semibold text-primary hover:underline">{client.contato.email}</a>
+                  </div>
+                </div>
+              )}
+              {client.contato?.telefone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-normal text-muted-foreground">Telefone</Label>
+                    <p className="font-semibold">{client.contato.telefone}</p>
+                  </div>
+                </div>
+              )}
+              {client.contato?.social && (
+                <div className="flex items-center gap-2">
+                  <Link2 className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-normal text-muted-foreground">Rede Social</Label>
+                    <a href={client.contato.social} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline line-clamp-1">{client.contato.social}</a>
+                  </div>
+                </div>
+              )}
+              {client.documento && (
+                 <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-normal text-muted-foreground">Documento (CNPJ/CPF)</Label>
+                    <p className="font-semibold">{client.documento}</p>
+                  </div>
+                </div>
+              )}
+              {client.segmento && (
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-normal text-muted-foreground">Segmento</Label>
+                    <p className="font-semibold">{client.segmento}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            {client.observacoes && (
+              <div className="pt-4">
+                <div className="flex items-start gap-2">
+                  <StickyNote className="w-5 h-5 text-muted-foreground mt-1" />
+                  <div>
+                    <Label className="text-sm font-normal text-muted-foreground">Observações Internas</Label>
+                    <p className="font-semibold whitespace-pre-wrap">{client.observacoes}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+
+      <h2 className="text-2xl font-semibold pt-4">Projetos</h2>
 
       {client.projetos.length > 0 && (
          <Card className="p-4">
@@ -602,7 +682,3 @@ export default function ClientDetailPage() {
     </div>
   );
 }
-
-    
-
-    

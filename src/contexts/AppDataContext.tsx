@@ -40,6 +40,15 @@ interface FirebaseClientDoc {
   createdAt: Timestamp;
   prioridade?: PriorityType;
   creatorUserId: string;
+  responsavel?: string;
+  contato?: {
+    email?: string;
+    telefone?: string;
+    social?: string;
+  };
+  documento?: string;
+  segmento?: string;
+  observacoes?: string;
 }
 
 interface FirebaseProjectDoc {
@@ -56,6 +65,8 @@ interface FirebaseProjectDoc {
   creatorUserId: string;
   assignedUserId?: string;
   dataConclusao?: string; // ISO date string: "YYYY-MM-DD"
+  googleCalendarEventId?: string;
+  tags?: string[];
 }
 
 interface FirebaseUserDoc {
@@ -70,8 +81,8 @@ interface AppDataContextType {
   clients: Client[];
   users: User[];
   loading: boolean;
-  addClient: (nome: string, prioridade?: PriorityType) => Promise<void>;
-  updateClient: (clientId: string, nome: string, prioridade?: PriorityType) => Promise<void>;
+  addClient: (clientData: Omit<Client, 'id' | 'projetos' | 'creatorUserId' | 'createdAt'>) => Promise<void>;
+  updateClient: (clientId: string, clientData: Partial<Omit<Client, 'id' | 'projetos' | 'creatorUserId' | 'createdAt'>>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   getClientById: (clientId: string) => Client | undefined;
   addProject: (clientId: string, projectData: Omit<Project, 'id' | 'clientId' | 'creatorUserId'>) => Promise<boolean>;
@@ -144,6 +155,11 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
           prioridade: clientFirebaseData.prioridade,
           creatorUserId: clientFirebaseData.creatorUserId,
           createdAt: clientFirebaseData.createdAt,
+          responsavel: clientFirebaseData.responsavel,
+          contato: clientFirebaseData.contato,
+          documento: clientFirebaseData.documento,
+          segmento: clientFirebaseData.segmento,
+          observacoes: clientFirebaseData.observacoes,
           projetos: [],
         };
 
@@ -171,15 +187,15 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => unsubscribeClients();
   }, [loggedInUserFromAuthContext, toast]);
 
-  const addClient = useCallback(async (nome: string, prioridade?: PriorityType) => {
+  const addClient = useCallback(async (clientData: Omit<Client, 'id' | 'projetos' | 'creatorUserId' | 'createdAt'>) => {
     if (!loggedInUserFromAuthContext) {
         toast({ variant: "destructive", title: "Erro de Autenticação", description: "Você precisa estar logado para adicionar clientes." });
         return;
     }
     try {
       await addDoc(collection(db, COLLECTION_NAME), {
-        nome,
-        prioridade: prioridade || "Média",
+        ...clientData,
+        prioridade: clientData.prioridade || "Média",
         creatorUserId: loggedInUserFromAuthContext.id,
         createdAt: serverTimestamp(),
       });
@@ -188,14 +204,19 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [loggedInUserFromAuthContext, toast]);
 
-  const updateClient = useCallback(async (clientId: string, nome: string, prioridade?: PriorityType) => {
+  const updateClient = useCallback(async (clientId: string, clientData: Partial<Omit<Client, 'id' | 'projetos' | 'creatorUserId' | 'createdAt'>>) => {
     try {
       const clientDocRef = doc(db, COLLECTION_NAME, clientId);
-      const updateData: Partial<FirebaseClientDoc> = { nome };
-      if (prioridade) {
-        updateData.prioridade = prioridade;
-      }
-      await updateDoc(clientDocRef, updateData as any);
+      
+      const cleanData: Partial<FirebaseClientDoc> = {};
+      Object.keys(clientData).forEach(key => {
+        const typedKey = key as keyof typeof clientData;
+        if (clientData[typedKey] !== undefined) {
+           (cleanData as any)[typedKey] = clientData[typedKey];
+        }
+      });
+
+      await updateDoc(clientDocRef, cleanData);
     } catch (error) {
       toast({ variant: "destructive", title: "Erro ao Atualizar Cliente", description: "Não foi possível atualizar o cliente." });
     }
@@ -239,12 +260,14 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         dataConclusao: projectData.dataConclusao,
         notas: projectData.notas,
         prioridade: projectData.prioridade || "Média",
-        valor: projectData.valor, // Já deve ser number ou undefined
+        valor: projectData.valor,
         creatorUserId: loggedInUserFromAuthContext!.id,
         checklist: (projectData.checklist || []).map(item => ({
           ...item, 
           id: item.id || uuidv4() 
         })) as ChecklistItem[],
+        googleCalendarEventId: projectData.googleCalendarEventId,
+        tags: projectData.tags,
       };
 
       const cleanDataForFirestore: Partial<FirebaseProjectDoc> = {};
@@ -601,4 +624,3 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     </AppDataContext.Provider>
   );
 };
-
