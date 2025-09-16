@@ -24,6 +24,7 @@ export interface Project {
   dataConclusao?: string; // ISO date string: "YYYY-MM-DD"
   googleCalendarEventId?: string; // ID do evento no Google Calendar
   createdAt?: any; // Firestore Timestamp
+  tags?: string[]; // Tags para categorização e métricas
 }
 
 export interface Client {
@@ -33,6 +34,16 @@ export interface Client {
   prioridade?: PriorityType;
   creatorUserId: string; // ID do usuário que criou o cliente
   createdAt?: any; // Firestore Timestamp
+  // Novos campos para o perfil do cliente
+  responsavel?: string; // Responsável principal
+  contato?: {
+    email?: string;
+    telefone?: string;
+    social?: string;
+  };
+  documento?: string; // CNPJ ou CPF
+  segmento?: string; // Categoria do negócio
+  observacoes?: string; // Campo livre para anotações internas
 }
 
 // Definição do tipo User
