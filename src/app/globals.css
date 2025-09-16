@@ -9,7 +9,7 @@ body {
 
 @layer base {
   :root {
-    --background: 210 8% 15%; /* Dark gray #23262A */
+    --background: 210 11% 11%; /* #191c1f */
     --foreground: 0 0% 94%; /* Light gray/White #F0F0F0 */
 
     --card: 217 8% 18%; /* Slightly lighter dark gray #2A2D32 */
@@ -58,7 +58,7 @@ body {
 
   /* Apply dark theme by default */
   .dark {
-    --background: 210 8% 15%;
+    --background: 210 11% 11%; /* #191c1f */
     --foreground: 0 0% 94%;
     --card: 217 8% 18%;
     --card-foreground: 0 0% 88%;
@@ -143,5 +143,4 @@ body {
     display: none;
   }
 }
-
     
