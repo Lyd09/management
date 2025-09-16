@@ -23,6 +23,7 @@ export interface Project {
   assignedUserId?: string; // ID do usuário designado para o projeto
   dataConclusao?: string; // ISO date string: "YYYY-MM-DD"
   googleCalendarEventId?: string; // ID do evento no Google Calendar
+  createdAt?: any; // Firestore Timestamp
 }
 
 export interface Client {

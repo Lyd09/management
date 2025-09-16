@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, Edit, CalendarClock, Percent, Info, StickyNote, ListChecks, DollarSign, Eye, EyeOff } from "lucide-react"; // Adicionado Eye, EyeOff
+import { ArrowLeft, Edit, CalendarClock, Percent, Info, StickyNote, ListChecks, DollarSign, Eye, EyeOff, CalendarPlus } from "lucide-react"; // Adicionado Eye, EyeOff e CalendarPlus
 import { PRIORITIES, PROJECT_TYPES, PROJECT_STATUS_OPTIONS } from "@/lib/constants";
 import type { PriorityType, ProjectType } from '@/types';
 import { differenceInDays, startOfDay, isBefore, format, isValid } from 'date-fns';
@@ -68,6 +68,15 @@ const getProjectCompletionPercentage = (project: Project): number | null => {
   return Math.round((completedItems / totalItems) * 100);
 };
 
+const formatGenericDate = (dateInput: any): string | null => {
+    if (!dateInput) return null;
+    const parsedDate = parseDateStringAsLocalAtMidnight(dateInput);
+    if (parsedDate && isValid(parsedDate)) {
+        return format(parsedDate, "PPP", { locale: ptBR });
+    }
+    return null;
+};
+
 interface ProjectDisplayProps {
   project: Project;
   client: Client;
@@ -87,16 +96,8 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
     setIsValueVisible(!isValueVisible);
   };
 
-  const formattedConclusionDate = () => {
-    if (project.status === "Projeto Concluído" && project.dataConclusao) {
-        const parsedDate = parseDateStringAsLocalAtMidnight(project.dataConclusao);
-        if (parsedDate && isValid(parsedDate)) {
-            return format(parsedDate, "PPP", { locale: ptBR });
-        }
-    }
-    return null;
-  };
-  const conclusionDateText = formattedConclusionDate();
+  const conclusionDateText = formatGenericDate(project.dataConclusao);
+  const creationDateText = formatGenericDate(project.createdAt);
 
 
   return (
@@ -121,7 +122,7 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
           <CardTitle className="flex items-center gap-2"><Info className="h-5 w-5 text-primary" />Informações Gerais</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Tipo de Projeto</Label>
               <p className="text-base font-semibold">{project.tipo}</p>
@@ -135,10 +136,7 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
                 {project.status}
               </Badge>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+             <div>
               <Label className="text-sm font-medium text-muted-foreground">Prioridade</Label>
               {project.prioridade ? (
                 <Badge variant={getPriorityBadgeVariant(project.prioridade)} className="text-base px-3 py-1">
@@ -148,14 +146,23 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
                 <p className="text-base">Não definida</p>
               )}
             </div>
+          </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {creationDateText && (
+                <div>
+                    <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1"><CalendarPlus className="h-4 w-4"/>Data de Criação</Label>
+                    <p className="text-base font-semibold">{creationDateText}</p>
+                </div>
+            )}
             {project.status === "Projeto Concluído" && conclusionDateText ? (
                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Data de Conclusão</Label>
+                    <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1"><CalendarClock className="h-4 w-4"/>Data de Conclusão</Label>
                     <p className="text-base font-semibold text-green-600">{conclusionDateText}</p>
                  </div>
             ) : project.status !== "Projeto Concluído" && project.prazo ? (
                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Prazo de Entrega</Label>
+                    <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1"><CalendarClock className="h-4 w-4"/>Prazo de Entrega</Label>
                      <div className="flex items-center gap-1">
                         <p className="text-base font-semibold">
                             {(() => {
@@ -178,48 +185,49 @@ export function ProjectDisplay({ project, client }: ProjectDisplayProps) {
                  </div>
             ) : project.status !== "Projeto Concluído" ? (
                 <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Prazo de Entrega</Label>
+                    <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1"><CalendarClock className="h-4 w-4"/>Prazo de Entrega</Label>
                     <p className="text-base">Não definido</p>
                 </div>
             ) : null}
           </div>
           
-          {project.valor !== undefined && (
-            <div>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/>Valor do Projeto</Label>
-                <Button variant="ghost" size="icon" onClick={toggleValueVisibility} aria-label={isValueVisible ? "Ocultar valor" : "Mostrar valor"} className="h-6 w-6">
-                  {isValueVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-base font-semibold">
-                {isValueVisible
-                  ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(project.valor)
-                  : "R$ ••••••"}
-              </p>
-            </div>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+             {project.valor !== undefined && (
+                <div>
+                <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium text-muted-foreground flex items-center gap-1"><DollarSign className="h-4 w-4"/>Valor do Projeto</Label>
+                    <Button variant="ghost" size="icon" onClick={toggleValueVisibility} aria-label={isValueVisible ? "Ocultar valor" : "Mostrar valor"} className="h-6 w-6">
+                    {isValueVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                </div>
+                <p className="text-base font-semibold">
+                    {isValueVisible
+                    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(project.valor)
+                    : "R$ ••••••"}
+                </p>
+                </div>
+             )}
           
-          {project.status !== "Projeto Concluído" && project.status !== "Aguardando Início" && completionPercentage !== null && project.checklist && project.checklist.length > 0 && (
-            <div>
-                <Label className="text-sm font-medium text-muted-foreground">Progresso do Checklist</Label>
-                <Badge
-                    variant={completionBadgeStyle.variant}
-                    className={`text-base px-3 py-1 ${completionBadgeStyle.className}`}
-                >
-                  <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}%
-                </Badge>
-            </div>
-          )}
-          {project.status === "Aguardando Início" && (
-             <div>
-                <Label className="text-sm font-medium text-muted-foreground">Progresso do Checklist</Label>
-                <Badge variant="secondary" className="text-base px-3 py-1">
-                    <span role="img" aria-label="target" className="mr-1">🎯</span> 0%
-                </Badge>
-            </div>
-          )}
-
+             {project.status !== "Projeto Concluído" && project.status !== "Aguardando Início" && completionPercentage !== null && project.checklist && project.checklist.length > 0 && (
+                <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Progresso do Checklist</Label>
+                    <Badge
+                        variant={completionBadgeStyle.variant}
+                        className={`text-base px-3 py-1 ${completionBadgeStyle.className}`}
+                    >
+                    <span role="img" aria-label="target" className="mr-1">🎯</span> {completionPercentage}%
+                    </Badge>
+                </div>
+             )}
+             {project.status === "Aguardando Início" && (
+                <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Progresso do Checklist</Label>
+                    <Badge variant="secondary" className="text-base px-3 py-1">
+                        <span role="img" aria-label="target" className="mr-1">🎯</span> 0%
+                    </Badge>
+                </div>
+             )}
+          </div>
 
         </CardContent>
       </Card>
