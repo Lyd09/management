@@ -32,7 +32,7 @@ const clientFormSchema = z.object({
     whatsapp: z.string().optional(),
     social: z.string().optional(),
     local: z.string().optional(),
-    cidade: z.string().optional(),
+    municipio: z.string().optional(),
   }).optional(),
   documento: z.string().optional(),
   segmento: z.string().optional(),
@@ -59,7 +59,7 @@ export function ClientForm({ client, onSubmit, onClose }: ClientFormProps) {
         whatsapp: client?.contato?.whatsapp || "",
         social: client?.contato?.social || "",
         local: client?.contato?.local || "",
-        cidade: client?.contato?.cidade || "",
+        municipio: client?.contato?.municipio || "",
       },
       documento: client?.documento || "",
       segmento: client?.segmento || "",
@@ -197,10 +197,10 @@ export function ClientForm({ client, onSubmit, onClose }: ClientFormProps) {
                 />
                 <FormField
                   control={form.control}
-                  name="contato.cidade"
+                  name="contato.municipio"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Cidade</FormLabel>
+                      <FormLabel>Município</FormLabel>
                       <FormControl>
                         <Input placeholder="Cidade, Estado" {...field} />
                       </FormControl>
@@ -264,3 +264,5 @@ export function ClientForm({ client, onSubmit, onClose }: ClientFormProps) {
     </Form>
   );
 }
+
+    

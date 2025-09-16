@@ -41,7 +41,7 @@ export interface Client {
     whatsapp?: string;
     social?: string;
     local?: string;
-    cidade?: string;
+    municipio?: string;
   };
   documento?: string; // CNPJ ou CPF
   segmento?: string; // Categoria do negócio
@@ -61,3 +61,5 @@ export interface AppData {
   clientes: Client[];
   users?: User[];
 }
+
+    

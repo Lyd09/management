@@ -46,7 +46,7 @@ interface FirebaseClientDoc {
     whatsapp?: string;
     social?: string;
     local?: string;
-    cidade?: string;
+    municipio?: string;
   };
   documento?: string;
   segmento?: string;
@@ -627,3 +627,5 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     </AppDataContext.Provider>
   );
 };
+
+    

@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2, Search, User, Mail, Phone, Link2, FileText, Briefcase, StickyNote, Building, MapPin } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2, Search, User, Mail, Phone, Instagram, FileText, Briefcase, StickyNote, Building, MapPin } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -337,7 +337,10 @@ export default function ClientDetailPage() {
     );
   }
 
-  const clientHasProfileData = client.responsavel || client.contato?.email || client.contato?.whatsapp || client.contato?.social || client.contato?.local || client.contato?.cidade || client.documento || client.segmento || client.observacoes;
+  const clientHasProfileData = client.responsavel || client.contato?.email || client.contato?.whatsapp || client.contato?.social || client.contato?.local || client.contato?.municipio || client.documento || client.segmento || client.observacoes;
+  const whatsappNumberClean = client.contato?.whatsapp ? client.contato.whatsapp.replace(/\D/g, '') : '';
+  const whatsappLink = whatsappNumberClean ? `https://wa.me/${whatsappNumberClean}` : '#';
+
 
   return (
     <div className="space-y-6">
@@ -402,13 +405,13 @@ export default function ClientDetailPage() {
                         <Phone className="w-5 h-5 text-muted-foreground" />
                         <div>
                           <Label className="text-sm font-normal text-muted-foreground">WhatsApp</Label>
-                          <p className="font-semibold">{client.contato.whatsapp}</p>
+                           <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">{client.contato.whatsapp}</a>
                         </div>
                       </div>
                     )}
                     {client.contato?.social && (
                       <div className="flex items-center gap-2">
-                        <Link2 className="w-5 h-5 text-muted-foreground" />
+                        <Instagram className="w-5 h-5 text-muted-foreground" />
                         <div>
                           <Label className="text-sm font-normal text-muted-foreground">Rede Social</Label>
                           <a href={client.contato.social} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline line-clamp-1">{client.contato.social}</a>
@@ -424,12 +427,12 @@ export default function ClientDetailPage() {
                         </div>
                       </div>
                     )}
-                    {client.contato?.cidade && (
+                    {client.contato?.municipio && (
                       <div className="flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-muted-foreground" />
                         <div>
-                          <Label className="text-sm font-normal text-muted-foreground">Cidade</Label>
-                          <p className="font-semibold">{client.contato.cidade}</p>
+                          <Label className="text-sm font-normal text-muted-foreground">Município</Label>
+                          <p className="font-semibold">{client.contato.municipio}</p>
                         </div>
                       </div>
                     )}
