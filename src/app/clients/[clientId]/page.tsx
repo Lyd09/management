@@ -34,6 +34,7 @@ import { cn, parseDateStringAsLocalAtMidnight } from "@/lib/utils";
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { DelegateClientDialog } from '@/components/DelegateClientDialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 type DeadlineFilterCategory = "Todos" | "Muito Próximos/Atrasados" | "Próximos" | "Distantes" | "Sem Prazo";
@@ -353,7 +354,7 @@ export default function ClientDetailPage() {
 
 
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="text-3xl font-bold text-primary flex items-center gap-3"><Building className="h-8 w-8" /> {client.nome}</h1>
+        <h1 className="text-3xl font-bold text-primary">{client.nome}</h1>
         <Dialog open={isAddProjectDialogOpen} onOpenChange={setIsAddProjectDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -367,98 +368,106 @@ export default function ClientDetailPage() {
       </div>
 
       {clientHasProfileData && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><User className="text-primary"/> Perfil do Cliente</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {client.responsavel && (
-                <div className="flex items-center gap-2">
-                  <User className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <Label className="text-sm font-normal text-muted-foreground">Responsável</Label>
-                    <p className="font-semibold">{client.responsavel}</p>
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="client-profile">
+            <Card>
+              <AccordionTrigger className="p-6">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <User className="text-primary"/> Perfil do Cliente
+                </CardTitle>
+              </AccordionTrigger>
+              <AccordionContent>
+                <CardContent className="space-y-4 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {client.responsavel && (
+                      <div className="flex items-center gap-2">
+                        <User className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <Label className="text-sm font-normal text-muted-foreground">Responsável</Label>
+                          <p className="font-semibold">{client.responsavel}</p>
+                        </div>
+                      </div>
+                    )}
+                    {client.contato?.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <Label className="text-sm font-normal text-muted-foreground">Email:</Label>
+                          <a href={`mailto:${client.contato.email}`} className="font-semibold text-primary hover:underline">{client.contato.email}</a>
+                        </div>
+                      </div>
+                    )}
+                    {client.contato?.whatsapp && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <Label className="text-sm font-normal text-muted-foreground">WhatsApp</Label>
+                          <p className="font-semibold">{client.contato.whatsapp}</p>
+                        </div>
+                      </div>
+                    )}
+                    {client.contato?.social && (
+                      <div className="flex items-center gap-2">
+                        <Link2 className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <Label className="text-sm font-normal text-muted-foreground">Rede Social</Label>
+                          <a href={client.contato.social} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline line-clamp-1">{client.contato.social}</a>
+                        </div>
+                      </div>
+                    )}
+                    {client.contato?.local && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <Label className="text-sm font-normal text-muted-foreground">Local</Label>
+                          <p className="font-semibold">{client.contato.local}</p>
+                        </div>
+                      </div>
+                    )}
+                    {client.contato?.cidade && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <Label className="text-sm font-normal text-muted-foreground">Cidade</Label>
+                          <p className="font-semibold">{client.contato.cidade}</p>
+                        </div>
+                      </div>
+                    )}
+                    {client.documento && (
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <Label className="text-sm font-normal text-muted-foreground">Documento (CNPJ/CPF)</Label>
+                          <p className="font-semibold">{client.documento}</p>
+                        </div>
+                      </div>
+                    )}
+                    {client.segmento && (
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <Label className="text-sm font-normal text-muted-foreground">Segmento</Label>
+                          <p className="font-semibold">{client.segmento}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-              {client.contato?.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <Label className="text-sm font-normal text-muted-foreground">Email:</Label>
-                    <a href={`mailto:${client.contato.email}`} className="font-semibold text-primary hover:underline">{client.contato.email}</a>
-                  </div>
-                </div>
-              )}
-              {client.contato?.whatsapp && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <Label className="text-sm font-normal text-muted-foreground">WhatsApp</Label>
-                    <p className="font-semibold">{client.contato.whatsapp}</p>
-                  </div>
-                </div>
-              )}
-              {client.contato?.social && (
-                <div className="flex items-center gap-2">
-                  <Link2 className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <Label className="text-sm font-normal text-muted-foreground">Rede Social</Label>
-                    <a href={client.contato.social} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline line-clamp-1">{client.contato.social}</a>
-                  </div>
-                </div>
-              )}
-              {client.contato?.local && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <Label className="text-sm font-normal text-muted-foreground">Local</Label>
-                    <p className="font-semibold">{client.contato.local}</p>
-                  </div>
-                </div>
-              )}
-              {client.contato?.cidade && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <Label className="text-sm font-normal text-muted-foreground">Cidade</Label>
-                    <p className="font-semibold">{client.contato.cidade}</p>
-                  </div>
-                </div>
-              )}
-              {client.documento && (
-                 <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <Label className="text-sm font-normal text-muted-foreground">Documento (CNPJ/CPF)</Label>
-                    <p className="font-semibold">{client.documento}</p>
-                  </div>
-                </div>
-              )}
-              {client.segmento && (
-                <div className="flex items-center gap-2">
-                  <Briefcase className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <Label className="text-sm font-normal text-muted-foreground">Segmento</Label>
-                    <p className="font-semibold">{client.segmento}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-            {client.observacoes && (
-              <div className="pt-4">
-                <div className="flex items-start gap-2">
-                  <StickyNote className="w-5 h-5 text-muted-foreground mt-1" />
-                  <div>
-                    <Label className="text-sm font-normal text-muted-foreground">Observações Internas</Label>
-                    <p className="font-semibold whitespace-pre-wrap">{client.observacoes}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  {client.observacoes && (
+                    <div className="pt-4">
+                      <div className="flex items-start gap-2">
+                        <StickyNote className="w-5 h-5 text-muted-foreground mt-1" />
+                        <div>
+                          <Label className="text-sm font-normal text-muted-foreground">Observações Internas</Label>
+                          <p className="font-semibold whitespace-pre-wrap">{client.observacoes}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </AccordionContent>
+            </Card>
+          </AccordionItem>
+        </Accordion>
       )}
 
 
@@ -701,3 +710,5 @@ export default function ClientDetailPage() {
     </div>
   );
 }
+
+    
