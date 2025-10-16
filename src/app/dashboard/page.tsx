@@ -1,18 +1,18 @@
 
 "use client";
 
-import React, { useMemo, useState } from 'react'; // Adicionado useState
+import React, { useMemo, useState } from 'react';
 import { useAppData } from '@/hooks/useAppData';
 import { useAuth } from '@/hooks/useAuth'; 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon, DollarSign, Eye, EyeOff } from "lucide-react"; // Adicionado Eye, EyeOff
+import { Loader2, Users, FolderKanban, AlertTriangle, PieChartIcon, DollarSign, Eye, EyeOff } from "lucide-react";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
 import { differenceInDays, startOfDay, isBefore, getYear, getMonth, isValid } from 'date-fns';
 import type { Project, ProjectType } from '@/types';
 import { PROJECT_TYPES } from '@/lib/constants';
-import { Button } from '@/components/ui/button'; // Adicionado Button
-import { parseDateStringAsLocalAtMidnight } from "@/lib/utils"; // Importado de utils
+import { Button } from '@/components/ui/button';
+import { parseDateStringAsLocalAtMidnight } from "@/lib/utils";
 
 const COLORS_PIE = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
@@ -31,7 +31,7 @@ const EXCLUDE_PROJECT_NAMES_FOR_OVERDUE = ["SITE LOGS"];
 export default function DashboardMetricsPage() {
   const { clients, loading } = useAppData();
   const { currentUser } = useAuth(); 
-  const [isTotalValorVisible, setIsTotalValorVisible] = useState(false); // Estado para visibilidade
+  const [isTotalValorVisible, setIsTotalValorVisible] = useState(false);
 
   const rawAllProjectsWithClientName = useMemo(() => {
     return clients.reduce((acc, client) => {
@@ -104,6 +104,35 @@ export default function DashboardMetricsPage() {
       }))
       .filter(client => client.projectCount > 0)
       .sort((a, b) => b.projectCount - a.projectCount)
+      .slice(0, 5);
+  }, [clients]);
+
+  const clientsByTotalValue = useMemo(() => {
+    return clients
+      .filter(client => {
+        const clientNameUpper = client.nome.trim().toUpperCase();
+        return !EXCLUDE_CLIENT_NAMES_FOR_TOP_CLIENTS.some(excludedClientName =>
+          clientNameUpper === excludedClientName.toUpperCase()
+        );
+      })
+      .map(client => {
+        const totalValue = client.projetos
+          .filter(p => {
+            const projectNameUpper = p.nome.trim().toUpperCase();
+            return !EXCLUDE_PROJECT_NAMES_FOR_TOP_CLIENTS.some(excludedProjectName =>
+              projectNameUpper === excludedProjectName.toUpperCase()
+            ) && p.status === 'Projeto Concluído' && typeof p.valor === 'number' && p.valor > 0;
+          })
+          .reduce((sum, p) => sum + (p.valor || 0), 0);
+        
+        return {
+          id: client.id,
+          name: client.nome,
+          totalValue: totalValue,
+        };
+      })
+      .filter(client => client.totalValue > 0)
+      .sort((a, b) => b.totalValue - a.totalValue)
       .slice(0, 5);
   }, [clients]);
 
@@ -260,7 +289,7 @@ export default function DashboardMetricsPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5 text-primary" />Top 5 Clientes por Nº de Projetos</CardTitle>
@@ -280,6 +309,29 @@ export default function DashboardMetricsPage() {
               </ul>
             ) : (
               <p className="text-sm text-muted-foreground">Nenhum cliente{currentUser?.role === 'admin' ? ' (após exclusões)' : ''} para exibir.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center"><DollarSign className="mr-2 h-5 w-5 text-green-500" />Top 5 Clientes por Valor Total (R$)</CardTitle>
+             {currentUser?.role === 'admin' && (
+             <CardDescription>Soma de projetos concluídos. SITE LOGS e MY BROKER não inclusos.</CardDescription>
+            )}
+          </CardHeader>
+          <CardContent>
+            {clientsByTotalValue.length > 0 ? (
+              <ul className="space-y-2">
+                {clientsByTotalValue.map(client => (
+                  <li key={client.id} className="flex justify-between items-center text-sm p-2 rounded-md hover:bg-muted/50">
+                    <span>{client.name}</span>
+                    <span className="font-semibold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(client.totalValue)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum cliente com valor registrado{currentUser?.role === 'admin' ? ' (após exclusões)' : ''} para exibir.</p>
             )}
           </CardContent>
         </Card>
@@ -357,4 +409,6 @@ export default function DashboardMetricsPage() {
     </div>
   );
 }
+    
+
     
