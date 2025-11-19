@@ -95,7 +95,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   const [dragOverItemIndex, setDragOverItemIndex] = useState<number | null>(null);
 
   const [isValueInputVisible, setIsValueInputVisible] = useState(false);
-  const [showLoadPredefinedChecklistConfirm, setShowLoadPredefinedChecklistConfirm] = useState(false);
 
 
   const form = useForm<ProjectFormValues>({
@@ -277,30 +276,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   const handlePrioritySuggestionDecline = () => {
     setShowPrioritySuggestionDialog(false);
     setPrioritySuggestionDetails(null);
-  };
-
-  const handleLoadPredefinedChecklist = () => {
-    const projectType = form.getValues('tipo');
-    if (!projectType) {
-      toast({ variant: "destructive", title: "Tipo de Projeto Não Selecionado", description: "Por favor, selecione um tipo de projeto primeiro." });
-      return;
-    }
-
-    const predefinedItems = PREDEFINED_CHECKLISTS[projectType];
-    if (!predefinedItems || predefinedItems.length === 0) {
-      toast({ title: "Sem Checklist Padrão", description: `Nenhum checklist padrão encontrado para "${projectType}".` });
-      return;
-    }
-
-    const newChecklistItems = predefinedItems.map(itemText => ({
-      id: uuidv4(),
-      item: itemText,
-      feito: false,
-    }));
-
-    replace(newChecklistItems); // Substitui todos os itens existentes
-    toast({ title: "Checklist Padrão Carregado", description: `O checklist para "${projectType}" foi carregado e substituiu o atual.` });
-    setShowLoadPredefinedChecklistConfirm(false);
   };
 
 
@@ -615,31 +590,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
       <div>
         <div className="flex justify-between items-center mb-2">
             <FormLabel>Checklist (Arraste para reordenar)</FormLabel>
-            <AlertDialog open={showLoadPredefinedChecklistConfirm} onOpenChange={setShowLoadPredefinedChecklistConfirm}>
-                <AlertDialogTrigger asChild>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={!watchedTipo}
-                        title={!watchedTipo ? "Selecione um Tipo de Projeto para habilitar" : "Carregar checklist padrão para o tipo selecionado"}
-                    >
-                        <Sparkles className="mr-2 h-4 w-4" /> Carregar Padrão
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Carregar Checklist Padrão?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Isso substituirá todos os itens do checklist atual pelos itens padrão para o tipo de projeto "{watchedTipo}". Deseja continuar?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleLoadPredefinedChecklist}>Sim, Substituir</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
         {fields.map((fieldItem, index) => (
           <ChecklistItemInput
