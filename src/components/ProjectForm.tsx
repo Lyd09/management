@@ -41,13 +41,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 
-// Mock function for AI status suggestions
-const mockSuggestProjectStatus = async (projectType: ProjectType): Promise<string[]> => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  const genericSuggestions = ["Aguardando Início", "Em Pausa", "Bloqueado"];
-  return [...new Set([...genericSuggestions, ...PROJECT_STATUS_OPTIONS[projectType]])].sort();
-};
-
 const projectFormSchema = z.object({
   nome: z.string().min(2, "O nome do projeto é obrigatório."),
   tipo: z.enum(PROJECT_TYPES, { required_error: "Selecione um tipo de projeto." }),
@@ -90,8 +83,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   const { toast } = useToast();
   const [selectedProjectType, setSelectedProjectType] = useState<ProjectType | undefined>(project?.tipo);
   const [statusOptions, setStatusOptions] = useState<string[]>(project ? PROJECT_STATUS_OPTIONS[project.tipo] : []);
-  const [aiSuggestedStatuses, setAiSuggestedStatuses] = useState<string[]>([]);
-  const [isLoadingAiSuggestions, setIsLoadingAiSuggestions] = useState(false);
 
   const [showCompleteConfirmation, setShowCompleteConfirmation] = useState(false);
   const initialStatusOnLoadRef = useRef<string>(project?.status || (project?.tipo ? INITIAL_PROJECT_STATUS(project.tipo) : ""));
@@ -158,22 +149,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     name: "checklist",
   });
 
-  const fetchAiSuggestions = useCallback(async (projectType: ProjectType) => {
-    setIsLoadingAiSuggestions(true);
-    setAiSuggestedStatuses([]);
-    try {
-      const suggestions = await mockSuggestProjectStatus(projectType);
-      setAiSuggestedStatuses(suggestions);
-      setStatusOptions(prev => [...new Set([...suggestions, ...PROJECT_STATUS_OPTIONS[projectType]])].sort());
-      toast({ title: "Sugestões de Status Carregadas", description: "Novas opções de status foram sugeridas pela IA."});
-    } catch (error) {
-      toast({ variant: "destructive", title: "Erro IA", description: "Não foi possível carregar sugestões de status." });
-      setStatusOptions(PROJECT_STATUS_OPTIONS[projectType] || []);
-    } finally {
-      setIsLoadingAiSuggestions(false);
-    }
-  }, [toast]);
-
   useEffect(() => {
     if (project?.tipo && !project.status) {
         const initialStatus = INITIAL_PROJECT_STATUS(project.tipo);
@@ -239,7 +214,6 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     setStatusOptions(defaultStatuses);
     form.setValue("status", newInitialStatus);
     initialStatusOnLoadRef.current = newInitialStatus;
-    fetchAiSuggestions(newType);
   };
 
   const handleSubmitLogic = (data: ProjectFormValues) => {
@@ -412,14 +386,13 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
             <FormItem>
               <FormLabel className="flex items-center">
                 Status do Projeto
-                {isLoadingAiSuggestions && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
               </FormLabel>
               <Select
                 onValueChange={(value) => {
                   field.onChange(value);
                 }}
                 value={field.value}
-                disabled={!selectedProjectType || isLoadingAiSuggestions}
+                disabled={!selectedProjectType}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -714,8 +687,8 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
             </h1>
             {commonFields}
             <div className="flex justify-end gap-2 mt-8">
-              <Button type="submit" disabled={form.formState.isSubmitting || isLoadingAiSuggestions}>
-                {(isLoadingAiSuggestions || form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {project ? "Salvar Alterações" : "Criar Projeto"}
               </Button>
             </div>
@@ -751,8 +724,8 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                   </Button>
                 </DialogClose>
               )}
-              <Button type="submit" disabled={form.formState.isSubmitting || isLoadingAiSuggestions}>
-                {(isLoadingAiSuggestions || form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {project ? "Salvar Alterações" : "Criar Projeto"}
               </Button>
             </DialogFooter>
