@@ -11,7 +11,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/ProjectForm";
 import type { ProjectFormValues } from "@/components/ProjectForm";
-import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2, Search, User, Mail, Phone, Instagram, FileText, Briefcase, StickyNote, Building, MapPin } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, ArrowLeft, Loader2, FolderKanban, ExternalLink, CalendarClock, Percent, Copy, CheckCircle2, Share2, Search, User, Mail, Phone, Instagram, FileText, Briefcase, StickyNote, Building, MapPin, Link2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -342,6 +342,12 @@ export default function ClientDetailPage() {
   const whatsappNumberClean = client.contato?.whatsapp ? client.contato.whatsapp.replace(/\D/g, '') : '';
   const whatsappLink = whatsappNumberClean ? `https://wa.me/${whatsappNumberClean}` : '#';
 
+  const getSocialIcon = (url: string | undefined): React.ReactElement => {
+    if (url && url.includes('instagram.com')) {
+      return <Instagram className="w-5 h-5 text-muted-foreground" />;
+    }
+    return <Link2 className="w-5 h-5 text-muted-foreground" />;
+  };
 
   return (
     <div className="space-y-6">
@@ -412,10 +418,12 @@ export default function ClientDetailPage() {
                     )}
                     {client.contato?.social && (
                       <div className="flex items-center gap-2">
-                        <Instagram className="w-5 h-5 text-muted-foreground" />
+                        {getSocialIcon(client.contato.social)}
                         <div>
-                          <Label className="text-sm font-normal text-muted-foreground">Rede Social</Label>
-                          <a href={client.contato.social} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline line-clamp-1">{client.contato.social}</a>
+                           <Label className="text-sm font-normal text-muted-foreground">Rede Social</Label>
+                           <a href={client.contato.social} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline line-clamp-1 block">
+                             Visitar Perfil
+                           </a>
                         </div>
                       </div>
                     )}
@@ -718,4 +726,5 @@ export default function ClientDetailPage() {
     
 
     
+
 
