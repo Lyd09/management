@@ -1,9 +1,8 @@
-
 "use client";
 
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -20,6 +19,7 @@ import { DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose
 import type { Client, PriorityType } from "@/types";
 import { PRIORITIES } from "@/lib/constants";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { PlusCircle, Trash2 } from "lucide-react";
 
 const clientFormSchema = z.object({
   nome: z.string().min(2, {
@@ -30,7 +30,7 @@ const clientFormSchema = z.object({
   contato: z.object({
     email: z.string().email({ message: "Por favor, insira um email válido." }).optional().or(z.literal('')),
     whatsapp: z.string().optional(),
-    social: z.string().optional(),
+    socials: z.array(z.object({ value: z.string().url({ message: "Por favor, insira uma URL válida." }).or(z.literal('')) })).optional(),
     local: z.string().optional(),
     municipio: z.string().optional(),
   }).optional(),
@@ -57,7 +57,7 @@ export function ClientForm({ client, onSubmit, onClose }: ClientFormProps) {
       contato: {
         email: client?.contato?.email || "",
         whatsapp: client?.contato?.whatsapp || "",
-        social: client?.contato?.social || "",
+        socials: client?.contato?.socials?.map(s => ({ value: s })) || [{ value: "" }],
         local: client?.contato?.local || "",
         municipio: client?.contato?.municipio || "",
       },
@@ -67,8 +67,21 @@ export function ClientForm({ client, onSubmit, onClose }: ClientFormProps) {
     },
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "contato.socials"
+  });
+
   const handleSubmit = (data: ClientFormValues) => {
-    onSubmit(data);
+    // Transformar o array de objetos de volta para um array de strings antes de submeter
+    const finalData = {
+      ...data,
+      contato: {
+        ...data.contato,
+        socials: data.contato?.socials?.map(s => s.value).filter(s => s), // Filtra strings vazias
+      }
+    };
+    onSubmit(finalData as any); // O tipo fica um pouco desalinhado mas a lógica está correta
     if (!client) { // Only reset if it's for adding a new client
         form.reset();
     }
@@ -169,19 +182,44 @@ export function ClientForm({ client, onSubmit, onClose }: ClientFormProps) {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="contato.social"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Rede Social (Link)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Link do Instagram, LinkedIn, etc." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+
+                <div>
+                  <FormLabel>Redes Sociais</FormLabel>
+                  <div className="space-y-2 mt-1">
+                  {fields.map((field, index) => (
+                    <FormField
+                      key={field.id}
+                      control={form.control}
+                      name={`contato.socials.${index}.value`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center gap-2">
+                            <FormControl>
+                              <Input placeholder="Link do Instagram, LinkedIn, etc." {...field} />
+                            </FormControl>
+                            {fields.length > 1 && (
+                               <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => append({ value: "" })}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Rede Social
+                  </Button>
+                </div>
+                
                 <FormField
                   control={form.control}
                   name="contato.local"

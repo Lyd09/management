@@ -338,16 +338,9 @@ export default function ClientDetailPage() {
     );
   }
 
-  const clientHasProfileData = client.responsavel || client.contato?.email || client.contato?.whatsapp || client.contato?.social || client.contato?.local || client.contato?.municipio || client.documento || client.segmento || client.observacoes;
+  const clientHasProfileData = client.responsavel || client.contato?.email || client.contato?.whatsapp || (client.contato?.socials && client.contato.socials.length > 0) || client.contato?.local || client.contato?.municipio || client.documento || client.segmento || client.observacoes;
   const whatsappNumberClean = client.contato?.whatsapp ? client.contato.whatsapp.replace(/\D/g, '') : '';
   const whatsappLink = whatsappNumberClean ? `https://wa.me/${whatsappNumberClean}` : '#';
-
-  const getSocialIcon = (url: string | undefined): React.ReactElement => {
-    if (url && url.includes('instagram.com')) {
-      return <Instagram className="w-5 h-5 text-muted-foreground" />;
-    }
-    return <Link2 className="w-5 h-5 text-muted-foreground" />;
-  };
 
   return (
     <div className="space-y-6">
@@ -416,15 +409,16 @@ export default function ClientDetailPage() {
                         </div>
                       </div>
                     )}
-                    {client.contato?.social && (
-                      <div className="flex items-center gap-2">
-                        {getSocialIcon(client.contato.social)}
-                        <div>
-                           <Label className="text-sm font-normal text-muted-foreground">Rede Social</Label>
-                           <a href={client.contato.social} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline line-clamp-1 block">
-                             Visitar Perfil
-                           </a>
-                        </div>
+                     {client.contato?.socials && client.contato.socials.length > 0 && (
+                      <div className="flex flex-col gap-2">
+                          <Label className="text-sm font-normal text-muted-foreground flex items-center gap-2"><Link2 className="w-5 h-5" /> Redes Sociais</Label>
+                          <div className="flex flex-col gap-1">
+                          {client.contato.socials.map((social, index) => (
+                              <a key={index} href={social} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline line-clamp-1 block">
+                                 Visitar Perfil {client.contato.socials.length > 1 ? index + 1 : ''}
+                              </a>
+                          ))}
+                          </div>
                       </div>
                     )}
                     {client.contato?.local && (
@@ -726,5 +720,6 @@ export default function ClientDetailPage() {
     
 
     
+
 
 

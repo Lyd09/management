@@ -40,7 +40,7 @@ export interface Client {
   contato?: {
     email?: string;
     whatsapp?: string;
-    social?: string;
+    socials?: string[]; // Alterado de 'social' para 'socials' e agora é um array
     local?: string;
     municipio?: string;
   };

@@ -44,7 +44,7 @@ interface FirebaseClientDoc {
   contato?: {
     email?: string;
     whatsapp?: string;
-    social?: string;
+    socials?: string[];
     local?: string;
     municipio?: string;
   };
