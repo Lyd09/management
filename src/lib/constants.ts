@@ -1,7 +1,7 @@
 
 import type { ProjectType, PriorityType } from '@/types';
 
-export const PROJECT_TYPES: ProjectType[] = ["Produção de Vídeo", "Programação", "Animação de Logomarca", "Gravação", "Edição", "Instagram", "Fotos Profissionais"];
+export const PROJECT_TYPES: ProjectType[] = ["Produção de Vídeo", "Sites", "Software", "Contrato Mensal", "Drone", "Animação de Logomarca", "Gravação", "Edição", "Instagram", "Fotos Profissionais"];
 
 export const PRIORITIES: PriorityType[] = ["Baixa", "Média", "Alta"];
 
@@ -17,14 +17,38 @@ export const PROJECT_STATUS_OPTIONS: Record<ProjectType, string[]> = {
     "Bloqueado",
     "Projeto Concluído",
   ],
-  "Programação": [
-    "Estruturação e Design",
-    "Codificação em Progresso",
-    "Testes e Ajustes",
-    "Primeira Versão Disponível",
-    "Revisão e Melhorias",
-    "Publicação do Projeto",
-    "Monitoramento e Suporte",
+  "Sites": [
+    "Briefing e Planejamento",
+    "Design (UI/UX)",
+    "Desenvolvimento Frontend",
+    "Desenvolvimento Backend",
+    "Revisão e Testes",
+    "Lançamento",
+    "Manutenção e Suporte",
+    "Projeto Concluído",
+  ],
+  "Software": [
+    "Levantamento de Requisitos",
+    "Design de Arquitetura",
+    "Desenvolvimento",
+    "Testes (QA)",
+    "Implantação (Deploy)",
+    "Operação e Manutenção",
+    "Descontinuado",
+    "Projeto Concluído",
+  ],
+  "Contrato Mensal": [
+    "Ativo",
+    "Em Pausa",
+    "Aguardando Pagamento",
+    "Finalizado",
+  ],
+  "Drone": [
+    "Planejamento de Voo",
+    "Voo Agendado",
+    "Voo Realizado",
+    "Processamento de Imagens",
+    "Material Entregue",
     "Projeto Concluído",
   ],
   "Animação de Logomarca": [
@@ -84,6 +108,8 @@ export const PROJECT_STATUS_OPTIONS: Record<ProjectType, string[]> = {
     "Fotos Entregues",
     "Projeto Concluído",
   ],
+  // Programação foi removido
+  "Programação": [],
 };
 
 export const INITIAL_PROJECT_STATUS = (type: ProjectType): string => {
@@ -125,24 +151,62 @@ export const PREDEFINED_CHECKLISTS: Record<ProjectType, string[]> = {
     "Ajustes pós-revisão do cliente",
     "Exportação final e entrega",
   ],
-  "Programação": [
-    "Levantamento de requisitos concluído",
-    "Definição da arquitetura do sistema",
+  "Sites": [
+    "Levantamento de requisitos e briefing",
+    "Definição da arquitetura e mapa do site",
+    "Criação de Wireframes e protótipos",
     "Design de UI/UX aprovado",
-    "Configuração do ambiente de desenvolvimento",
-    "Desenvolvimento do backend (APIs, banco de dados)",
-    "Desenvolvimento do frontend (interfaces)",
-    "Integração frontend-backend",
-    "Testes unitários",
-    "Testes de integração",
-    "Testes de usabilidade (QA)",
-    "Correção de bugs",
-    "Preparação do ambiente de produção",
-    "Deploy em ambiente de homologação/staging",
-    "Testes finais em homologação",
-    "Deploy em produção",
-    "Documentação técnica e do usuário",
-    "Treinamento (se aplicável)",
+    "Configuração do ambiente de desenvolvimento (local e staging)",
+    "Desenvolvimento do frontend",
+    "Desenvolvimento do backend e integrações (CMS, APIs)",
+    "Testes de responsividade em múltiplos dispositivos",
+    "Testes de funcionalidade e QA (Quality Assurance)",
+    "Otimização de performance (velocidade de carregamento, SEO básico)",
+    "Revisão e aprovação pelo cliente",
+    "Configuração do ambiente de produção (hospedagem, domínio, SSL)",
+    "Migração de conteúdo (se aplicável)",
+    "Lançamento do site (deploy)",
+    "Monitoramento pós-lançamento",
+  ],
+  "Software": [
+    "Análise de Requisitos e Escopo do Projeto",
+    "Elaboração da Especificação Funcional e Técnica",
+    "Design da Arquitetura do Software",
+    "Prototipagem e Design de Interface (UI/UX)",
+    "Configuração dos Ambientes (Desenvolvimento, Testes, Produção)",
+    "Desenvolvimento de Módulos/Features (Sprints)",
+    "Testes Unitários e de Integração contínuos",
+    "Ciclos de Testes de Qualidade (QA)",
+    "Processo de Build e Deploy Automatizado (CI/CD)",
+    "Testes de Aceitação do Usuário (UAT)",
+    "Documentação Técnica e de Usuário",
+    "Treinamento de Usuários",
+    "Lançamento (Go-live)",
+    "Plano de Suporte e Manutenção",
+  ],
+  "Contrato Mensal": [
+    "Reunião de alinhamento inicial (Kick-off)",
+    "Definição de escopo e entregáveis mensais",
+    "Estabelecimento de canais de comunicação e pontos de contato",
+    "Primeira entrega de atividades",
+    "Reunião de acompanhamento semanal/quinzenal",
+    "Relatório de performance mensal",
+    "Faturamento e pagamento",
+    "Planejamento do próximo ciclo/mês",
+    "Renovação ou encerramento do ciclo de contrato",
+  ],
+  "Drone": [
+    "Briefing e definição dos objetivos da captura",
+    "Análise de viabilidade e riscos do local",
+    "Obtenção de autorizações de voo (se necessário)",
+    "Planejamento da missão de voo (rotas, altitudes, parâmetros da câmera)",
+    "Checklist de segurança e preparação dos equipamentos (drone, baterias, câmera)",
+    "Execução do voo e captura de imagens/vídeos",
+    "Backup seguro do material capturado",
+    "Processamento das imagens (fotogrametria, se aplicável)",
+    "Edição e tratamento do vídeo ou fotos",
+    "Geração dos entregáveis (mapas, modelos 3D, vídeo final)",
+    "Entrega e apresentação dos resultados ao cliente",
   ],
   "Animação de Logomarca": [
     "Recebimento e análise do briefing",
@@ -232,4 +296,6 @@ export const PREDEFINED_CHECKLISTS: Record<ProjectType, string[]> = {
     "Envio do link ou galeria com as fotos tratadas para o cliente.",
     "Confirmação de recebimento e aprovação pelo cliente.",
   ],
+  // Programação foi removido
+  "Programação": [],
 };

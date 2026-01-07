@@ -6,7 +6,8 @@ export interface ChecklistItem {
   feito: boolean;
 }
 
-export type ProjectType = "Produção de Vídeo" | "Programação" | "Animação de Logomarca" | "Gravação" | "Edição" | "Instagram" | "Fotos Profissionais";
+export type ProjectType = "Produção de Vídeo" | "Sites" | "Software" | "Contrato Mensal" | "Drone" | "Animação de Logomarca" | "Gravação" | "Edição" | "Instagram" | "Fotos Profissionais" | "Programação";
+
 
 export interface Project {
   id: string;

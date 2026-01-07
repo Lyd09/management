@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,6 +94,9 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
   const [dragOverItemIndex, setDragOverItemIndex] = useState<number | null>(null);
 
   const [isValueInputVisible, setIsValueInputVisible] = useState(false);
+
+  const [isAddChecklistDialogOpen, setIsAddChecklistDialogOpen] = useState(false);
+  const [checklistQuantity, setChecklistQuantity] = useState(1);
 
 
   const form = useForm<ProjectFormValues>({
@@ -306,6 +309,16 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
     // Handled by dragEnd and Drop
   };
 
+  const handleAddMultipleChecklistItems = () => {
+    if (checklistQuantity > 0) {
+        for (let i = 0; i < checklistQuantity; i++) {
+            append({ id: uuidv4(), item: "", feito: false });
+        }
+    }
+    setIsAddChecklistDialogOpen(false);
+    setChecklistQuantity(1); // Reset for next time
+  };
+
 
   const formContainerClass = "max-w-2xl mx-auto p-6 bg-card shadow-lg rounded-lg";
   const formTitle = project ? "Editar Projeto" : "Criar Novo Projeto";
@@ -341,7 +354,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {PROJECT_TYPES.map((type) => (
+                  {PROJECT_TYPES.filter(type => type !== "Programação").map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
                     </SelectItem>
@@ -611,7 +624,7 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
           variant="outline"
           size="sm"
           className="mt-2"
-          onClick={() => append({ id: uuidv4(), item: "", feito: false })}
+          onClick={() => setIsAddChecklistDialogOpen(true)}
         >
           <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Item ao Checklist
         </Button>
@@ -681,6 +694,31 @@ export function ProjectForm({ project, onSubmit, onClose, isPage = false }: Proj
           </div>
         )}
       </form>
+
+      <AlertDialog open={isAddChecklistDialogOpen} onOpenChange={setIsAddChecklistDialogOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Adicionar Múltiplos Itens</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      Quantos itens você deseja adicionar ao checklist?
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="flex items-center space-x-2 my-4">
+                  <Label htmlFor="checklist-quantity" className="sr-only">Quantidade</Label>
+                  <Input 
+                      id="checklist-quantity"
+                      type="number"
+                      value={checklistQuantity}
+                      onChange={(e) => setChecklistQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      min="1"
+                  />
+              </div>
+              <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setChecklistQuantity(1)}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleAddMultipleChecklistItems}>Adicionar</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showCompleteConfirmation} onOpenChange={setShowCompleteConfirmation}>
         <AlertDialogContent>
