@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { UserForm } from "@/components/UserForm";
 import type { UserFormValues } from "@/components/UserForm";
-import { PlusCircle, Edit2, Trash2, Loader2, Users as UsersIcon } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, Loader2, Users as UsersIcon, AlertTriangle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +32,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 
 export default function AdminUsersPage() {
-  const { users, addUser, updateUser, deleteUser, loading: appDataLoading } = useAppData();
+  const { users, addUser, updateUser, deleteUser, loading: appDataLoading, clearAllData } = useAppData();
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
@@ -40,6 +40,7 @@ export default function AdminUsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [showClearDataConfirm, setShowClearDataConfirm] = useState(false);
 
   const isLoading = appDataLoading;
 
@@ -108,6 +109,15 @@ export default function AdminUsersPage() {
       }
     }
     setShowDeleteConfirm(false);
+  };
+  
+  const handleClearAllData = async () => {
+    try {
+      await clearAllData();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro Inesperado", description: "Ocorreu um erro ao tentar limpar os dados." });
+    }
+    setShowClearDataConfirm(false);
   };
 
   if (isLoading) {
@@ -253,6 +263,49 @@ export default function AdminUsersPage() {
             </AlertDialogContent>
         </AlertDialog>
       )}
+
+      <Card className="border-destructive">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle />
+            Zona de Perigo
+          </CardTitle>
+          <CardDescription>
+            As ações nesta seção são permanentes e não podem ser desfeitas. Tenha certeza absoluta antes de prosseguir.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row justify-between items-center p-4 bg-destructive/10 rounded-md">
+            <div>
+              <h4 className="font-semibold text-destructive">Limpar Todos os Dados</h4>
+              <p className="text-sm text-destructive/80">Esta ação excluirá permanentemente todos os clientes e projetos associados à sua conta de usuário.</p>
+            </div>
+            <Button
+              variant="destructive"
+              className="mt-3 sm:mt-0"
+              onClick={() => setShowClearDataConfirm(true)}
+            >
+              Limpar Dados Agora
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={showClearDataConfirm} onOpenChange={setShowClearDataConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Limpeza Total de Dados?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta é sua última chance. Tem certeza absoluta que deseja apagar <span className="font-bold text-destructive">TODOS</span> os seus clientes e projetos? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearAllData} className="bg-destructive hover:bg-destructive/90">Sim, apagar tudo</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

@@ -99,6 +99,7 @@ interface AppDataContextType {
   deleteUser: (userId: string) => Promise<void>;
   fetchUsers: () => void;
   assignClientCopyToUser: (originalClientId: string, targetUserId: string, selectedProjectIds: string[], newClientName?: string) => Promise<boolean>;
+  clearAllData: () => Promise<void>;
 }
 
 export const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -598,6 +599,42 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   const fetchUsers = useCallback(() => {
   }, []);
 
+  const clearAllData = useCallback(async () => {
+    if (!loggedInUserFromAuthContext) {
+      toast({ variant: "destructive", title: "Não autenticado", description: "Você precisa estar logado para realizar esta ação." });
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+      const clientsCollectionRef = collection(db, COLLECTION_NAME);
+      const q = query(clientsCollectionRef, where('creatorUserId', '==', loggedInUserFromAuthContext.id));
+      const clientsSnapshot = await getDocs(q);
+
+      if (clientsSnapshot.empty) {
+        toast({ title: "Nenhum dado para limpar", description: "Você não possui clientes ou projetos cadastrados." });
+        return;
+      }
+      
+      for (const clientDoc of clientsSnapshot.docs) {
+        // Deletar subcoleção de projetos
+        const projectsCollectionRef = collection(db, COLLECTION_NAME, clientDoc.id, 'projects');
+        const projectsSnapshot = await getDocs(projectsCollectionRef);
+        projectsSnapshot.forEach(projectDoc => {
+          batch.delete(projectDoc.ref);
+        });
+        
+        // Deletar o documento do cliente
+        batch.delete(clientDoc.ref);
+      }
+
+      await batch.commit();
+      toast({ title: "Dados Limpos!", description: "Todos os seus clientes e projetos foram removidos com sucesso." });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro ao Limpar Dados", description: error.message || "Não foi possível remover todos os dados." });
+    }
+  }, [loggedInUserFromAuthContext, toast]);
+
 
   return (
     <AppDataContext.Provider
@@ -621,11 +658,10 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         deleteUser,
         fetchUsers,
         assignClientCopyToUser,
+        clearAllData,
       }}
     >
       {children}
     </AppDataContext.Provider>
   );
 };
-
-    
