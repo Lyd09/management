@@ -39,6 +39,7 @@ import { ChecklistItemInput } from "./ChecklistItemInput";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Label } from "@/components/ui/label";
 
 const projectFormSchema = z.object({
   nome: z.string().min(2, "O nome do projeto é obrigatório."),
